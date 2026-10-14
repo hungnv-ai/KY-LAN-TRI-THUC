@@ -4,9 +4,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 /** Điểm camera nhìn vào (ngực/đầu Kỳ lân trên bục). */
 const LOOK_AT = new THREE.Vector3(0, 1.45, 0);
 /** Hướng đặt camera (hơi chếch phải, nhìn hơi từ trên xuống). */
-const VIEW_DIR = new THREE.Vector3(0.28, 0.16, 1).normalize();
-const DIST_LANDSCAPE = 6.4;
-const DIST_PORTRAIT = 8.6;
+const VIEW_DIR = new THREE.Vector3(0.22, 0.34, 1).normalize();
+const DIST_LANDSCAPE = 7.6;
+const DIST_PORTRAIT = 9.8;
 /** Khi mở bảng bên (Tủ đồ, Quiz): desktop dịch nhân vật sang trái nửa bề rộng bảng; mobile dịch lên trên. */
 const SIDE_PANEL_PX = 416;
 const MOBILE_PANEL_SHIFT_Y = 0.22;
@@ -16,6 +16,8 @@ const DESKTOP_MIN_WIDTH = 768;
 const VIEW_SHIFT_SPEED = 6;
 /** Di chuyển chuột/ngón tay dưới ngưỡng này (px) thì coi là "chạm", không phải xoay camera. */
 const TAP_THRESHOLD_PX = 6;
+/** Độ cao mặt bục lúc khởi động — LOOK_AT tính theo vị trí này. */
+const FOLLOW_GROUND_Y = 0.18;
 
 /**
  * Renderer, Scene, Camera, OrbitControls và xử lý resize.
@@ -24,7 +26,8 @@ const TAP_THRESHOLD_PX = 6;
  * @returns {{ scene: THREE.Scene, camera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer,
  *   controls: OrbitControls, onTap: (object: THREE.Object3D, handler: () => void) => void,
  *   toScreen: (world: THREE.Vector3) => { x: number, y: number },
- *   setPanelFocus: (open: boolean) => void, update: (delta: number) => void }}
+ *   setPanelFocus: (open: boolean) => void, update: (delta: number) => void,
+ *   follow: (position: THREE.Vector3) => void }}
  */
 export function createWorld(container) {
   const scene = new THREE.Scene();
@@ -46,8 +49,8 @@ export function createWorld(container) {
   controls.dampingFactor = 0.08;
   controls.enablePan = false;
   controls.minDistance = 3.5;
-  controls.maxDistance = 12;
-  controls.minPolarAngle = 0.6;
+  controls.maxDistance = 16;
+  controls.minPolarAngle = 0.5;
   controls.maxPolarAngle = Math.PI / 2 - 0.05; // không cho camera chui xuống dưới mặt đất
 
   function frameCamera() {
@@ -135,5 +138,15 @@ export function createWorld(container) {
     camera.setViewOffset(w, hgt, shift.x * w, shift.y * hgt, w, hgt);
   }
 
-  return { scene, camera, renderer, controls, onTap, toScreen, setPanelFocus, update };
+  // ── Camera bám theo Kỳ lân (giữ nguyên góc xoay người chơi đã chọn) ──
+  const followTarget = new THREE.Vector3();
+  const followDelta = new THREE.Vector3();
+  function follow(position) {
+    followTarget.set(position.x, position.y + LOOK_AT.y - FOLLOW_GROUND_Y, position.z);
+    followDelta.subVectors(followTarget, controls.target);
+    controls.target.add(followDelta);
+    camera.position.add(followDelta);
+  }
+
+  return { scene, camera, renderer, controls, onTap, toScreen, setPanelFocus, update, follow };
 }

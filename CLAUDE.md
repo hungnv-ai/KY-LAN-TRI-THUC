@@ -46,7 +46,9 @@ src/
   scene/              # Three.js
     world.js          # renderer, camera, OrbitControls, chạm vào object
     lights.js         # ánh sáng + environment map
-    stage.js          # nền trời, bục 5 màu, 5 cột Vùng Đất
+    island.js         # hòn đảo: quảng trường, 5 đường đi, 5 Vùng Đất (cột + cảnh), va chạm, độ cao
+    movement.js       # điều khiển nhân vật theo hướng camera, va chạm, quay mặt
+    pickups.js        # xu vàng rơi & hộp quà bất ngờ (hiển thị + phát hiện nhặt)
     mascot.js         # Kỳ lân VA: lắp ráp thân/đầu, nét mặt, tư thế, emote(), setMood()
     mascotParts.js    # dựng chi tiết: bờm lửa cánh hoa, sừng, mắt/miệng nhiều kiểu, tay, huy hiệu
     emotes.js         # bộ cảm xúc theo sticker (wave, happy, cheer, oops, think, cry, faint, cool, bored)
@@ -56,15 +58,19 @@ src/
     dom.js            # h() tạo phần tử, formatNumber
     hud.js            # thanh hạng/XP/Xu/chuỗi + loading
     feedback.js       # toast, hộp thoại xác nhận/chúc mừng, bong bóng thoại
-    sheet.js          # bảng trượt dùng chung
-    quizView.js / wardrobeView.js / ranksView.js
+    sheet.js          # bảng trượt dùng chung (variant 'side' = không che Kỳ lân)
+    controls.js       # bàn phím (mũi tên/WASD/Shift) + cần điều khiển ảo trên điện thoại
+    quizView.js / wardrobeView.js / ranksView.js / quickQuestionView.js
+  features/           # điều phối 1 tính năng lớn: nối scene + game + ui (không chứa luật thưởng)
+    explore.js        # Khám phá Vùng Đất: chạy, câu hỏi mỗi 100 m, cột Vùng Đất, xu, hộp quà
 ```
 
 ## Quy tắc viết code mô-đun hoá
 
 1. **Một module = một trách nhiệm.** Không nhồi logic mới vào `main.js`. `main.js` chỉ
    lắp ráp (wiring) các module và chạy vòng lặp. Tính năng mới → file mới đúng thư mục
-   (`data/` dữ liệu, `game/` logic, `scene/` 3D, `ui/` giao diện).
+   (`data/` dữ liệu, `game/` logic & luật thưởng, `scene/` 3D, `ui/` giao diện,
+   `features/` điều phối một tính năng lớn dùng cả ba lớp).
 2. **Chỉ dùng named export.** Không `export default`. Module xuất hàm `setupX(scene)` /
    `createX()` trả về object cần thiết; không dựa vào biến toàn cục hay `window.*`.
 3. **Không side-effect khi import**, trừ việc lấy tham chiếu DOM cố định trong `ui/*`.

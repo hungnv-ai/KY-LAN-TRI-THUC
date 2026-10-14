@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { createWorld } from './scene/world.js';
 import { setupLights } from './scene/lights.js';
-import { setupStage } from './scene/stage.js';
+import { setupIsland } from './scene/island.js';
+import { createExplore } from './features/explore.js';
 import { createMascot } from './scene/mascot.js';
 import { createWardrobe } from './scene/outfits.js';
 import { RANKS, getRankInfo } from './data/ranks.js';
@@ -34,11 +35,10 @@ import { formatNumber } from './ui/dom.js';
 
 // ── 3D ──────────────────────────────────────────────────────────────────
 const world = createWorld(document.getElementById('canvas-container'));
-setupLights(world.scene, world.renderer);
-const stage = setupStage(world.scene);
+const { sun } = setupLights(world.scene, world.renderer);
+const island = setupIsland(world.scene);
 
 const mascot = createMascot();
-mascot.object.position.y = 0.18; // đứng trên bục
 world.scene.add(mascot.object);
 const wardrobe = createWardrobe(mascot);
 
@@ -94,6 +94,15 @@ async function announceReward(reward, label) {
     });
   }
 }
+
+// ── Khám phá Vùng Đất: chạy, câu hỏi theo quãng đường, cột Vùng Đất, xu & hộp quà ──
+const explore = createExplore({
+  world,
+  island,
+  mascot,
+  sun,
+  onRankUp: (reward) => announceReward({ ...reward, xp: 0, coins: 0 }, ''),
+});
 
 const actions = {
   async checkin() {
@@ -211,9 +220,10 @@ world.renderer.setAnimationLoop((timestamp) => {
   const delta = timer.getDelta();
   const elapsed = timer.getElapsed();
 
+  explore.update(delta, elapsed);
   mascot.update(delta, elapsed);
   wardrobe.update(delta, elapsed);
-  stage.update(delta, elapsed);
+  island.update(delta, elapsed);
   world.controls.update();
   world.update(delta);
 

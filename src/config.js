@@ -13,11 +13,11 @@ export const VALUE_COLORS = {
 
 /** Thứ tự & tên hiển thị 5 giá trị. */
 export const VALUES = [
-  { id: 'nhanAi', name: 'Nhân Ái', color: VALUE_COLORS.nhanAi },
-  { id: 'banLinh', name: 'Bản Lĩnh', color: VALUE_COLORS.banLinh },
-  { id: 'triThuc', name: 'Tri Thức', color: VALUE_COLORS.triThuc },
-  { id: 'trachNhiem', name: 'Trách Nhiệm', color: VALUE_COLORS.trachNhiem },
-  { id: 'khaiPhong', name: 'Khai Phóng', color: VALUE_COLORS.khaiPhong },
+  { id: 'nhanAi', name: 'Nhân Ái', color: VALUE_COLORS.nhanAi, motto: 'Biết nghĩ cho người khác' },
+  { id: 'banLinh', name: 'Bản Lĩnh', color: VALUE_COLORS.banLinh, motto: 'Dám đặt đòi hỏi của bản thân ở phía sau' },
+  { id: 'triThuc', name: 'Tri Thức', color: VALUE_COLORS.triThuc, motto: 'Học hỏi liên tục để mở rộng dung lượng trái tim' },
+  { id: 'trachNhiem', name: 'Trách Nhiệm', color: VALUE_COLORS.trachNhiem, motto: 'Thử sai và chấp nhận các hệ quả' },
+  { id: 'khaiPhong', name: 'Khai Phóng', color: VALUE_COLORS.khaiPhong, motto: 'Nung nấu hoài bão và nguyện ước lớn' },
 ];
 
 /** Quiz Tri Thức. */
@@ -54,3 +54,33 @@ export const GOLDEN_HOURS = {
 
 /** Khoá lưu dữ liệu trong trình duyệt (GĐ1). Đổi version khi cấu trúc dữ liệu thay đổi. */
 export const SAVE_KEY = 'klt-save-v1';
+
+/** Chế độ Khám phá Vùng Đất: di chuyển, câu hỏi theo quãng đường, cột Vùng Đất, xu & hộp quà. */
+export const EXPLORE = {
+  /** Tốc độ (mét/giây; 1 đơn vị 3D = 1 m). */
+  WALK_SPEED: 4.2,
+  RUN_SPEED: 7.5,
+  /** Cứ chạy được bấy nhiêu mét thì có 1 câu hỏi nhanh. */
+  QUESTION_EVERY_M: 100,
+  RUN_QUESTION_XP: 5,
+  RUN_QUESTION_COINS: 3,
+  RUN_QUESTION_TRY_XP: 1,
+  RUN_QUESTIONS_REWARDED_PER_DAY: 6,
+  /** Thử thách ở cột Vùng Đất: mỗi cột 1 lần có thưởng / ngày. */
+  STATION_XP: 10,
+  STATION_COINS: 8,
+  STATION_TRY_XP: 3,
+  /** Thưởng "Nhà thám hiểm" khi ghé đủ 5 Vùng Đất trong ngày. */
+  ALL_STATIONS_XP: 25,
+  ALL_STATIONS_COINS: 25,
+  /** Xu vàng rơi trên đường. */
+  COIN_PICKUPS_PER_DAY: 40,
+  COIN_RESPAWN_SEC: 45,
+  COINS_ON_MAP: 18,
+  /** Hộp quà bất ngờ. */
+  GIFTS_PER_DAY: 5,
+  GIFT_INTERVAL_SEC: 60,
+  /** Tỉ lệ phần thưởng hộp quà (cộng dồn): xu → XP → trang phục miễn phí. */
+  GIFT_COIN_CHANCE: 0.6,
+  GIFT_XP_CHANCE: 0.3,
+};

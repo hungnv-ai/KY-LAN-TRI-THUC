@@ -31,7 +31,7 @@ export function setupLights(scene, renderer) {
 
   // Shadow map: vùng chiếu bóng bao quanh khu vực nhân vật đứng (~10x10 đơn vị).
   sun.shadow.mapSize.set(2048, 2048);
-  const d = 6;
+  const d = 9;
   sun.shadow.camera.left = -d;
   sun.shadow.camera.right = d;
   sun.shadow.camera.top = d;

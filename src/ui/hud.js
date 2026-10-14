@@ -15,6 +15,10 @@ const els = {
   golden: document.getElementById('golden-pill'),
   checkinDot: document.getElementById('checkin-dot'),
   loading: document.getElementById('loading-screen'),
+  distance: document.getElementById('distance-value'),
+  nextQuestion: document.getElementById('next-question'),
+  stations: document.getElementById('stations-value'),
+  homeBtn: document.getElementById('home-btn'),
   progress: document.getElementById('loading-progress'),
 };
 
@@ -60,4 +64,20 @@ export function setLoadingProgress(ratio) {
 export function hideLoading() {
   els.loading.classList.add('hidden');
   setTimeout(() => (els.loading.hidden = true), 500);
+}
+
+/**
+ * Thanh Khám phá: quãng đường, câu hỏi kế tiếp, số Vùng Đất đã ghé.
+ *
+ * @param {{ distance: number, toNextQuestion: number, stationsDone: number, stationsTotal: number }} data
+ */
+export function renderExploreHud({ distance, toNextQuestion, stationsDone, stationsTotal }) {
+  els.distance.textContent = `${formatNumber(distance)} m`;
+  els.nextQuestion.textContent = `❓ ${formatNumber(Math.max(0, toNextQuestion))} m`;
+  els.stations.textContent = `${stationsDone}/${stationsTotal}`;
+}
+
+/** @param {() => void} handler */
+export function onHomeClick(handler) {
+  els.homeBtn.addEventListener('click', handler);
 }
