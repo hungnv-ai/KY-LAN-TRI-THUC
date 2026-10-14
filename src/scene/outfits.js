@@ -74,13 +74,13 @@ const BUILDERS = {
         new THREE.SphereGeometry(1, 24, 16),
         stdMat(body, metal ? 0.3 : 0.6, metal ? 0.75 : 0),
       );
-      upper.scale.set(0.15, 0.1, 0.22);
-      upper.position.set(0, 0.1, 0.04);
+      upper.scale.set(0.18, 0.12, 0.27);
+      upper.position.set(0, 0.12, 0.05);
       shoe.add(upper);
 
-      const soleMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.06, 24), stdMat(sole, 0.8));
-      soleMesh.scale.set(1.05, 1, 1.55);
-      soleMesh.position.set(0, 0.03, 0.04);
+      const soleMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.07, 24), stdMat(sole, 0.8));
+      soleMesh.scale.set(1.08, 1, 1.6);
+      soleMesh.position.set(0, 0.035, 0.05);
       shoe.add(soleMesh);
 
       mascot.anchors[name].add(shoe);
@@ -106,7 +106,7 @@ const BUILDERS = {
     button.position.y = 0.27;
     cap.add(button);
 
-    cap.position.y = 0.06;
+    cap.position.y = 0.26;
     cap.scale.setScalar(1.2);
     mascot.anchors.HeadTop.add(cap);
     return { objects: [cap] };
@@ -133,7 +133,7 @@ const BUILDERS = {
     strap.scale.set(1, 1.3, 1);
     hat.add(strap);
 
-    hat.position.y = 0.3;
+    hat.position.y = 0.46;
     mascot.anchors.HeadTop.add(hat);
     return { objects: [hat] };
   },
@@ -162,7 +162,7 @@ const BUILDERS = {
     tassel.position.set(0.45, 0.09, 0);
     hat.add(tassel);
 
-    hat.position.y = 0.24;
+    hat.position.y = 0.4;
     hat.scale.setScalar(1.15);
     mascot.anchors.HeadTop.add(hat);
     return {
@@ -193,7 +193,7 @@ const BUILDERS = {
       crown.add(gem);
     });
 
-    crown.position.y = 0.24;
+    crown.position.y = 0.42;
     crown.scale.setScalar(1.15);
     mascot.anchors.HeadTop.add(crown);
     return {
@@ -229,7 +229,7 @@ const BUILDERS = {
     bridge.position.y = 0.02;
     glasses.add(bridge);
 
-    glasses.position.set(0, 0.02, 0.53);
+    glasses.position.set(0, -0.05, 0.53);
     mascot.anchors.Face.add(glasses);
     return { objects: [glasses] };
   },

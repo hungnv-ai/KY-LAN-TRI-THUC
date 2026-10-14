@@ -36,11 +36,41 @@ const COLORS = {
   stitch: 0x3a0f0c,
 };
 
-const HEAD_PIVOT_Y = 1.32;
-const HEAD_CENTER_Y = 0.48; // so với HEAD_PIVOT_Y
+// Tỉ lệ theo ảnh mẫu (docs/mascot-reference/01-dung-chuan-chong-hong.png):
+// đầu + bờm ~42% chiều cao, áo khoác dáng hộp, quần tới gối, giày to.
+const HEAD_PIVOT_Y = 1.42;
+const HEAD_CENTER_Y = 0.46; // so với HEAD_PIVOT_Y (trước khi nhân HEAD_SIZE)
 const HEAD_RADIUS = 0.56;
-const HEAD_SCALE = new THREE.Vector3(1.06, 0.95, 0.9);
-const ARM_REST_Z = 0.42;
+const HEAD_SIZE = 0.88;
+const HEAD_SCALE = new THREE.Vector3(1.12, 0.92, 0.9);
+const ARM_REST_Z = REST_POSE.armL[1];
+const TORSO_Y = 1.05;
+/** Profile áo khoác [bán kính, y] từ gấu áo lên cổ. */
+const JACKET_PROFILE = [
+  [0.001, -0.34],
+  [0.39, -0.34],
+  [0.43, -0.3],
+  [0.45, -0.1],
+  [0.455, 0.1],
+  [0.42, 0.27],
+  [0.31, 0.37],
+  [0.2, 0.4],
+  [0.001, 0.41],
+];
+/** Áo dẹt theo chiều trước–sau. */
+const JACKET_DEPTH = 0.8;
+
+/** Bán kính áo tại độ cao y (nội suy theo JACKET_PROFILE). */
+function jacketRadiusAt(y) {
+  for (let i = 1; i < JACKET_PROFILE.length; i++) {
+    const [r1, y1] = JACKET_PROFILE[i];
+    if (y <= y1) {
+      const [r0, y0] = JACKET_PROFILE[i - 1];
+      return r0 + ((r1 - r0) * (y - y0)) / (y1 - y0);
+    }
+  }
+  return 0;
+}
 
 /** Tốc độ chuyển tư thế (càng lớn càng nhanh). */
 const POSE_SPEED = 12;
@@ -72,7 +102,7 @@ export function createMascot() {
     mouthInside: mat(COLORS.mouthInside, 0.7),
     tongue: mat(COLORS.tongue, 0.6),
     jacket: mat(0xa8102e, 0.75),
-    jacketTrim: mat(0xd6334f, 0.7),
+    jacketTrim: mat(0xe2733a, 0.7),
     shorts: mat(COLORS.shorts, 0.8),
     stitch: mat(COLORS.stitch, 0.6),
   };
@@ -228,11 +258,11 @@ const MOTIONS = {
 // ── Dựng thân & đầu ───────────────────────────────────────────────────────
 
 function buildBody(bounce, materials, anchors) {
-  // Chân & điểm gắn giày.
-  const legGeo = new THREE.CylinderGeometry(0.1, 0.115, 0.4, 16);
+  // Chân ngắn, chắc & điểm gắn giày.
+  const legGeo = new THREE.CylinderGeometry(0.12, 0.13, 0.36, 16);
   for (const side of [-1, 1]) {
     const leg = mesh(legGeo, materials.limb);
-    leg.position.set(0.17 * side, 0.36, 0);
+    leg.position.set(0.17 * side, 0.3, 0);
     bounce.add(leg);
 
     const foot = new THREE.Group();
@@ -242,52 +272,63 @@ function buildBody(bounce, materials, anchors) {
     anchors[foot.name] = foot;
   }
 
-  // Quần soóc.
-  const shorts = mesh(new THREE.CylinderGeometry(0.34, 0.37, 0.26, 28), materials.shorts);
+  // Quần soóc dài tới gối, ống rộng.
+  const shorts = mesh(new THREE.CylinderGeometry(0.36, 0.4, 0.24, 28), materials.shorts);
   shorts.position.y = 0.62;
   bounce.add(shorts);
   for (const side of [-1, 1]) {
-    const cuff = mesh(new THREE.CylinderGeometry(0.155, 0.165, 0.16, 20), materials.shorts);
-    cuff.position.set(0.17 * side, 0.48, 0);
+    const cuff = mesh(new THREE.CylinderGeometry(0.18, 0.19, 0.2, 20), materials.shorts);
+    cuff.position.set(0.18 * side, 0.48, 0);
     bounce.add(cuff);
   }
 
-  // Thân áo khoác phồng.
+  // Thân áo khoác dáng hộp bo tròn (tiện tròn theo profile, dẹt trước–sau).
   const torso = new THREE.Group();
   torso.name = 'Torso';
-  torso.position.y = 0.98;
+  torso.position.y = TORSO_Y;
   bounce.add(torso);
   anchors.Torso = torso;
 
-  const TORSO_R = new THREE.Vector3(0.44, 0.42, 0.37);
-  const jacket = mesh(new THREE.SphereGeometry(1, 40, 28), materials.jacket);
-  jacket.scale.copy(TORSO_R);
-  torso.add(jacket);
+  const jacketGeo = new THREE.LatheGeometry(
+    JACKET_PROFILE.map(([r, y]) => new THREE.Vector2(r, y)),
+    40,
+  );
+  jacketGeo.scale(1, 1, JACKET_DEPTH);
+  torso.add(mesh(jacketGeo, materials.jacket));
 
-  const hem = mesh(new THREE.TorusGeometry(0.39, 0.035, 12, 40), materials.jacketTrim);
+  const hem = mesh(new THREE.TorusGeometry(0.415, 0.03, 12, 40), materials.jacketTrim);
   hem.rotation.x = Math.PI / 2;
-  hem.scale.set(1, 0.85, 1);
-  hem.position.y = -0.27;
+  hem.scale.set(1, JACKET_DEPTH, 1);
+  hem.position.y = -0.31;
   torso.add(hem);
 
-  const collar = mesh(new THREE.TorusGeometry(0.21, 0.065, 12, 32), materials.jacket);
+  const collar = mesh(new THREE.TorusGeometry(0.2, 0.06, 12, 32), materials.jacket);
   collar.rotation.x = Math.PI / 2;
-  collar.position.y = 0.36;
+  collar.scale.set(1, 0.9, 1);
+  collar.position.y = 0.38;
   torso.add(collar);
 
+  // Khoá kéo chạy dọc mặt trước áo.
   const zipPts = [];
   for (let i = 0; i <= 12; i++) {
-    const a = THREE.MathUtils.lerp(-0.75, 0.95, i / 12);
-    zipPts.push(new THREE.Vector3(0, Math.sin(a) * TORSO_R.y, Math.cos(a) * TORSO_R.z + 0.006));
+    const y = THREE.MathUtils.lerp(-0.32, 0.34, i / 12);
+    zipPts.push(new THREE.Vector3(0, y, jacketRadiusAt(y) * JACKET_DEPTH + 0.006));
   }
   torso.add(mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(zipPts), 24, 0.011, 6), materials.stitch));
 
   // Logo VA trên ngực trái (bên phải người xem).
-  torso.add(placeOnEllipsoid(createBadge(), TORSO_R, 0.2, 0.08));
+  const badge = createBadge();
+  const bx = 0.2;
+  const by = 0.1;
+  const bz = JACKET_DEPTH * Math.sqrt(jacketRadiusAt(by) ** 2 - bx ** 2);
+  const normal = new THREE.Vector3(bx, 0, bz / JACKET_DEPTH ** 2).normalize();
+  badge.position.set(bx, by, bz).addScaledVector(normal, 0.006);
+  badge.lookAt(badge.position.clone().add(normal));
+  torso.add(badge);
 
   const back = new THREE.Group();
   back.name = 'Back';
-  back.position.set(0, 0.02, -TORSO_R.z + 0.02);
+  back.position.set(0, 0.02, -jacketRadiusAt(0) * JACKET_DEPTH + 0.02);
   torso.add(back);
   anchors.Back = back;
 
@@ -296,15 +337,15 @@ function buildBody(bounce, materials, anchors) {
   for (const side of [-1, 1]) {
     const shoulder = new THREE.Group();
     shoulder.name = side < 0 ? 'ArmR' : 'ArmL';
-    shoulder.position.set(0.37 * side, 0.2, 0);
+    shoulder.position.set(0.4 * side, 0.22, 0);
     shoulder.rotation.z = ARM_REST_Z * side;
     torso.add(shoulder);
 
-    const sleeve = mesh(new THREE.CapsuleGeometry(0.125, 0.26, 8, 16), materials.jacket);
+    const sleeve = mesh(new THREE.CapsuleGeometry(0.15, 0.22, 8, 16), materials.jacket);
     sleeve.position.y = -0.2;
     shoulder.add(sleeve);
 
-    const cuff = mesh(new THREE.TorusGeometry(0.105, 0.035, 10, 24), materials.jacketTrim);
+    const cuff = mesh(new THREE.TorusGeometry(0.115, 0.032, 10, 24), materials.jacketTrim);
     cuff.rotation.x = Math.PI / 2;
     cuff.position.y = -0.4;
     shoulder.add(cuff);
@@ -323,6 +364,7 @@ function buildHead(bounce, materials, anchors) {
   const head = new THREE.Group();
   head.name = 'Head';
   head.position.y = HEAD_PIVOT_Y;
+  head.scale.setScalar(HEAD_SIZE);
   bounce.add(head);
   anchors.Head = head;
 
@@ -333,6 +375,14 @@ function buildHead(bounce, materials, anchors) {
   skull.scale.copy(HEAD_SCALE);
   skull.position.copy(center);
   head.add(skull);
+
+  // Má bầu: nửa dưới mặt rộng hơn (giống ảnh mẫu).
+  for (const side of [-1, 1]) {
+    const cheek = mesh(new THREE.SphereGeometry(0.27, 32, 24), materials.head);
+    cheek.scale.set(1, 0.85, 0.9);
+    cheek.position.set(0.26 * side, center.y - 0.16, 0.1);
+    head.add(cheek);
+  }
 
   addFlameMane(head, center, radii, materials.head);
   addHorn(head, center, radii, materials.gold);
@@ -346,11 +396,11 @@ function buildHead(bounce, materials, anchors) {
   // Mõm nhỏ + lỗ mũi.
   const snout = mesh(new THREE.SphereGeometry(0.13, 28, 20), materials.snout);
   snout.scale.set(0.95, 0.52, 0.3);
-  snout.position.set(0, -0.14, radii.z - 0.05);
+  snout.position.set(0, -0.175, radii.z - 0.06);
   faceGroup.add(snout);
   for (const side of [-1, 1]) {
     const nostril = mesh(new THREE.SphereGeometry(0.011, 10, 8), materials.mouth);
-    nostril.position.set(0.04 * side, -0.12, radii.z - 0.002);
+    nostril.position.set(0.04 * side, -0.155, radii.z - 0.012);
     faceGroup.add(nostril);
   }
 
@@ -378,20 +428,20 @@ function createFaceController(faceGroup, radii, materials) {
   const brows = [];
   for (const side of [-1, 1]) {
     const eye = createEye(materials, side);
-    faceGroup.add(placeOnEllipsoid(eye.group, radii, 0.215 * side, -0.015, 0));
+    faceGroup.add(placeOnEllipsoid(eye.group, radii, 0.22 * side, -0.05, 0));
     eyes.push({ side, ...eye });
 
     const brow = mesh(createSpiralBrowGeometry(side), materials.gold);
-    placeOnEllipsoid(brow, radii, 0.225 * side, 0.205, 0.012);
+    placeOnEllipsoid(brow, radii, 0.23 * side, 0.165, 0.012);
     faceGroup.add(brow);
     brows.push({ mesh: brow, baseY: brow.position.y });
   }
 
   const mouth = createMouth(materials);
-  faceGroup.add(placeOnEllipsoid(mouth.group, radii, 0, -0.235, 0.004));
+  faceGroup.add(placeOnEllipsoid(mouth.group, radii, 0, -0.27, 0.004));
 
   const shades = createShades();
-  shades.position.set(0, -0.01, radii.z + 0.06);
+  shades.position.set(0, -0.045, radii.z + 0.06);
   shades.visible = false;
   faceGroup.add(shades);
 

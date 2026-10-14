@@ -11,8 +11,8 @@
 
 /** Tư thế nghỉ. */
 export const REST_POSE = {
-  armL: [0, 0.42],
-  armR: [0, -0.42],
+  armL: [0.06, 0.16],
+  armR: [0.06, -0.16],
   head: [0, 0],
 };
 

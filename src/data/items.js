@@ -27,7 +27,7 @@ export const RARITY = {
 
 export const ITEMS = [
   // Áo khoác: đổi màu áo của Kỳ lân.
-  { id: 'jacket-va', slot: 'jacket', name: 'Áo khoác VA', price: 0, rarity: 'common', model: 'jacket', params: { body: '#A8102E', trim: '#D6334F' } },
+  { id: 'jacket-va', slot: 'jacket', name: 'Áo khoác VA', price: 0, rarity: 'common', model: 'jacket', params: { body: '#A8102E', trim: '#E2733A' } },
   { id: 'jacket-nhanai', slot: 'jacket', name: 'Áo Nhân Ái', price: 120, rarity: 'rare', model: 'jacket', params: { body: '#009082', trim: '#5DCBBF' } },
   { id: 'jacket-banlinh', slot: 'jacket', name: 'Áo Bản Lĩnh', price: 120, rarity: 'rare', model: 'jacket', params: { body: '#725139', trim: '#AD9A8C' } },
   { id: 'jacket-trachnhiem', slot: 'jacket', name: 'Áo Trách Nhiệm', price: 120, rarity: 'rare', model: 'jacket', params: { body: '#C49C57', trim: '#F6EFE3' } },

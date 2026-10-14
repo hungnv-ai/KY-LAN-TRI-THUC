@@ -101,26 +101,27 @@ export function addFlameMane(head, center, radii, material) {
   const UP = new THREE.Vector3(0, 1, 0);
   const BACK = new THREE.Vector3(0, 0, -1);
   // [độ cao°, phương vị° (0 = phía trước), dài, rộng, độ bốc lên (0..1, âm = chĩa xuống)]
+  // Bờm bốc thẳng lên như ngọn đuốc (theo ảnh mẫu), nửa dưới má để trơn.
   const flames = [
-    [84, 180, 0.6, 0.27, 0.4],
-    [64, 32, 0.46, 0.22, 0.5],
-    [64, -32, 0.46, 0.22, 0.5],
-    [52, 95, 0.54, 0.26, 0.45],
-    [52, -95, 0.54, 0.26, 0.45],
-    [56, 145, 0.54, 0.27, 0.45],
-    [56, -145, 0.54, 0.27, 0.45],
-    [40, 180, 0.5, 0.27, 0.4],
-    [24, 72, 0.46, 0.24, 0.35],
-    [24, -72, 0.46, 0.24, 0.35],
-    [22, 125, 0.48, 0.26, 0.35],
-    [22, -125, 0.48, 0.26, 0.35],
-    [4, 160, 0.42, 0.26, 0.25],
-    [4, -160, 0.42, 0.26, 0.25],
-    [-2, 86, 0.38, 0.22, 0.12],
-    [-2, -86, 0.38, 0.22, 0.12],
-    [-24, 92, 0.3, 0.17, -0.25],
-    [-24, -92, 0.3, 0.17, -0.25],
+    [88, 180, 0.78, 0.33, 0.9],
+    [70, 40, 0.58, 0.28, 0.9],
+    [70, -40, 0.58, 0.28, 0.9],
+    [70, 140, 0.68, 0.32, 0.9],
+    [70, -140, 0.68, 0.32, 0.9],
+    [55, 100, 0.66, 0.31, 0.85],
+    [55, -100, 0.66, 0.31, 0.85],
+    [50, 180, 0.62, 0.33, 0.8],
+    [32, 78, 0.6, 0.28, 0.7],
+    [32, -78, 0.6, 0.28, 0.7],
+    [30, 128, 0.58, 0.3, 0.7],
+    [30, -128, 0.58, 0.3, 0.7],
+    [14, 155, 0.48, 0.3, 0.55],
+    [14, -155, 0.48, 0.3, 0.55],
+    [4, 90, 0.38, 0.18, 0.4],
+    [4, -90, 0.38, 0.18, 0.4],
   ];
+
+
 
   for (const [elevDeg, azDeg, length, width, lift] of flames) {
     const elev = THREE.MathUtils.degToRad(elevDeg);
@@ -168,35 +169,36 @@ function createPetalFlameGeometry(width, length) {
 
 /** Sừng vàng có các vòng xoắn, mọc ở đỉnh trước của đầu. */
 export function addHorn(head, center, radii, material) {
-  const LENGTH = 0.46;
-  const BASE = 0.115;
+  // Sừng thon dài có rãnh xoắn (ảnh mẫu), không bè.
+  const LENGTH = 0.44;
+  const BASE = 0.108;
   const horn = new THREE.Group();
   horn.name = 'Horn';
 
   const profile = [
     [0.001, 0],
     [1, 0.02],
-    [0.78, 0.35],
-    [0.45, 0.7],
-    [0.14, 0.95],
+    [0.82, 0.3],
+    [0.55, 0.62],
+    [0.25, 0.88],
     [0.001, 1],
   ].map(([r, y]) => new THREE.Vector2(r * BASE, y * LENGTH));
   horn.add(mesh(new THREE.LatheGeometry(profile, 28), material));
 
-  const RINGS = 4;
+  const RINGS = 6;
   for (let i = 0; i < RINGS; i++) {
-    const h = (i + 0.5) * (LENGTH / (RINGS + 1));
-    const r = BASE * (1 - (0.95 * h) / LENGTH) * 0.95;
-    const ring = mesh(new THREE.TorusGeometry(r, 0.012 * (1 - h / LENGTH) + 0.004, 8, 24), material);
+    const h = (i + 0.6) * (LENGTH / (RINGS + 1.5));
+    const r = BASE * (1 - (0.92 * h) / LENGTH) * 0.92;
+    const ring = mesh(new THREE.TorusGeometry(r, 0.017 * (1 - h / LENGTH) + 0.005, 8, 24), material);
     ring.rotation.x = Math.PI / 2 + 0.25;
     ring.position.y = h;
     horn.add(ring);
   }
 
-  const elev = THREE.MathUtils.degToRad(68);
+  const elev = THREE.MathUtils.degToRad(70);
   const dir = new THREE.Vector3(0, Math.sin(elev), Math.cos(elev));
   horn.position.copy(center).add(new THREE.Vector3(0, dir.y * radii.y, dir.z * radii.z).multiplyScalar(0.92));
-  horn.rotation.x = 0.2;
+  horn.rotation.x = 0.12;
   head.add(horn);
 }
 
