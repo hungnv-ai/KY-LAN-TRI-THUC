@@ -23,6 +23,7 @@ export function openQuiz(handlers) {
   openSheet({
     title: '🧠 Thử thách Tri Thức',
     content: renderIntro(),
+    variant: 'side', // không che Kỳ lân: người chơi thấy nó suy nghĩ / vui / hoảng hốt
     onClose: () => {
       stopTimer();
       handlers.onClose?.();

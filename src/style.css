@@ -355,7 +355,7 @@ button {
   }
 }
 
-/* Biến thể "side" (Tủ đồ): nền trong suốt, canvas phía sau vẫn tương tác được. */
+/* Biến thể "side" (Tủ đồ, Quiz): nền trong suốt, canvas phía sau vẫn tương tác được. */
 .sheet--side {
   pointer-events: none;
 }
@@ -366,7 +366,7 @@ button {
 
 .sheet--side .sheet-panel {
   pointer-events: auto;
-  max-height: 48vh;
+  max-height: 56vh;
 }
 
 @media (min-width: 768px) {
@@ -384,6 +384,46 @@ button {
   /* Toast dời sang trái bảng Tủ đồ để không che thẻ trang phục. */
   .sheet--side:not([hidden]) ~ .toasts {
     right: 432px;
+  }
+}
+
+/* Mobile: quiz gọn hơn để vừa nửa dưới màn hình, nửa trên vẫn thấy Kỳ lân. */
+@media (max-width: 767px) {
+  .sheet--side .sheet-header {
+    padding: 10px 12px 6px 16px;
+  }
+
+  .sheet--side .sheet-body {
+    padding: 12px 16px 16px;
+  }
+
+  .sheet--side .quiz-question {
+    margin-bottom: 10px;
+    font-size: 16px;
+  }
+
+  .sheet--side .quiz-options {
+    gap: 8px;
+  }
+
+  .sheet--side .quiz-option {
+    min-height: 44px;
+    padding: 6px 12px;
+    font-size: 14px;
+  }
+
+  .sheet--side .quiz-feedback {
+    margin-top: 10px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .sheet--side .quiz-actions {
+    margin-top: 10px;
+  }
+
+  .sheet--side .big-emoji {
+    font-size: 40px;
   }
 }
 

@@ -7,11 +7,11 @@ const LOOK_AT = new THREE.Vector3(0, 1.45, 0);
 const VIEW_DIR = new THREE.Vector3(0.28, 0.16, 1).normalize();
 const DIST_LANDSCAPE = 6.4;
 const DIST_PORTRAIT = 8.6;
-/** Khi mở bảng bên (Tủ đồ): desktop dịch nhân vật sang trái nửa bề rộng bảng; mobile dịch lên trên. */
+/** Khi mở bảng bên (Tủ đồ, Quiz): desktop dịch nhân vật sang trái nửa bề rộng bảng; mobile dịch lên trên. */
 const SIDE_PANEL_PX = 416;
-const MOBILE_PANEL_SHIFT_Y = 0.19;
+const MOBILE_PANEL_SHIFT_Y = 0.22;
 /** Mobile: thu nhỏ khung hình để cả Kỳ lân vừa phần màn hình phía trên bảng. */
-const MOBILE_PANEL_ZOOM = 0.68;
+const MOBILE_PANEL_ZOOM = 0.55;
 const DESKTOP_MIN_WIDTH = 768;
 const VIEW_SHIFT_SPEED = 6;
 /** Di chuyển chuột/ngón tay dưới ngưỡng này (px) thì coi là "chạm", không phải xoay camera. */

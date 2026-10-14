@@ -131,8 +131,13 @@ const actions = {
         if (reward.rankUp) announceReward({ ...reward, xp: 0, coins: 0 }, '');
         return reward;
       },
-      onClose: () => mascot.setMood(null),
+      onClose: () => {
+        mascot.setMood(null);
+        world.setPanelFocus(false);
+      },
     });
+    // Gọi sau openQuiz: mở bảng mới sẽ đóng bảng cũ (và onClose của nó).
+    world.setPanelFocus(true);
     mascot.setMood('think');
   },
 
