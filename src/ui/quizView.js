@@ -3,16 +3,20 @@ import { TOPICS } from '../data/questions.js';
 import { h, formatNumber } from './dom.js';
 import { openSheet, setSheetContent, closeSheet, isSheetOpen } from './sheet.js';
 
-const LETTERS = ['A', 'B', 'C', 'D'];
+const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
 /**
- * Giao diện Quiz Tri Thức: giới thiệu → 5 câu hỏi (đếm ngược 3 phút) → kết quả.
+ * Giao diện Quiz Tri Thức: giới thiệu → 5 câu hỏi (đếm ngược) → kết quả.
+ * Câu hỏi không kèm đáp án: mỗi lần chọn, bộ xử lý (máy chủ) chấm và trả về đáp án đúng.
  *
  * @param {{
  *   rewardedLeft: () => number,
- *   createRound: () => { questions: { topic: string, q: string, options: string[], correctIndex: number, explain?: string }[] },
- *   onAnswer: (isCorrect: boolean) => void,
- *   onComplete: (result: { correct: number, total: number, timedOut: boolean }) => { xp: number, coins: number, golden: boolean, rewarded: boolean, perfect: boolean },
+ *   startRound: () => Promise<{ roundId: string, rewarded: boolean, timeLimit: number,
+ *     questions: { ticketId: string, topic: string, q: string, options: string[] }[] }>,
+ *   answer: (ticketId: string, choice: number) => Promise<{ correct: boolean, correctIndex: number, explain: string | null }>,
+ *   finishRound: (roundId: string, info: { timedOut: boolean }) => Promise<{ xp: number, coins: number, golden: boolean,
+ *     rewarded: boolean, perfect: boolean, correct: number, total: number }>,
+ *   onError: (err: unknown) => void,
  *   onClose?: () => void,
  * }} handlers
  */
@@ -32,6 +36,18 @@ export function openQuiz(handlers) {
 
   function renderIntro() {
     const left = handlers.rewardedLeft();
+    const startBtn = h('button', { class: 'btn btn-block', type: 'button' }, left > 0 ? 'Bắt đầu' : 'Luyện tập');
+    startBtn.addEventListener('click', async () => {
+      startBtn.disabled = true;
+      startBtn.textContent = 'Đang chuẩn bị câu hỏi…';
+      try {
+        startRound(await handlers.startRound());
+      } catch (err) {
+        handlers.onError(err);
+        startBtn.disabled = false;
+        startBtn.textContent = 'Thử lại';
+      }
+    });
     return h(
       'div',
       { class: 'quiz-intro' },
@@ -52,15 +68,15 @@ export function openQuiz(handlers) {
           ? `Hôm nay còn ${left}/${QUIZ.REWARDED_ROUNDS_PER_DAY} lượt có thưởng.`
           : 'Hôm nay bạn đã dùng hết lượt có thưởng. Vẫn có thể chơi luyện tập!',
       ),
-      h('button', { class: 'btn btn-block', type: 'button', onclick: startRound }, left > 0 ? 'Bắt đầu' : 'Luyện tập'),
+      startBtn,
     );
   }
 
-  function startRound() {
-    const { questions } = handlers.createRound();
+  function startRound({ roundId, questions, timeLimit }) {
     const results = []; // true/false theo từng câu
     let index = 0;
-    let secondsLeft = QUIZ.TIME_LIMIT_SEC;
+    let secondsLeft = timeLimit ?? QUIZ.TIME_LIMIT_SEC;
+    let finished = false;
 
     const timerEl = h('span', { class: 'quiz-timer' });
     const updateTimer = () => {
@@ -104,19 +120,30 @@ export function openQuiz(handlers) {
         ),
       );
 
-      function choose(i) {
-        const correct = i === question.correctIndex;
-        results.push(correct);
+      async function choose(i) {
+        optionButtons.forEach((btn) => (btn.disabled = true));
+        optionButtons[i].classList.add('is-pending');
+        let res;
+        try {
+          res = await handlers.answer(question.ticketId, i);
+        } catch (err) {
+          handlers.onError(err);
+          optionButtons.forEach((btn) => (btn.disabled = false));
+          optionButtons[i].classList.remove('is-pending');
+          return;
+        }
+        optionButtons[i].classList.remove('is-pending');
+        if (finished) return;
+        results.push(res.correct);
         optionButtons.forEach((btn, j) => {
-          btn.disabled = true;
-          if (j === question.correctIndex) btn.classList.add('is-correct');
+          if (j === res.correctIndex) btn.classList.add('is-correct');
           else if (j === i) btn.classList.add('is-wrong');
         });
         feedback.hidden = false;
         feedback.replaceChildren(
-          h('strong', {}, correct ? '🎉 Chính xác!' : '🌱 Chưa đúng — không sao, mình cùng học nhé!'),
-          !correct ? `Đáp án đúng: ${question.options[question.correctIndex]}. ` : '',
-          question.explain ?? '',
+          h('strong', {}, res.correct ? '🎉 Chính xác!' : '🌱 Chưa đúng — không sao, mình cùng học nhé!'),
+          !res.correct ? `Đáp án đúng: ${question.options[res.correctIndex]}. ` : '',
+          res.explain ?? '',
         );
         const isLast = index === questions.length - 1;
         const next = h(
@@ -137,7 +164,6 @@ export function openQuiz(handlers) {
         );
         actions.replaceChildren(next);
         next.focus();
-        handlers.onAnswer(correct);
       }
 
       setSheetContent(
@@ -155,18 +181,25 @@ export function openQuiz(handlers) {
       optionButtons[0].focus();
     }
 
-    function finish(timedOut) {
+    async function finish(timedOut) {
+      if (finished) return;
+      finished = true;
       stopTimer();
       if (!isSheetOpen()) return;
-      const correct = results.filter(Boolean).length;
-      const total = questions.length;
-      const reward = handlers.onComplete({ correct, total, timedOut });
-      setSheetContent(renderResult({ correct, total, reward, timedOut }));
+      setSheetContent(h('div', { class: 'quiz-result' }, h('p', { class: 'muted' }, 'Đang chấm điểm…')));
+      try {
+        const reward = await handlers.finishRound(roundId, { timedOut });
+        if (isSheetOpen()) setSheetContent(renderResult({ reward, timedOut }));
+      } catch (err) {
+        handlers.onError(err);
+        closeSheet();
+      }
     }
   }
 
-  function renderResult({ correct, total, reward, timedOut }) {
-    const ratio = correct / total;
+  function renderResult({ reward, timedOut }) {
+    const { correct, total } = reward;
+    const ratio = total ? correct / total : 0;
     const [emoji, headline] =
       ratio === 1
         ? ['🏆', 'Xuất sắc! Đúng tất cả!']

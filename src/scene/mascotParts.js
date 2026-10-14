@@ -357,6 +357,7 @@ export function createEmojiSprite(char) {
     ctx.fillText(char, size / 2, size / 2 + 6);
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
+    texture.userData.shared = true; // dùng chung giữa nhiều Kỳ lân — không dispose
     spriteTextures.set(char, texture);
   }
   return new THREE.Sprite(new THREE.SpriteMaterial({ map: spriteTextures.get(char), transparent: true, depthWrite: false }));

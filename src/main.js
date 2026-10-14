@@ -1,69 +1,72 @@
 import * as THREE from 'three';
-import { createWorld } from './scene/world.js';
-import { setupLights } from './scene/lights.js';
-import { setupIsland } from './scene/island.js';
+import { initAudio, isMuted, setMuted, sfx } from './audio/sfx.js';
+import { MASCOT_LINES } from './data/lines.js';
+import { getRankInfo } from './data/ranks.js';
 import { createExplore } from './features/explore.js';
+import { setupMenu } from './features/menu.js';
+import { createRewards } from './features/rewards.js';
+import { startSession } from './features/session.js';
+import { setupSocial } from './features/social.js';
+import {
+  getActiveStreak,
+  getState,
+  hasCheckedInToday,
+  onProgressChange,
+  refreshState,
+} from './game/progress.js';
+import { isGoldenHour } from './game/time.js';
+import { createFx } from './scene/fx.js';
+import { setupIsland } from './scene/island.js';
+import { setupLights } from './scene/lights.js';
 import { createMascot } from './scene/mascot.js';
 import { createWardrobe } from './scene/outfits.js';
-import { createFx } from './scene/fx.js';
-import { initAudio, isMuted, setMuted, sfx } from './audio/sfx.js';
-import { RANKS, getRankInfo } from './data/ranks.js';
-import { MASCOT_LINES } from './data/lines.js';
-import {
-  initProgress,
-  getState,
-  onProgressChange,
-  checkIn,
-  hasCheckedInToday,
-  getActiveStreak,
-  rewardedRoundsLeft,
-  completeQuizRound,
-  itemStatus,
-  buyItem,
-  equipItem,
-} from './game/progress.js';
-import { createQuizRound } from './game/quiz.js';
-import { isGoldenHour } from './game/time.js';
-import { renderHud, onRankCardClick, hideLoading, setupSoundButton } from './ui/hud.js';
-import { flyToHud } from './ui/flyFx.js';
-import { showToast, confirmDialog, celebrateDialog, say, setSpeechAnchor } from './ui/feedback.js';
-import { openQuiz } from './ui/quizView.js';
-import { openWardrobe } from './ui/wardrobeView.js';
-import { openRanks } from './ui/ranksView.js';
-import { formatNumber } from './ui/dom.js';
+import { createWorld } from './scene/world.js';
+import { say, setSpeechAnchor } from './ui/feedback.js';
+import { hideLoading, renderHud, setupSoundButton } from './ui/hud.js';
 
 /**
- * Entry: lắp ráp các module và chạy vòng lặp. Logic chi tiết nằm trong từng module.
+ * Entry: lắp ráp các module và chạy vòng lặp duy nhất. Logic chi tiết nằm trong từng module.
  */
 
-// ── 3D ──────────────────────────────────────────────────────────────────
+// ── 3D (vẽ ngay để màn hình đăng nhập có cảnh đảo phía sau) ─────────────
 const world = createWorld(document.getElementById('canvas-container'));
 const { sun } = setupLights(world.scene, world.renderer);
 const island = setupIsland(world.scene);
 const fx = createFx(world.scene);
-
 const mascot = createMascot();
 world.scene.add(mascot.object);
 const wardrobe = createWardrobe(mascot);
 
-// ── Dữ liệu người chơi ──────────────────────────────────────────────────
-initProgress();
-wardrobe.equipAll(getState().equipped);
+/** Các hệ thống chỉ chạy sau khi đã đăng nhập & nạp tiến trình. */
+let explore = null;
+let social = null;
 
-function refreshHud() {
-  const state = getState();
-  renderHud({
-    xp: state.xp,
-    coins: state.coins,
-    streak: getActiveStreak(),
-    rankInfo: getRankInfo(state.xp),
-    golden: isGoldenHour(),
-    canCheckIn: !hasCheckedInToday(),
-  });
-}
-onProgressChange(refreshHud);
-refreshHud();
-setInterval(refreshHud, 60_000); // cập nhật Giờ Vàng
+// ── Vòng lặp duy nhất ───────────────────────────────────────────────────
+const timer = new THREE.Timer();
+timer.connect(document); // tạm dừng delta khi tab bị ẩn
+const headPos = new THREE.Vector3();
+
+world.renderer.setAnimationLoop((timestamp) => {
+  timer.update(timestamp);
+  const delta = Math.min(timer.getDelta(), 0.1); // tránh "nhảy cóc" sau khi tab bị treo
+  const elapsed = timer.getElapsed();
+
+  explore?.update(delta, elapsed);
+  social?.update(delta, elapsed);
+  mascot.update(delta, elapsed);
+  fx.update(delta);
+  wardrobe.update(delta, elapsed);
+  island.update(delta, elapsed);
+  world.controls.update();
+  world.update(delta);
+
+  mascot.headWorldPosition(headPos);
+  headPos.y += 1.5; // phía trên bảng tên
+  const p = world.toScreen(headPos);
+  setSpeechAnchor(p.x, p.y);
+
+  world.renderer.render(world.scene, world.camera);
+});
 
 // ── Âm thanh ────────────────────────────────────────────────────────────
 initAudio();
@@ -73,232 +76,80 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('.nav-btn, .btn, .tab, .item-card, .icon-btn, .pill-btn, .rank-card')) sfx.click();
 });
 
-// ── Tương tác ───────────────────────────────────────────────────────────
-/** Cảm xúc ngẫu nhiên khi chạm vào Kỳ lân. */
-const TAP_EMOTES = ['wave', 'happy', 'cool', 'think', 'cheer'];
-
-world.onTap(mascot.object, () => {
-  mascot.emote(pick(TAP_EMOTES));
-  say(pick(MASCOT_LINES));
-});
-
-function pick(list) {
-  return list[Math.floor(Math.random() * list.length)];
-}
-
-/** Toạ độ màn hình phía trên đầu Kỳ lân (điểm xuất phát của xu / sao bay vào ví). */
-const headScreenTmp = new THREE.Vector3();
-function headScreen() {
-  mascot.headWorldPosition(headScreenTmp);
-  headScreenTmp.y += 0.6;
-  return world.toScreen(headScreenTmp);
-}
-
-/** Xu & sao bay từ Kỳ lân vào ví. */
-function flyReward(reward) {
-  if (reward.coins) {
-    flyToHud('coin', headScreen(), Math.min(reward.coins, 10));
-    sfx.coins(reward.coins);
-  }
-  if (reward.xp) flyToHud('xp', headScreen(), Math.min(Math.ceil(reward.xp / 4), 6));
-}
-
-/** Hiệu ứng ăn mừng lớn quanh Kỳ lân. */
-function celebrateMascot(color) {
-  mascot.emote('cheer');
-  fx.celebrate(mascot.object, { color });
-}
-
-/** Lên hạng: hiệu ứng trước, hộp thoại chúc mừng hiện sau để không che khoảnh khắc ăn mừng. */
-const RANK_UP_DIALOG_DELAY_MS = 1800;
-
-/** Hiển thị thưởng chung (toast + xu bay vào ví + lên hạng). */
-async function announceReward(reward, label) {
-  if (reward.xp || reward.coins) {
-    const golden = reward.golden ? ' ⏰x2' : '';
-    showToast(`${label}: +${formatNumber(reward.xp)} XP${golden}, +${formatNumber(reward.coins)} Xu`, {
-      type: 'success',
-      icon: '🎁',
-    });
-    flyReward(reward);
-  }
-  if (reward.rankUp) {
-    const { to, items } = reward.rankUp;
-    sfx.rankUp();
-    celebrateMascot(to.color);
-    await new Promise((resolve) => setTimeout(resolve, RANK_UP_DIALOG_DELAY_MS));
-    const gift = items.length ? ` Bạn nhận được: ${items.map((i) => i.name).join(', ')} — xem trong Tủ đồ!` : '';
-    await celebrateDialog({
-      icon: to.icon,
-      title: `Lên hạng ${to.name}!`,
-      message: `Chúc mừng! Kỳ lân của bạn đã đạt hạng ${to.name}.${gift}`,
-    });
-  }
-}
-
-// ── Khám phá Vùng Đất: chạy, câu hỏi theo quãng đường, cột Vùng Đất, xu & hộp quà ──
-const explore = createExplore({
-  world,
-  island,
-  mascot,
-  sun,
-  fx,
-  onRankUp: (reward) => announceReward({ ...reward, xp: 0, coins: 0 }, ''),
-});
-
-const actions = {
-  async checkin() {
-    const result = checkIn();
-    if (!result) {
-      showToast('Hôm nay bạn đã điểm danh rồi. Hẹn gặp lại ngày mai nhé!', { icon: '📅' });
-      mascot.emote('wave');
-      return;
-    }
-    sfx.cheer();
-    celebrateMascot('#C49C57');
-    say(`Điểm danh thành công! Chuỗi ${result.streak} ngày 🔥 — Trách nhiệm là giữ lời hứa với chính mình!`);
-    await announceReward(result, 'Điểm danh');
-  },
-
-  quiz() {
-    openQuiz({
-      rewardedLeft: rewardedRoundsLeft,
-      createRound: () => createQuizRound(),
-      onAnswer: (correct) => {
-        mascot.emote(correct ? 'happy' : 'oops');
-        if (correct) {
-          sfx.correct();
-          mascot.headWorldPosition(headScreenTmp);
-          fx.burst(headScreenTmp.clone().setY(headScreenTmp.y + 1), { count: 24, speed: 2.5, up: 3, life: 0.9 });
-        } else {
-          sfx.wrong();
-        }
-      },
-      onComplete: (result) => {
-        const reward = completeQuizRound(result);
-        const ratio = result.correct / result.total;
-        if (reward.rewarded) setTimeout(() => flyReward(reward), 300);
-        if (result.timedOut) {
-          sfx.faint();
-          mascot.emote('faint');
-          say('Hết giờ rồi… xỉu mất! Lần sau mình nhanh tay hơn nhé! 😵');
-        } else if (reward.perfect) {
-          sfx.cheer();
-          celebrateMascot('#9A0036');
-          say('Đúng hết luôn! Bạn đúng là Kỳ lân Tri Thức! 🏆');
-        } else if (ratio < 0.4) {
-          mascot.emote('cry');
-          say('Huhu… không sao đâu, thử sai là cách mình lớn lên mà! 🌱');
-        } else {
-          mascot.emote('happy');
-        }
-        if (reward.rankUp) announceReward({ ...reward, xp: 0, coins: 0 }, '');
-        return reward;
-      },
-      onClose: () => {
-        mascot.setMood(null);
-        world.setPanelFocus(false);
-      },
-    });
-    // Gọi sau openQuiz: mở bảng mới sẽ đóng bảng cũ (và onClose của nó).
-    world.setPanelFocus(true);
-    mascot.setMood('think');
-  },
-
-  wardrobe() {
-    const view = openWardrobe({
-      getStatus: itemStatus,
-      onClose: () => world.setPanelFocus(false),
-      onSelect: async (item) => {
-        const status = itemStatus(item);
-        if (status === 'equipped') return;
-        if (status === 'locked') {
-          const rank = RANKS.find((r) => r.id === item.rank);
-          showToast(`Đạt hạng ${rank.name} để mở khoá "${item.name}"!`, { type: 'warn', icon: '🔒' });
-          mascot.emote('think');
-          return;
-        }
-        if (status === 'tooPoor') {
-          showToast(`Cần thêm ${formatNumber(item.price - getState().coins)} Xu. Làm Quiz Tri Thức để kiếm Xu nhé!`, {
-            type: 'warn',
-            icon: '🪙',
-          });
-          wardrobe.equip(item.id); // cho mặc thử
-          mascot.emote('cry');
-          sfx.wrong();
-          setTimeout(() => wardrobe.equip(getState().equipped[item.slot]), 2500);
-          return;
-        }
-        if (status === 'buyable') {
-          wardrobe.equip(item.id); // xem trước trên nhân vật
-          const ok = await confirmDialog({
-            icon: '🛍️',
-            title: `Mua "${item.name}"?`,
-            message: `Giá ${formatNumber(item.price)} Xu. Bạn đang có ${formatNumber(getState().coins)} Xu.`,
-            confirmText: 'Mua & mặc',
-          });
-          if (!ok || !buyItem(item.id)) {
-            wardrobe.equip(getState().equipped[item.slot]);
-            return;
-          }
-          showToast(`Đã mua "${item.name}"!`, { type: 'success', icon: '🛍️' });
-          mascot.emote('cool');
-          sfx.gift();
-          fx.ring(mascot.object.position, '#FFD86B');
-          fx.aura(mascot.object, { duration: 1.2 });
-        } else {
-          mascot.emote('happy');
-          sfx.pop();
-          fx.aura(mascot.object, { duration: 0.6 });
-        }
-        equipItem(item.id);
-        wardrobe.equip(item.id);
-        view.refresh();
-      },
-    });
-    // Gọi sau openWardrobe: mở bảng mới sẽ đóng bảng cũ (và onClose của nó).
-    world.setPanelFocus(true);
-  },
-
-  ranks() {
-    const state = getState();
-    openRanks({ xp: state.xp, streak: getActiveStreak(), stats: state.stats });
-  },
-};
-
-document.querySelectorAll('[data-action]').forEach((btn) => {
-  btn.addEventListener('click', () => actions[btn.dataset.action]());
-});
-onRankCardClick(actions.ranks);
-
-// ── Animation loop ──────────────────────────────────────────────────────
-const timer = new THREE.Timer();
-timer.connect(document); // tạm dừng delta khi tab bị ẩn
-const headPos = new THREE.Vector3();
-
-world.renderer.setAnimationLoop((timestamp) => {
-  timer.update(timestamp);
-  const delta = timer.getDelta();
-  const elapsed = timer.getElapsed();
-
-  explore.update(delta, elapsed);
-  mascot.update(delta, elapsed);
-  fx.update(delta);
-  wardrobe.update(delta, elapsed);
-  island.update(delta, elapsed);
-  world.controls.update();
-  world.update(delta);
-
-  mascot.headWorldPosition(headPos);
-  headPos.y += 1.0; // phía trên bờm
-  const p = world.toScreen(headPos);
-  setSpeechAnchor(p.x, p.y);
-
-  world.renderer.render(world.scene, world.camera);
-});
-
 hideLoading();
-setTimeout(() => {
-  mascot.emote('wave');
-  say(hasCheckedInToday() ? 'Chào mừng trở lại! Làm một lượt Tri Thức nhé?' : 'Xin chào! Bấm "Điểm danh" để nhận quà hôm nay nhé! 🎁');
-}, 700);
+boot().catch((err) => {
+  console.error('[main] Khởi động thất bại:', err);
+  say('Ôi, có lỗi khi khởi động. Bạn tải lại trang giúp mình nhé!');
+});
+
+async function boot() {
+  const session = await startSession();
+  wardrobe.equipAll(getState().equipped);
+
+  // HUD
+  const refreshHud = () => {
+    const state = getState();
+    renderHud({
+      xp: state.xp,
+      coins: state.coins,
+      streak: getActiveStreak(),
+      rankInfo: getRankInfo(state.xp),
+      golden: isGoldenHour(),
+      canCheckIn: !hasCheckedInToday(),
+    });
+  };
+  onProgressChange(refreshHud);
+  refreshHud();
+  setInterval(refreshHud, 60_000); // cập nhật Giờ Vàng
+  // Quay lại tab sau một lúc (có thể đã sang ngày mới) → tải lại trạng thái.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refreshState().catch(() => {});
+  });
+
+  const rewards = createRewards({ world, mascot, fx, onRankUp: () => social?.notifyProfileChanged() });
+
+  explore = createExplore({
+    world,
+    island,
+    mascot,
+    sun,
+    fx,
+    onRankUp: (reward) => rewards.announceRankUp(reward.rankUp),
+  });
+
+  social = setupSocial({
+    world,
+    island,
+    mascot,
+    supabase: session.supabase,
+    userId: session.userId,
+    isMoving: () => explore.isMoving(),
+  });
+
+  setupMenu({
+    world,
+    mascot,
+    wardrobe,
+    fx,
+    rewards,
+    onOutfitChanged: () => social.notifyProfileChanged(),
+  });
+
+  // Chạm vào Kỳ lân của mình: cảm xúc ngẫu nhiên + câu nói về 5 giá trị.
+  const TAP_EMOTES = ['wave', 'happy', 'cool', 'think', 'cheer'];
+  const pick = (list) => list[Math.floor(Math.random() * list.length)];
+  world.onTap(mascot.object, () => {
+    mascot.emote(pick(TAP_EMOTES));
+    say(pick(MASCOT_LINES));
+  });
+
+  setTimeout(() => {
+    mascot.emote('wave');
+    const name = getState().profile.displayName;
+    say(
+      hasCheckedInToday()
+        ? `Chào mừng trở lại${name ? `, ${name}` : ''}! Làm một lượt Tri Thức nhé?`
+        : `Xin chào${name ? ` ${name}` : ''}! Bấm "Hôm nay" để điểm danh nhận quà nhé! 🎁`,
+    );
+  }, 700);
+}

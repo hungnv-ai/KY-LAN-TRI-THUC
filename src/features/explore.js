@@ -3,17 +3,18 @@ import { sfx } from '../audio/sfx.js';
 import { EXPLORE, VALUES } from '../config.js';
 import {
   addDistance,
+  answerQuestion,
+  askQuestion,
   coinPickupsLeft,
   collectCoin,
-  completeRunQuestion,
-  completeStation,
+  friendlyError,
   getState,
   giftsLeft,
   isStationDone,
+  onProgressChange,
   openGift,
   stationsDoneCount,
 } from '../game/progress.js';
-import { pickQuestion } from '../game/quiz.js';
 import { createMovement } from '../scene/movement.js';
 import { createPickups } from '../scene/pickups.js';
 import { initControls, readInput, setControlsEnabled } from '../ui/controls.js';
@@ -40,7 +41,7 @@ const SUN_OFFSET = { x: 5, y: 10, z: 6 };
  *   fx: ReturnType<typeof import('../scene/fx.js').createFx>,
  *   onRankUp: (reward: object) => void,
  * }} deps
- * @returns {{ update: (delta: number, elapsed: number) => void }}
+ * @returns {{ update: (delta: number, elapsed: number) => void, isMoving: () => boolean }}
  */
 export function createExplore({ world, island, mascot, sun, fx, onRankUp }) {
   const movement = createMovement(mascot, island, world.camera);
@@ -51,8 +52,24 @@ export function createExplore({ world, island, mascot, sun, fx, onRankUp }) {
   let insideStation = null;
   let coinLimitNotified = false;
   let lastHud = '';
+  let requesting = false; // đang chờ máy chủ phát câu hỏi
+  let flushing = null;
+  let moving = false;
 
-  island.stations.forEach((s) => island.setStationDone(s.id, isStationDone(s.id)));
+  const syncStations = () => island.stations.forEach((s) => island.setStationDone(s.id, isStationDone(s.id)));
+  syncStations();
+  onProgressChange(syncStations);
+
+  /** Gửi quãng đường chưa lưu lên bộ xử lý (theo đợt, không mỗi frame). */
+  function flushDistance() {
+    if (unsavedDistance <= 0) return flushing ?? Promise.resolve();
+    const meters = unsavedDistance;
+    unsavedDistance = 0;
+    flushing = addDistance(meters)
+      .catch(() => {})
+      .finally(() => (flushing = null));
+    return flushing;
+  }
 
   initControls({
     onFirstMove: () => say('Đi thôi! Chạy tới các cột màu để nhận thử thách Vùng Đất nhé! 🗺️'),
@@ -65,44 +82,47 @@ export function createExplore({ world, island, mascot, sun, fx, onRankUp }) {
 
   const pickups = createPickups(world.scene, island, {
     onCoin: (pos) => {
-      const ok = collectCoin();
-      if (ok) {
-        // "Nạp tiền": tia sáng vàng, chữ +1 bay lên, đồng xu bay vào ô Xu.
-        sfx.coin();
-        fx.burst(pos, { colors: ['#FFD86B', '#F5C542', '#FFFFFF'], count: 14, speed: 2, up: 2.5, size: 0.16, life: 0.6 });
-        fx.floatText(pos, '+1', '#C49C57');
-        flyToHud('coin', world.toScreen(pos), 1);
+      if (coinPickupsLeft() <= 0) {
+        if (!coinLimitNotified) {
+          coinLimitNotified = true;
+          showToast('Hôm nay đã nhặt đủ xu rồi. Mai quay lại nhé!', { icon: '🪙' });
+        }
+        return false;
       }
-      if (!ok && !coinLimitNotified) {
-        coinLimitNotified = true;
-        showToast('Hôm nay đã nhặt đủ xu rồi. Mai quay lại nhé!', { icon: '🪙' });
-      }
-      return ok;
+      // "Nạp tiền" hiện ngay (không chờ máy chủ): tia sáng vàng, chữ +1, xu bay vào ô Xu.
+      sfx.coin();
+      fx.burst(pos, { colors: ['#FFD86B', '#F5C542', '#FFFFFF'], count: 14, speed: 2, up: 2.5, size: 0.16, life: 0.6 });
+      fx.floatText(pos.clone(), '+1', '#C49C57');
+      flyToHud('coin', world.toScreen(pos), 1);
+      collectCoin().catch(() => {});
+      return true;
     },
     canSpawnGift: () => giftsLeft() > 0,
     onGift: (pos) => handleGift(pos),
   });
 
   // ── Câu hỏi & thử thách (mở bảng bên, Kỳ lân suy nghĩ) ────────────────
-  function ask({ title, intro, accent, question, onAnswer }) {
+  function ask({ title, intro, accent, question, onResult }) {
     openQuickQuestion({
       title,
       intro,
       accent,
       question,
-      onAnswer: (correct) => {
-        mascot.emote(correct ? 'happy' : 'oops');
-        const reward = onAnswer(correct);
-        if (correct) {
+      answer: answerQuestion,
+      onResult: (res) => {
+        mascot.emote(res.correct ? 'happy' : 'oops');
+        if (res.correct) {
           sfx.correct();
-          fx.burst(headPosition(), { count: 24, speed: 2.5, up: 3, life: 0.9 });
+          fx.burst(headPosition().clone(), { count: 24, speed: 2.5, up: 3, life: 0.9 });
         } else {
           sfx.wrong();
         }
-        if (reward.coins) setTimeout(() => flyToHud('coin', world.toScreen(headPosition()), Math.min(reward.coins, 6)), 200);
-        if (reward.xp) flyToHud('xp', world.toScreen(headPosition()), Math.min(Math.ceil(reward.xp / 3), 5));
-        return reward;
+        const reward = res.reward;
+        if (reward?.coins) setTimeout(() => flyToHud('coin', world.toScreen(headPosition()), Math.min(reward.coins, 6)), 200);
+        if (reward?.xp) flyToHud('xp', world.toScreen(headPosition()), Math.min(Math.ceil(reward.xp / 3), 5));
+        return onResult?.(res);
       },
+      onError: (err) => showToast(friendlyError(err), { type: 'warn', icon: '⚠️' }),
       onClose: () => {
         mascot.setMood(null);
         world.setPanelFocus(false);
@@ -119,30 +139,55 @@ export function createExplore({ world, island, mascot, sun, fx, onRankUp }) {
     return headTmp.set(player.x, player.y + 2.6, player.z);
   }
 
-  function askRunQuestion() {
+  /** Xin câu hỏi từ bộ xử lý; trong lúc chờ không kích hoạt thêm. */
+  async function request(fn) {
+    if (requesting) return null;
+    requesting = true;
+    try {
+      return await fn();
+    } catch (err) {
+      if (!String(err?.message).includes('not_enough_distance')) {
+        showToast(friendlyError(err), { type: 'warn', icon: '⚠️' });
+      }
+      return null;
+    } finally {
+      requesting = false;
+    }
+  }
+
+  async function askRunQuestion() {
+    const question = await request(async () => {
+      await flushDistance();
+      return askQuestion('run');
+    });
+    if (!question?.ticketId) return;
     ask({
       title: '❓ Câu hỏi dọc đường',
       intro: `Bạn đã chạy thêm ${EXPLORE.QUESTION_EVERY_M} m! Trả lời nhanh để nhận thưởng nhé.`,
-      question: pickQuestion(),
-      onAnswer: (correct) => {
-        const reward = completeRunQuestion(correct);
-        if (reward.rankUp) onRankUp(reward);
-        return reward;
+      question,
+      onResult: (res) => {
+        if (res.reward?.rankUp) onRankUp(res.reward);
       },
     });
   }
 
-  function askStation(station) {
+  async function askStation(station) {
     const value = VALUES.find((v) => v.id === station.id);
+    const question = await request(() => askQuestion('station', station.id));
+    if (!question) return;
+    if (question.done) {
+      island.setStationDone(station.id, true);
+      return;
+    }
     ask({
       title: `🏛️ Vùng Đất ${station.name}`,
       intro: `“${value.motto}” — trả lời đúng để chinh phục Vùng Đất này!`,
       accent: station.color,
-      question: pickQuestion({ value: station.id }),
-      onAnswer: (correct) => {
-        const reward = completeStation(station.id, correct);
+      question,
+      onResult: (res) => {
         island.setStationDone(station.id, true);
-        if (!reward) return { xp: 0, coins: 0, rewarded: false };
+        const reward = res.reward;
+        if (!reward) return '';
         let extra = '';
         if (reward.allStations) {
           extra = `🏅 Nhà thám hiểm! Ghé đủ 5 Vùng Đất hôm nay: +${reward.allStations.xp} XP, +${reward.allStations.coins} Xu`;
@@ -154,7 +199,7 @@ export function createExplore({ world, island, mascot, sun, fx, onRankUp }) {
         }
         const rankUp = reward.rankUp ?? reward.allStations?.rankUp;
         if (rankUp) onRankUp({ rankUp });
-        return { ...reward, extra };
+        return extra;
       },
     });
   }
@@ -164,8 +209,14 @@ export function createExplore({ world, island, mascot, sun, fx, onRankUp }) {
    * cột sáng, vòng sóng lan toả, pháo hoa 5 màu, tia sáng xoáy quanh Kỳ lân, chữ thưởng bay lên,
    * xu / sao bay vào ví.
    */
-  function handleGift(giftPos) {
-    const result = openGift();
+  async function handleGift(giftPos) {
+    let result;
+    try {
+      result = await openGift();
+    } catch (err) {
+      showToast(friendlyError(err), { type: 'warn', icon: '⚠️' });
+      return;
+    }
     if (!result) return;
     movement.faceCamera();
     mascot.emote('cheer');
@@ -178,6 +229,7 @@ export function createExplore({ world, island, mascot, sun, fx, onRankUp }) {
       coins: `+${result.amount} Xu`,
       xp: `+${result.amount} XP`,
       item: `🎁 ${result.item?.name}`,
+      voucher: '🎟️ Phiếu quà!',
     }[result.kind];
     setTimeout(() => fx.floatText(headPosition().clone().setY(player.y + 2.0), label, result.kind === 'xp' ? '#1750B5' : '#9A0036'), 250);
 
@@ -190,6 +242,9 @@ export function createExplore({ world, island, mascot, sun, fx, onRankUp }) {
     } else if (result.kind === 'xp') {
       setTimeout(() => flyToHud('xp', world.toScreen(headPosition()), 6), 500);
       showToast(`Hộp quà bất ngờ: +${result.amount} XP · còn ${left} hộp hôm nay`, { type: 'success', icon: '🎁' });
+    } else if (result.kind === 'voucher') {
+      say('Trúng PHIẾU QUÀ hiện vật! Chờ Ban Giám hiệu duyệt rồi nhận quà nhé! 🎟️');
+      showToast('Bạn trúng Phiếu quà may mắn — xem trong mục Hạng › Phiếu quà', { type: 'success', icon: '🎟️' });
     } else {
       say(`Quà hiếm: ${result.item.name}! Mở Tủ đồ để mặc thử nhé! 👕`);
       showToast(`Quà hiếm: ${result.item.name} đã vào Tủ đồ! · còn ${left} hộp hôm nay`, { type: 'success', icon: '🎁' });
@@ -207,16 +262,14 @@ export function createExplore({ world, island, mascot, sun, fx, onRankUp }) {
     sun.position.set(player.x + SUN_OFFSET.x, player.y + SUN_OFFSET.y, player.z + SUN_OFFSET.z);
     sun.target.position.copy(player);
 
+    moving = moved > 0.001;
     if (moved > 0) {
       unsavedDistance += moved;
       sinceQuestion += moved;
-      if (unsavedDistance >= SAVE_DISTANCE_EVERY_M) {
-        addDistance(unsavedDistance);
-        unsavedDistance = 0;
-      }
+      if (unsavedDistance >= SAVE_DISTANCE_EVERY_M && !flushing) flushDistance();
     }
 
-    if (!busy) {
+    if (!busy && !requesting) {
       if (sinceQuestion >= EXPLORE.QUESTION_EVERY_M) {
         sinceQuestion = 0;
         askRunQuestion();
@@ -228,7 +281,7 @@ export function createExplore({ world, island, mascot, sun, fx, onRankUp }) {
     pickups.update(delta, elapsed, player, !busy);
 
     const hud = {
-      distance: Math.floor(getState().stats.distance + unsavedDistance),
+      distance: Math.floor(Number(getState().stats.distance) + unsavedDistance),
       toNextQuestion: Math.ceil(EXPLORE.QUESTION_EVERY_M - sinceQuestion),
       stationsDone: stationsDoneCount(),
       stationsTotal: VALUES.length,
@@ -259,5 +312,6 @@ export function createExplore({ world, island, mascot, sun, fx, onRankUp }) {
   if (coinPickupsLeft() <= 0) coinLimitNotified = true;
   // Chỉ khi chạy `npm run dev`: hỗ trợ kiểm thử tự động (không có trong bản build).
   if (import.meta.env.DEV) window.__klt = { player, island, pickups, world, fx, teleport: movement.teleport };
-  return { update };
+  window.addEventListener('pagehide', () => flushDistance());
+  return { update, isMoving: () => moving };
 }

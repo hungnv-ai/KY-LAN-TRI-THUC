@@ -20,6 +20,8 @@ const els = {
   stations: document.getElementById('stations-value'),
   homeBtn: document.getElementById('home-btn'),
   soundBtn: document.getElementById('sound-btn'),
+  onlinePill: document.getElementById('online-pill'),
+  onlineValue: document.getElementById('online-value'),
   progress: document.getElementById('loading-progress'),
 };
 
@@ -102,4 +104,16 @@ export function setupSoundButton(muted, onChange) {
     render();
     onChange(current);
   });
+}
+
+/**
+ * Số người đang ở cùng đảo.
+ *
+ * @param {number} count tính cả mình
+ * @param {string} [room]
+ */
+export function renderOnline(count, room) {
+  els.onlinePill.hidden = false;
+  els.onlineValue.textContent = String(count);
+  els.onlinePill.title = `${count} người đang ở ${room ? room.replace('island-', 'Đảo ') : 'đảo'}`;
 }
