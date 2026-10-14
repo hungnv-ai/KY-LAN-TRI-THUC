@@ -16,13 +16,14 @@ import {
 } from './game/progress.js';
 import { isGoldenHour } from './game/time.js';
 import { createFx } from './scene/fx.js';
+import { createQualityManager } from './scene/quality.js';
 import { setupIsland } from './scene/island.js';
 import { setupLights } from './scene/lights.js';
 import { createMascot } from './scene/mascot.js';
 import { createWardrobe } from './scene/outfits.js';
 import { createWorld } from './scene/world.js';
 import { say, setSpeechAnchor } from './ui/feedback.js';
-import { hideLoading, renderHud, setupSoundButton } from './ui/hud.js';
+import { hideLoading, renderHud, setupSoundButton, showAdminLink } from './ui/hud.js';
 
 /**
  * Entry: lắp ráp các module và chạy vòng lặp duy nhất. Logic chi tiết nằm trong từng module.
@@ -36,6 +37,7 @@ const fx = createFx(world.scene);
 const mascot = createMascot();
 world.scene.add(mascot.object);
 const wardrobe = createWardrobe(mascot);
+const quality = createQualityManager(world.renderer, world.scene);
 
 /** Các hệ thống chỉ chạy sau khi đã đăng nhập & nạp tiến trình. */
 let explore = null;
@@ -51,6 +53,7 @@ world.renderer.setAnimationLoop((timestamp) => {
   const delta = Math.min(timer.getDelta(), 0.1); // tránh "nhảy cóc" sau khi tab bị treo
   const elapsed = timer.getElapsed();
 
+  quality.update(delta);
   explore?.update(delta, elapsed);
   social?.update(delta, elapsed);
   mascot.update(delta, elapsed);
@@ -76,6 +79,11 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('.nav-btn, .btn, .tab, .item-card, .icon-btn, .pill-btn, .rank-card')) sfx.click();
 });
 
+// Cài game như ứng dụng + mở lại nhanh hơn (chỉ ở bản chạy thật).
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}
+
 hideLoading();
 boot().catch((err) => {
   console.error('[main] Khởi động thất bại:', err);
@@ -85,6 +93,7 @@ boot().catch((err) => {
 async function boot() {
   const session = await startSession();
   wardrobe.equipAll(getState().equipped);
+  if (['teacher', 'bgh', 'admin'].includes(getState().profile.role)) showAdminLink();
 
   // HUD
   const refreshHud = () => {

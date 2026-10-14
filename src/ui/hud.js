@@ -22,6 +22,7 @@ const els = {
   soundBtn: document.getElementById('sound-btn'),
   onlinePill: document.getElementById('online-pill'),
   onlineValue: document.getElementById('online-value'),
+  adminLink: document.getElementById('admin-link'),
   progress: document.getElementById('loading-progress'),
 };
 
@@ -116,4 +117,9 @@ export function renderOnline(count, room) {
   els.onlinePill.hidden = false;
   els.onlineValue.textContent = String(count);
   els.onlinePill.title = `${count} người đang ở ${room ? room.replace('island-', 'Đảo ') : 'đảo'}`;
+}
+
+/** Hiện nút vào trang quản trị (giáo viên / BGH / quản trị). */
+export function showAdminLink() {
+  els.adminLink.hidden = false;
 }

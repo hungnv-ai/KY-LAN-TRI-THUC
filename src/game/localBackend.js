@@ -375,7 +375,9 @@ export function createLocalBackend() {
       const mine = state.rewardLog.filter((e) => e.t >= since).reduce((s, e) => s + e.xp, 0);
       return {
         myHouse: state.profile.house,
-        standings: HOUSES.map((h) => ({ house: h, points: h === state.profile.house ? mine : 0, members: h === state.profile.house ? 1 : 0 })),
+        standings: HOUSES.map((h) => ({ house: h, points: h === state.profile.house ? mine : 0, members: h === state.profile.house ? 1 : 0 })).sort(
+          (a, b) => b.points - a.points,
+        ),
         cups: [],
         offline: true,
       };
