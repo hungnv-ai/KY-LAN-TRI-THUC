@@ -5,6 +5,8 @@ import { setupIsland } from './scene/island.js';
 import { createExplore } from './features/explore.js';
 import { createMascot } from './scene/mascot.js';
 import { createWardrobe } from './scene/outfits.js';
+import { createFx } from './scene/fx.js';
+import { initAudio, isMuted, setMuted, sfx } from './audio/sfx.js';
 import { RANKS, getRankInfo } from './data/ranks.js';
 import { MASCOT_LINES } from './data/lines.js';
 import {
@@ -22,7 +24,8 @@ import {
 } from './game/progress.js';
 import { createQuizRound } from './game/quiz.js';
 import { isGoldenHour } from './game/time.js';
-import { renderHud, onRankCardClick, hideLoading } from './ui/hud.js';
+import { renderHud, onRankCardClick, hideLoading, setupSoundButton } from './ui/hud.js';
+import { flyToHud } from './ui/flyFx.js';
 import { showToast, confirmDialog, celebrateDialog, say, setSpeechAnchor } from './ui/feedback.js';
 import { openQuiz } from './ui/quizView.js';
 import { openWardrobe } from './ui/wardrobeView.js';
@@ -37,6 +40,7 @@ import { formatNumber } from './ui/dom.js';
 const world = createWorld(document.getElementById('canvas-container'));
 const { sun } = setupLights(world.scene, world.renderer);
 const island = setupIsland(world.scene);
+const fx = createFx(world.scene);
 
 const mascot = createMascot();
 world.scene.add(mascot.object);
@@ -61,6 +65,14 @@ onProgressChange(refreshHud);
 refreshHud();
 setInterval(refreshHud, 60_000); // cập nhật Giờ Vàng
 
+// ── Âm thanh ────────────────────────────────────────────────────────────
+initAudio();
+setupSoundButton(isMuted(), setMuted);
+// Tiếng "tách" nhẹ khi bấm các nút giao diện (câu trả lời quiz có âm thanh riêng).
+document.addEventListener('click', (e) => {
+  if (e.target.closest('.nav-btn, .btn, .tab, .item-card, .icon-btn, .pill-btn, .rank-card')) sfx.click();
+});
+
 // ── Tương tác ───────────────────────────────────────────────────────────
 /** Cảm xúc ngẫu nhiên khi chạm vào Kỳ lân. */
 const TAP_EMOTES = ['wave', 'happy', 'cool', 'think', 'cheer'];
@@ -74,7 +86,33 @@ function pick(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-/** Hiển thị thưởng chung (toast + ăn mừng + lên hạng). */
+/** Toạ độ màn hình phía trên đầu Kỳ lân (điểm xuất phát của xu / sao bay vào ví). */
+const headScreenTmp = new THREE.Vector3();
+function headScreen() {
+  mascot.headWorldPosition(headScreenTmp);
+  headScreenTmp.y += 0.6;
+  return world.toScreen(headScreenTmp);
+}
+
+/** Xu & sao bay từ Kỳ lân vào ví. */
+function flyReward(reward) {
+  if (reward.coins) {
+    flyToHud('coin', headScreen(), Math.min(reward.coins, 10));
+    sfx.coins(reward.coins);
+  }
+  if (reward.xp) flyToHud('xp', headScreen(), Math.min(Math.ceil(reward.xp / 4), 6));
+}
+
+/** Hiệu ứng ăn mừng lớn quanh Kỳ lân. */
+function celebrateMascot(color) {
+  mascot.emote('cheer');
+  fx.celebrate(mascot.object, { color });
+}
+
+/** Lên hạng: hiệu ứng trước, hộp thoại chúc mừng hiện sau để không che khoảnh khắc ăn mừng. */
+const RANK_UP_DIALOG_DELAY_MS = 1800;
+
+/** Hiển thị thưởng chung (toast + xu bay vào ví + lên hạng). */
 async function announceReward(reward, label) {
   if (reward.xp || reward.coins) {
     const golden = reward.golden ? ' ⏰x2' : '';
@@ -82,10 +120,13 @@ async function announceReward(reward, label) {
       type: 'success',
       icon: '🎁',
     });
+    flyReward(reward);
   }
   if (reward.rankUp) {
     const { to, items } = reward.rankUp;
-    mascot.emote('cheer');
+    sfx.rankUp();
+    celebrateMascot(to.color);
+    await new Promise((resolve) => setTimeout(resolve, RANK_UP_DIALOG_DELAY_MS));
     const gift = items.length ? ` Bạn nhận được: ${items.map((i) => i.name).join(', ')} — xem trong Tủ đồ!` : '';
     await celebrateDialog({
       icon: to.icon,
@@ -101,6 +142,7 @@ const explore = createExplore({
   island,
   mascot,
   sun,
+  fx,
   onRankUp: (reward) => announceReward({ ...reward, xp: 0, coins: 0 }, ''),
 });
 
@@ -112,7 +154,8 @@ const actions = {
       mascot.emote('wave');
       return;
     }
-    mascot.emote('cheer');
+    sfx.cheer();
+    celebrateMascot('#C49C57');
     say(`Điểm danh thành công! Chuỗi ${result.streak} ngày 🔥 — Trách nhiệm là giữ lời hứa với chính mình!`);
     await announceReward(result, 'Điểm danh');
   },
@@ -121,15 +164,27 @@ const actions = {
     openQuiz({
       rewardedLeft: rewardedRoundsLeft,
       createRound: () => createQuizRound(),
-      onAnswer: (correct) => mascot.emote(correct ? 'happy' : 'oops'),
+      onAnswer: (correct) => {
+        mascot.emote(correct ? 'happy' : 'oops');
+        if (correct) {
+          sfx.correct();
+          mascot.headWorldPosition(headScreenTmp);
+          fx.burst(headScreenTmp.clone().setY(headScreenTmp.y + 1), { count: 24, speed: 2.5, up: 3, life: 0.9 });
+        } else {
+          sfx.wrong();
+        }
+      },
       onComplete: (result) => {
         const reward = completeQuizRound(result);
         const ratio = result.correct / result.total;
+        if (reward.rewarded) setTimeout(() => flyReward(reward), 300);
         if (result.timedOut) {
+          sfx.faint();
           mascot.emote('faint');
           say('Hết giờ rồi… xỉu mất! Lần sau mình nhanh tay hơn nhé! 😵');
         } else if (reward.perfect) {
-          mascot.emote('cheer');
+          sfx.cheer();
+          celebrateMascot('#9A0036');
           say('Đúng hết luôn! Bạn đúng là Kỳ lân Tri Thức! 🏆');
         } else if (ratio < 0.4) {
           mascot.emote('cry');
@@ -170,6 +225,7 @@ const actions = {
           });
           wardrobe.equip(item.id); // cho mặc thử
           mascot.emote('cry');
+          sfx.wrong();
           setTimeout(() => wardrobe.equip(getState().equipped[item.slot]), 2500);
           return;
         }
@@ -187,8 +243,13 @@ const actions = {
           }
           showToast(`Đã mua "${item.name}"!`, { type: 'success', icon: '🛍️' });
           mascot.emote('cool');
+          sfx.gift();
+          fx.ring(mascot.object.position, '#FFD86B');
+          fx.aura(mascot.object, { duration: 1.2 });
         } else {
           mascot.emote('happy');
+          sfx.pop();
+          fx.aura(mascot.object, { duration: 0.6 });
         }
         equipItem(item.id);
         wardrobe.equip(item.id);
@@ -222,6 +283,7 @@ world.renderer.setAnimationLoop((timestamp) => {
 
   explore.update(delta, elapsed);
   mascot.update(delta, elapsed);
+  fx.update(delta);
   wardrobe.update(delta, elapsed);
   island.update(delta, elapsed);
   world.controls.update();

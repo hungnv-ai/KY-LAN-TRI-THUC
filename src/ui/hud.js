@@ -19,6 +19,7 @@ const els = {
   nextQuestion: document.getElementById('next-question'),
   stations: document.getElementById('stations-value'),
   homeBtn: document.getElementById('home-btn'),
+  soundBtn: document.getElementById('sound-btn'),
   progress: document.getElementById('loading-progress'),
 };
 
@@ -80,4 +81,25 @@ export function renderExploreHud({ distance, toNextQuestion, stationsDone, stati
 /** @param {() => void} handler */
 export function onHomeClick(handler) {
   els.homeBtn.addEventListener('click', handler);
+}
+
+/**
+ * Nút bật/tắt âm thanh.
+ *
+ * @param {boolean} muted trạng thái ban đầu
+ * @param {(muted: boolean) => void} onChange
+ */
+export function setupSoundButton(muted, onChange) {
+  let current = muted;
+  const render = () => {
+    els.soundBtn.textContent = current ? '🔇' : '🔊';
+    els.soundBtn.setAttribute('aria-label', current ? 'Bật âm thanh' : 'Tắt âm thanh');
+    els.soundBtn.title = current ? 'Bật âm thanh' : 'Tắt âm thanh';
+  };
+  render();
+  els.soundBtn.addEventListener('click', () => {
+    current = !current;
+    render();
+    onChange(current);
+  });
 }

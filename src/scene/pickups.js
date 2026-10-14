@@ -11,10 +11,10 @@ const GIFT_PICK_RADIUS = 1.3;
  *
  * @param {THREE.Scene} scene
  * @param {{ randomOpenPoint: () => THREE.Vector3 }} island
- * @param {{ onCoin: () => boolean, onGift: () => void, canSpawnGift: () => boolean }} handlers
+ * @param {{ onCoin: (pos: THREE.Vector3) => boolean, onGift: (pos: THREE.Vector3) => void, canSpawnGift: () => boolean }} handlers
  *   `onCoin` trả về false nếu đã hết lượt nhặt xu hôm nay (xu vẫn biến mất cho vui mắt).
  * @returns {{ update: (delta: number, elapsed: number, player: THREE.Vector3, canCollect: boolean) => void,
- *   giftPosition: () => THREE.Vector3 | null }}
+ *   giftPosition: () => THREE.Vector3 | null, coinPositions: () => THREE.Vector3[] }}
  */
 export function createPickups(scene, island, handlers) {
   const coinGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.07, 24);
@@ -61,7 +61,7 @@ export function createPickups(scene, island, handlers) {
       if (canCollect && distXZ(c.mesh.position, player) < COIN_PICK_RADIUS) {
         c.mesh.visible = false;
         c.respawnIn = EXPLORE.COIN_RESPAWN_SEC;
-        handlers.onCoin();
+        handlers.onCoin(c.mesh.position);
       }
     }
 
@@ -71,7 +71,7 @@ export function createPickups(scene, island, handlers) {
       if (canCollect && distXZ(gift.position, player) < GIFT_PICK_RADIUS) {
         gift.visible = false;
         giftTimer = EXPLORE.GIFT_INTERVAL_SEC;
-        handlers.onGift();
+        handlers.onGift(gift.position);
       }
     } else {
       giftTimer -= delta;
@@ -90,6 +90,7 @@ export function createPickups(scene, island, handlers) {
   return {
     update,
     giftPosition: () => (gift.visible ? gift.position : null),
+    coinPositions: () => coins.filter((c) => c.mesh.visible).map((c) => c.mesh.position),
   };
 }
 

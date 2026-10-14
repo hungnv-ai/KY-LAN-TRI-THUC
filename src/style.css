@@ -274,6 +274,18 @@ button {
   pointer-events: none;
 }
 
+/* Icon xu / sao bay vào ví (ui/flyFx.js). */
+.fly-icon {
+  position: fixed;
+  left: -14px;
+  top: -14px;
+  z-index: 40;
+  font-size: 28px;
+  line-height: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+}
+
 /* ── Bong bóng lời thoại ─────────────────────────────────────────────── */
 .speech {
   position: fixed;
