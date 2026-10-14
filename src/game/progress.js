@@ -97,8 +97,23 @@ export async function refreshState() {
 
 // ── Đọc nhanh từ bản sao ─────────────────────────────────────────────────
 
+/**
+ * Bộ đếm hôm nay. Trực tuyến: máy chủ luôn trả về đúng "hôm nay" theo giờ Việt Nam →
+ * tin máy chủ (máy người chơi có thể để sai múi giờ). Ngoại tuyến: so với ngày của máy.
+ */
 function today() {
+  if (backend?.mode === 'remote') return state.daily;
   return state.daily.day === dayKey() ? state.daily : null;
+}
+
+/** Ngày tham chiếu "hôm nay" và "hôm qua" dạng YYYY-MM-DD. */
+function referenceDays() {
+  if (backend?.mode === 'remote' && state.daily?.day) {
+    const d = new Date(`${state.daily.day}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 1);
+    return { today: state.daily.day, yesterday: d.toISOString().slice(0, 10) };
+  }
+  return { today: dayKey(), yesterday: yesterdayKey() };
 }
 
 /** @returns {boolean} */
@@ -109,7 +124,8 @@ export function hasCheckedInToday() {
 /** @returns {number} chuỗi ngày còn hiệu lực (đứt nếu bỏ lỡ hơn 1 ngày) */
 export function getActiveStreak() {
   const { count, lastDay } = state.streak;
-  return lastDay === dayKey() || lastDay === yesterdayKey() ? count : 0;
+  const ref = referenceDays();
+  return lastDay === ref.today || lastDay === ref.yesterday ? count : 0;
 }
 
 /** @returns {number} */
