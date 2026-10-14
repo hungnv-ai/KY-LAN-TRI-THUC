@@ -1,0 +1,181 @@
+/* Thành phần dùng chung giữa game và trang quản trị: nút, hộp thoại, toast. */
+
+/* ── Nút chung ───────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: 14px;
+  background: var(--tri-thuc);
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2);
+  transition: transform 0.1s, filter 0.15s;
+}
+
+.btn:hover {
+  filter: brightness(1.08);
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: var(--cream);
+  color: var(--ink);
+}
+
+.btn-block {
+  width: 100%;
+}
+
+/* ── Hộp thoại ────────────────────────────────────────────────────────── */
+.dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.dialog-card {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  width: min(380px, 100%);
+  padding: 24px 20px 20px;
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  text-align: center;
+  animation: pop-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.3);
+}
+
+.dialog-title {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.dialog-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.dialog-actions.single {
+  grid-template-columns: 1fr;
+}
+
+.celebrate .dialog-card {
+  background: linear-gradient(180deg, #fff8e6, #fff);
+  border: 3px solid var(--trach-nhiem);
+}
+
+@keyframes pop-in {
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+}
+
+/* ── Toast (góc phải theo chuẩn UX VA) ───────────────────────────────── */
+.toasts {
+  position: fixed;
+  top: 84px;
+  right: 12px;
+  z-index: 30;
+  display: grid;
+  gap: 8px;
+  width: min(320px, calc(100% - 24px));
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--ink);
+  color: #fff;
+  box-shadow: var(--shadow);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  animation: toast-in 0.25s ease-out;
+}
+
+.toast.success {
+  background: var(--success);
+}
+
+.toast.warn {
+  background: var(--ban-linh);
+}
+
+.toast.leaving {
+  opacity: 0;
+  transform: translateX(20px);
+  transition: all 0.25s;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+}
+
+
+.muted {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.big-emoji {
+  font-size: 56px;
+  line-height: 1;
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--cream);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(46, 32, 23, 0.35);
+  animation: fade 0.2s ease-out;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes bump {
+  50% {
+    transform: scale(1.3);
+  }
+}
