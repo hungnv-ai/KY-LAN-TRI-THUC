@@ -65,7 +65,7 @@ không gacha; giới hạn thời gian chơi cho học sinh.
 
 ## Lộ trình
 
-1. **GĐ1 – Bản chơi thử:** Kỳ lân 3D đúng mascot, tủ đồ, quiz, Xu/XP/hạng (lưu tạm trên máy), deploy Vercel.
+1. ✅ **GĐ1 – Bản chơi thử** (đang review): Kỳ lân 3D đúng mascot, tủ đồ, quiz, Xu/XP/hạng (lưu tạm trên máy), deploy Vercel.
 2. **GĐ2:** Đăng nhập Google + Supabase, BXH, nhiệm vụ ngày, chuỗi ngày.
 3. **GĐ3:** 5 Nhà, Cúp, công cụ soạn câu hỏi cho GV, dashboard thống kê.
 4. **GĐ4:** Tên miền riêng, tối ưu tốc độ, model 3D chất lượng cao.

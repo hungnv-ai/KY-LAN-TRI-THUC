@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 /**
  * Thêm hệ thống ánh sáng vào scene:
@@ -6,10 +7,18 @@ import * as THREE from 'three';
  * - AmbientLight: nâng sáng nhẹ các vùng tối.
  * - DirectionalLight: "mặt trời" chính, có đổ bóng.
  *
+ * Kèm environment map (RoomEnvironment) để vật liệu kim loại như sừng vàng, giày bạc có phản chiếu.
+ *
  * @param {THREE.Scene} scene
+ * @param {THREE.WebGLRenderer} renderer
  * @returns {{ hemi: THREE.HemisphereLight, ambient: THREE.AmbientLight, sun: THREE.DirectionalLight }}
  */
-export function setupLights(scene) {
+export function setupLights(scene, renderer) {
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environmentIntensity = 0.35;
+  pmrem.dispose();
+
   const hemi = new THREE.HemisphereLight(0xdff1ff, 0xffe2c2, 0.8);
   scene.add(hemi);
 

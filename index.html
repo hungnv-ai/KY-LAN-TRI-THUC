@@ -2,26 +2,84 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Kỳ Lân Tri Thức</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#9A0036" />
+    <meta name="description" content="Kỳ Lân Tri Thức – game học tập theo 5 giá trị cốt lõi của VA Schools." />
+    <title>Kỳ Lân Tri Thức – VA Schools</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap"
+    />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <!-- Three.js sẽ gắn <canvas> vào đây -->
-    <div id="canvas-container"></div>
+    <!-- Three.js gắn <canvas> vào đây -->
+    <div id="canvas-container" aria-hidden="true"></div>
 
-    <!-- HUD: lớp giao diện nằm trên canvas -->
-    <div id="hud">
-      <div class="hud-panel" id="coins-panel" aria-live="polite">
-        <span class="hud-icon" aria-hidden="true">🪙</span>
-        <span class="hud-label">Coins:</span>
-        <span id="coins-value">0</span>
+    <!-- HUD: hạng, XP, Xu, chuỗi ngày -->
+    <header id="hud" class="hud">
+      <button id="rank-card" class="rank-card" type="button" aria-label="Xem bảng hạng">
+        <span id="rank-icon" class="rank-icon" aria-hidden="true">🐣</span>
+        <span class="rank-info">
+          <span id="rank-label" class="rank-label">Tập Sự</span>
+          <span class="xp-bar" role="progressbar" aria-label="Tiến độ lên hạng" aria-valuemin="0" aria-valuemax="100">
+            <span id="xp-fill" class="xp-fill"></span>
+          </span>
+          <span id="xp-text" class="xp-text">0 XP</span>
+        </span>
+      </button>
+      <div class="pills">
+        <span id="golden-pill" class="pill pill-golden" hidden>⏰ Giờ Vàng x2</span>
+        <span class="pill" title="Chuỗi ngày điểm danh"><span aria-hidden="true">🔥</span><span id="streak-value">0</span></span>
+        <span class="pill pill-coins" title="Xu"><span aria-hidden="true">🪙</span><span id="coins-value">0</span></span>
       </div>
+    </header>
+
+    <!-- Bong bóng lời thoại của Kỳ lân -->
+    <div id="speech" class="speech" role="status" aria-live="polite" hidden></div>
+
+    <!-- Thanh điều hướng dưới -->
+    <nav class="nav" aria-label="Hoạt động">
+      <button class="nav-btn" type="button" data-action="checkin" style="--accent: var(--trach-nhiem)">
+        <span class="nav-icon" aria-hidden="true">📅</span>
+        <span class="nav-label">Điểm danh</span>
+        <span id="checkin-dot" class="nav-dot" hidden></span>
+      </button>
+      <button class="nav-btn nav-btn-main" type="button" data-action="quiz" style="--accent: var(--tri-thuc)">
+        <span class="nav-icon" aria-hidden="true">🧠</span>
+        <span class="nav-label">Tri Thức</span>
+      </button>
+      <button class="nav-btn" type="button" data-action="wardrobe" style="--accent: var(--nhan-ai)">
+        <span class="nav-icon" aria-hidden="true">👕</span>
+        <span class="nav-label">Tủ đồ</span>
+      </button>
+      <button class="nav-btn" type="button" data-action="ranks" style="--accent: var(--khai-phong)">
+        <span class="nav-icon" aria-hidden="true">🏆</span>
+        <span class="nav-label">Hạng</span>
+      </button>
+    </nav>
+
+    <!-- Bảng trượt (quiz, tủ đồ, hạng) -->
+    <div id="sheet" class="sheet" hidden>
+      <div class="sheet-backdrop" data-close></div>
+      <section class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+        <header class="sheet-header">
+          <h2 id="sheet-title" class="sheet-title"></h2>
+          <button class="icon-btn" type="button" data-close aria-label="Đóng">✕</button>
+        </header>
+        <div id="sheet-body" class="sheet-body"></div>
+      </section>
     </div>
 
-    <!-- Màn hình loading, ẩn khi tài nguyên đã sẵn sàng -->
-    <div id="loading-screen">
-      <p>Đang tải Kỳ lân… <span id="loading-progress">0%</span></p>
+    <div id="dialog-root"></div>
+    <div id="toasts" class="toasts" aria-live="polite"></div>
+
+    <!-- Màn hình loading -->
+    <div id="loading-screen" class="loading">
+      <div class="loading-logo" aria-hidden="true">VA</div>
+      <p>Kỳ lân đang thức dậy… <span id="loading-progress"></span></p>
     </div>
 
     <script type="module" src="/src/main.js"></script>
