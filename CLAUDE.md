@@ -27,56 +27,78 @@ npm run preview   # xem bản build
 
 ```
 docs/GAME_DESIGN.md   # thiết kế game đã chốt — nguồn sự thật cho tính năng
-index.html            # #canvas-container (Three.js) + #hud (Coins) + #loading-screen
-vite.config.js
-public/models/        # file .glb, phục vụ tại /models/...
-  unicorn/unicorn.glb
-  accessories/*.glb
+docs/mascot-reference/ # ẢNH MẪU mascot chuẩn + bảng sticker → cảm xúc — đối chiếu khi chỉnh hình 3D
+index.html            # canvas + HUD + thanh điều hướng + bảng trượt + toast + loading
 src/
-  main.js             # entry: Scene, Camera, Renderer, OrbitControls, animation loop, resize
-  lights.js           # setupLights(scene): Hemisphere + Ambient + Directional (shadow)
-  loader.js           # GLTFLoader, cache, loadUnicorn(), loadAccessory(), equipAccessory()
-  hud.js              # mọi thao tác DOM của HUD (coins, loading)
-  style.css
+  main.js             # entry: lắp ráp module + animation loop duy nhất
+  config.js           # hằng số cân bằng game (điểm thưởng, Giờ Vàng, giới hạn ngày), màu 5 giá trị
+  style.css           # giao diện (màu & font Be Vietnam Pro theo Design System VA)
+  data/               # dữ liệu tĩnh, không logic
+    ranks.js          # 7 hạng + getRankInfo(xp)
+    items.js          # danh mục trang phục, slot, độ hiếm
+    questions.js      # ngân hàng câu hỏi (a[0] luôn là đáp án đúng)
+    lines.js          # câu thoại của Kỳ lân
+  game/               # logic thuần, KHÔNG đụng DOM/Three.js
+    progress.js       # XP, Xu, hạng, tủ đồ, điểm danh, chuỗi ngày, lưu trữ
+    quiz.js           # tạo lượt quiz, xáo đáp án
+    storage.js        # localStorage an toàn (GĐ2 thay bằng Supabase)
+    time.js           # ngày, Giờ Vàng
+  scene/              # Three.js
+    world.js          # renderer, camera, OrbitControls, chạm vào object
+    lights.js         # ánh sáng + environment map
+    stage.js          # nền trời, bục 5 màu, 5 cột Vùng Đất
+    mascot.js         # Kỳ lân VA: lắp ráp thân/đầu, nét mặt, tư thế, emote(), setMood()
+    mascotParts.js    # dựng chi tiết: bờm lửa cánh hoa, sừng, mắt/miệng nhiều kiểu, tay, huy hiệu
+    emotes.js         # bộ cảm xúc theo sticker (wave, happy, cheer, oops, think, cry, faint, cool, bored)
+    outfits.js        # dựng & gắn trang phục 3D theo item.model
+    loader.js         # tải .glb (để dành cho model 3D thật ở GĐ4)
+  ui/                 # DOM
+    dom.js            # h() tạo phần tử, formatNumber
+    hud.js            # thanh hạng/XP/Xu/chuỗi + loading
+    feedback.js       # toast, hộp thoại xác nhận/chúc mừng, bong bóng thoại
+    sheet.js          # bảng trượt dùng chung
+    quizView.js / wardrobeView.js / ranksView.js
 ```
 
 ## Quy tắc viết code mô-đun hoá
 
 1. **Một module = một trách nhiệm.** Không nhồi logic mới vào `main.js`. `main.js` chỉ
-   lắp ráp (wiring) các module và chạy vòng lặp. Tính năng mới → file mới trong `src/`
-   (ví dụ `src/wardrobe.js`, `src/quiz.js`); khi một nhóm lớn lên thì gom vào thư mục con
-   (`src/ui/`, `src/systems/`, `src/entities/`).
+   lắp ráp (wiring) các module và chạy vòng lặp. Tính năng mới → file mới đúng thư mục
+   (`data/` dữ liệu, `game/` logic, `scene/` 3D, `ui/` giao diện).
 2. **Chỉ dùng named export.** Không `export default`. Module xuất hàm `setupX(scene)` /
    `createX()` trả về object cần thiết; không dựa vào biến toàn cục hay `window.*`.
-3. **Không side-effect khi import**, trừ việc lấy tham chiếu DOM cố định trong `hud.js`.
+3. **Không side-effect khi import**, trừ việc lấy tham chiếu DOM cố định trong `ui/*`.
    Khởi tạo phải được gọi tường minh từ `main.js`.
-4. **Ranh giới DOM:** chỉ các module UI (`hud.js`, sau này `src/ui/*`) được đụng tới DOM.
-   Logic game gọi API của chúng (`addCoins(n)`, `setLoadingProgress(r)`), không tự
-   `document.getElementById`.
-5. **Tải tài nguyên chỉ qua `loader.js`.** Không tạo `GLTFLoader` ở nơi khác. Đường dẫn
-   model khai báo trong `MODEL_PATHS` / `ACCESSORIES`. Thêm phụ kiện = thêm entry
-   `{ path, slot, bone }` vào `ACCESSORIES` + đặt file `.glb` vào `public/models/accessories/`.
-   - Mỗi `slot` (`head`, `feet`, …) chỉ mặc một món; `equipAccessory` tự gỡ món cũ.
-   - `bone` là tên node trong model Kỳ lân để gắn phụ kiện; placeholder dùng tên
-     `Root` và `Head` — model thật cũng phải giữ các tên này.
-   - Khi chưa có file `.glb`, `loadUnicorn()` trả về placeholder — đừng xoá cơ chế này.
-6. **Vòng lặp duy nhất:** chỉ có `renderer.setAnimationLoop` trong `main.js`. Module cần
+4. **Ranh giới DOM:** chỉ các module `ui/*` được đụng tới DOM (dùng `h()` — không chèn
+   `innerHTML` từ dữ liệu). Nơi khác gọi API của chúng (`showToast`, `renderHud`…).
+5. **Kỳ lân & trang phục.** Nhân vật dựng trong `scene/mascot.js` + `mascotParts.js`, giữ đủ nét
+   nhận diện bắt buộc (đầu đỏ, sừng vàng, lông mày vàng xoắn, tay 4 ngón, bờm lửa cánh hoa, áo VA).
+   **Luôn đối chiếu ảnh trong `docs/mascot-reference/`** trước/sau khi chỉnh hình.
+   - Phản ứng của Kỳ lân: gọi `mascot.emote('tên')` (một lần) hoặc `mascot.setMood('tên' | null)`
+     (kéo dài, ví dụ `think` khi đang làm quiz). Thêm cảm xúc mới = thêm entry trong `emotes.js`. Điểm gắn phụ kiện:
+   `HeadTop`, `Face`, `Torso`, `Back`, `FootL/FootR`, `Root` (`mascot.anchors`).
+   - Thêm trang phục = thêm entry vào `data/items.js` (+ builder trong `scene/outfits.js`
+     nếu là `model` mới). Mỗi slot chỉ mặc một món; `createWardrobe().equip` tự gỡ món cũ.
+   - File `.glb` chỉ tải qua `scene/loader.js`; không tạo `GLTFLoader` ở nơi khác.
+6. **Logic game tách khỏi giao diện.** `game/*` không đụng DOM/Three.js; UI gọi API của
+   `game/progress.js`. GĐ2 chuyển tính điểm sang server nhưng giữ nguyên API đó.
+7. **Vòng lặp duy nhất:** chỉ có `renderer.setAnimationLoop` trong `main.js`. Module cần
    cập nhật theo frame thì xuất `update(delta, elapsed)` và được gọi từ hàm `update` của
    `main.js`. Dùng `delta` (giây) cho mọi chuyển động, không giả định FPS cố định.
-7. **Three.js hiện đại (r18x):** import addon từ `three/addons/...`; dùng `THREE.Timer`
+8. **Three.js hiện đại (r18x):** import addon từ `three/addons/...`; dùng `THREE.Timer`
    (không dùng `THREE.Clock` — đã deprecated); dùng `PCFShadowMap` (`PCFSoftShadowMap`
    đã bị gỡ). Mesh mới cần đặt `castShadow`/`receiveShadow` phù hợp.
-8. **Giải phóng bộ nhớ:** khi gỡ object khỏi scene vĩnh viễn, `dispose()` geometry,
-   material, texture không còn dùng. Lưu ý `loadGLB` trả bản clone dùng chung
-   geometry/material với cache — không dispose tài nguyên của model đang được cache.
-9. **Hằng số đặt tên rõ ràng**, gom ở đầu file hoặc `src/config.js` khi dùng ở nhiều nơi.
+9. **Giải phóng bộ nhớ:** khi gỡ object khỏi scene vĩnh viễn, `dispose()` geometry,
+   material, texture không còn dùng (xem `disposeTree` trong `outfits.js`). Lưu ý `loadGLB`
+   trả bản clone dùng chung geometry/material với cache — không dispose tài nguyên đang cache.
+10. **Hằng số đặt tên rõ ràng**, gom ở đầu file hoặc `src/config.js` khi dùng ở nhiều nơi.
    Không "magic number" rải rác.
-10. **Tài liệu & đặt tên:** mỗi hàm export có JSDoc ngắn (mô tả, `@param`, `@returns`).
+11. **Tài liệu & đặt tên:** mỗi hàm export có JSDoc ngắn (mô tả, `@param`, `@returns`).
     Comment và text hiển thị cho người chơi viết bằng **tiếng Việt**; tên biến/hàm bằng
     tiếng Anh: `camelCase` cho hàm/biến, `PascalCase` cho class, `UPPER_SNAKE_CASE`
     cho hằng số.
-11. **Style:** 2 spaces, dấu nháy đơn, có dấu chấm phẩy, trailing comma ở multiline.
-12. **Hiệu năng:** `pixelRatio` tối đa 2; tránh tạo object mới (`new Vector3`, …) trong
+12. **Style:** 2 spaces, dấu nháy đơn, có dấu chấm phẩy, trailing comma ở multiline.
+13. **Hiệu năng:** `pixelRatio` tối đa 2; tránh tạo object mới (`new Vector3`, …) trong
     vòng lặp — tái sử dụng biến tạm ở cấp module.
 
 ## Quy trình cho mỗi phiên làm việc

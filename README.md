@@ -10,11 +10,15 @@ npm install
 npm run dev
 ```
 
-## Thêm model
+Game online: https://ky-lan-tri-thuc.vercel.app (tự cập nhật mỗi khi nhánh `main` thay đổi).
 
-- Kỳ lân: `public/models/unicorn/unicorn.glb` (cần có node `Root` và `Head`).
-  Khi chưa có file, game hiển thị một Kỳ lân placeholder dựng bằng khối cơ bản.
-- Phụ kiện: đặt `.glb` vào `public/models/accessories/` và khai báo trong
-  `ACCESSORIES` ở `src/loader.js`.
+## Tính năng (Giai đoạn 1)
+
+- Kỳ lân VA 3D (dựng bằng code theo Brand Guideline), xoay/zoom, chạm để trò chuyện
+- Điểm danh hằng ngày + chuỗi ngày 🔥
+- Quiz Tri Thức: ~100 câu về 5 giá trị cốt lõi, văn hoá VA, kiến thức chung
+- XP & 7 hạng, Xu & Tủ đồ (áo, nón, kính, giày, ba lô, hiệu ứng), Giờ Vàng x2 XP
+
+Thiết kế đầy đủ: [docs/GAME_DESIGN.md](./docs/GAME_DESIGN.md).
 
 Xem [CLAUDE.md](./CLAUDE.md) để biết quy tắc viết code.
