@@ -82,6 +82,14 @@ không gacha; giới hạn thời gian chơi cho học sinh.
 
 1. ✅ **GĐ1 – Bản chơi thử**: Kỳ lân 3D đúng mascot, tủ đồ, quiz, Xu/XP/hạng (lưu tạm trên máy), deploy Vercel.
 2. ✅ **Khám phá Vùng Đất** (thêm theo yêu cầu): chạy trên đảo, 5 Vùng Đất, câu hỏi theo quãng đường, xu, hộp quà.
-3. **GĐ2:** Đăng nhập Google + Supabase, BXH, nhiệm vụ ngày, Phiếu quà hiện vật.
-4. **GĐ3:** 5 Nhà, Cúp, công cụ soạn câu hỏi cho GV, dashboard thống kê.
-5. **GĐ4:** Tên miền riêng, tối ưu tốc độ, model 3D chất lượng cao.
+3. ✅ **GĐ2 – Chơi thật**: đăng nhập Google `@vaschools.edu.vn`, lưu trên Supabase (máy chủ tính
+   điểm, chống gian lận), nhiều người cùng đảo (bảng tên + hạng + trang phục), nhiệm vụ ngày + rương,
+   thả tim / gửi lời cảm ơn, bảng xếp hạng, Phiếu quà.
+4. ✅ **GĐ3 – Nhà & quản trị**: 5 Nhà theo 5 giá trị + Cúp tháng, trang `/admin` (thống kê, soạn/duyệt
+   câu hỏi, nhập CSV, phân quyền, cấp/duyệt Phiếu quà, tên miền email được phép).
+5. ✅ **GĐ4 – Hoàn thiện**: tự điều chỉnh chất lượng theo máy, cài như ứng dụng (PWA), biểu tượng,
+   cache Vercel. Tên miền `game.vaschools.edu.vn`: chờ IT thêm bản ghi CNAME
+   (xem `docs/HUONG_DAN_TRIEN_KHAI.md` Bước 8).
+
+Việc của người dùng để chạy thật: làm theo `docs/HUONG_DAN_TRIEN_KHAI.md`.
+Ý tưởng tiếp theo (chưa làm): model 3D `.glb` vẽ bởi hoạ sĩ, mở cho học sinh, sự kiện theo mùa.
