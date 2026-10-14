@@ -9,10 +9,11 @@ import { openSheet } from './sheet.js';
  * @param {{
  *   getStatus: (item: object) => 'equipped' | 'owned' | 'buyable' | 'tooPoor' | 'locked',
  *   onSelect: (item: object) => void | Promise<void>,
+ *   onClose?: () => void,
  * }} handlers
  * @returns {{ refresh: () => void }}
  */
-export function openWardrobe({ getStatus, onSelect }) {
+export function openWardrobe({ getStatus, onSelect, onClose }) {
   let activeSlot = SLOTS[0].id;
 
   const tabs = h(
@@ -48,9 +49,10 @@ export function openWardrobe({ getStatus, onSelect }) {
     const status = getStatus(item);
     const rarity = RARITY[item.rarity];
     const color = item.params?.body ?? item.params?.color ?? item.params?.frame;
-    const swatch = color
-      ? h('span', { class: 'item-swatch', style: { background: color }, 'aria-hidden': 'true' })
-      : h('span', { 'aria-hidden': 'true', style: { fontSize: '22px' } }, item.model ? slot.icon : '🚫');
+    const swatch =
+      item.icon || !color
+        ? h('span', { 'aria-hidden': 'true', style: { fontSize: '22px' } }, item.icon ?? (item.model ? slot.icon : '🚫'))
+        : h('span', { class: 'item-swatch', style: { background: color }, 'aria-hidden': 'true' });
 
     return h(
       'button',
@@ -66,7 +68,7 @@ export function openWardrobe({ getStatus, onSelect }) {
     );
   }
 
-  openSheet({ title: '👕 Tủ đồ Kỳ lân', content: h('div', {}, tabs, grid) });
+  openSheet({ title: '👕 Tủ đồ Kỳ lân', content: h('div', {}, tabs, grid), variant: 'side', onClose });
   render();
   return { refresh: render };
 }

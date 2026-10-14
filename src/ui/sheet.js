@@ -16,15 +16,19 @@ document.addEventListener('keydown', (e) => {
 });
 
 /**
- * @param {{ title: string, content: Node, onClose?: () => void }} options
+ * `variant: 'side'`: không làm tối nền và vẫn xoay được nhân vật — dùng cho Tủ đồ
+ * (desktop: cột bên phải; mobile: bảng thấp phía dưới).
+ *
+ * @param {{ title: string, content: Node, onClose?: () => void, variant?: 'modal' | 'side' }} options
  */
-export function openSheet({ title, content, onClose }) {
+export function openSheet({ title, content, onClose, variant = 'modal' }) {
   if (!sheet.hidden) closeSheet();
   lastFocus = document.activeElement;
   titleEl.textContent = title;
   bodyEl.replaceChildren(content);
   bodyEl.scrollTop = 0;
   onCloseHandler = onClose ?? null;
+  sheet.classList.toggle('sheet--side', variant === 'side');
   sheet.hidden = false;
   sheet.querySelector('.icon-btn').focus();
 }

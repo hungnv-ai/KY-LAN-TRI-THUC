@@ -117,6 +117,7 @@ const actions = {
   wardrobe() {
     const view = openWardrobe({
       getStatus: itemStatus,
+      onClose: () => world.setPanelFocus(false),
       onSelect: async (item) => {
         const status = itemStatus(item);
         if (status === 'equipped') return;
@@ -154,6 +155,8 @@ const actions = {
         view.refresh();
       },
     });
+    // Gọi sau openWardrobe: mở bảng mới sẽ đóng bảng cũ (và onClose của nó).
+    world.setPanelFocus(true);
   },
 
   ranks() {
@@ -181,6 +184,7 @@ world.renderer.setAnimationLoop((timestamp) => {
   wardrobe.update(delta, elapsed);
   stage.update(delta, elapsed);
   world.controls.update();
+  world.update(delta);
 
   mascot.headWorldPosition(headPos);
   headPos.y += 1.0; // phía trên bờm

@@ -7,6 +7,13 @@ const LOOK_AT = new THREE.Vector3(0, 1.45, 0);
 const VIEW_DIR = new THREE.Vector3(0.28, 0.16, 1).normalize();
 const DIST_LANDSCAPE = 6.4;
 const DIST_PORTRAIT = 8.6;
+/** Khi mở bảng bên (Tủ đồ): desktop dịch nhân vật sang trái nửa bề rộng bảng; mobile dịch lên trên. */
+const SIDE_PANEL_PX = 416;
+const MOBILE_PANEL_SHIFT_Y = 0.19;
+/** Mobile: thu nhỏ khung hình để cả Kỳ lân vừa phần màn hình phía trên bảng. */
+const MOBILE_PANEL_ZOOM = 0.68;
+const DESKTOP_MIN_WIDTH = 768;
+const VIEW_SHIFT_SPEED = 6;
 /** Di chuyển chuột/ngón tay dưới ngưỡng này (px) thì coi là "chạm", không phải xoay camera. */
 const TAP_THRESHOLD_PX = 6;
 
@@ -16,7 +23,8 @@ const TAP_THRESHOLD_PX = 6;
  * @param {HTMLElement} container
  * @returns {{ scene: THREE.Scene, camera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer,
  *   controls: OrbitControls, onTap: (object: THREE.Object3D, handler: () => void) => void,
- *   toScreen: (world: THREE.Vector3) => { x: number, y: number } }}
+ *   toScreen: (world: THREE.Vector3) => { x: number, y: number },
+ *   setPanelFocus: (open: boolean) => void, update: (delta: number) => void }}
  */
 export function createWorld(container) {
   const scene = new THREE.Scene();
@@ -95,5 +103,37 @@ export function createWorld(container) {
     };
   }
 
-  return { scene, camera, renderer, controls, onTap, toScreen };
+  // ── Dịch khung hình khi mở bảng bên (camera.setViewOffset) ───────────
+  let panelOpen = false;
+  const shift = { x: 0, y: 0, zoom: 1 };
+
+  function setPanelFocus(open) {
+    panelOpen = open;
+  }
+
+  function update(delta) {
+    const w = window.innerWidth;
+    const hgt = window.innerHeight;
+    const desktop = w >= DESKTOP_MIN_WIDTH;
+    const targetX = panelOpen && desktop ? SIDE_PANEL_PX / 2 / w : 0;
+    const targetY = panelOpen && !desktop ? MOBILE_PANEL_SHIFT_Y : 0;
+    const targetZoom = panelOpen && !desktop ? MOBILE_PANEL_ZOOM : 1;
+    const k = Math.min(1, delta * VIEW_SHIFT_SPEED);
+    shift.x += (targetX - shift.x) * k;
+    shift.y += (targetY - shift.y) * k;
+    shift.zoom += (targetZoom - shift.zoom) * k;
+
+    const settled = Math.abs(shift.x) < 1e-4 && Math.abs(shift.y) < 1e-4 && Math.abs(shift.zoom - 1) < 1e-4;
+    if (settled) {
+      if (camera.view?.enabled || camera.zoom !== 1) {
+        camera.zoom = 1;
+        camera.clearViewOffset(); // gọi luôn updateProjectionMatrix
+      }
+      return;
+    }
+    camera.zoom = shift.zoom;
+    camera.setViewOffset(w, hgt, shift.x * w, shift.y * hgt, w, hgt);
+  }
+
+  return { scene, camera, renderer, controls, onTap, toScreen, setPanelFocus, update };
 }

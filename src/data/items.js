@@ -5,6 +5,7 @@
  * - `price`: giá Xu (0 = miễn phí).
  * - `rank`: id hạng cần đạt để mở khoá (phần thưởng lên hạng, miễn phí khi đủ hạng).
  * - `rarity`: common | rare | epic | legendary.
+ * - `icon`: emoji hiển thị trong Tủ đồ cho món không có màu đại diện.
  * - `model: null` = "Không mặc" cho slot đó.
  */
 
@@ -36,9 +37,9 @@ export const ITEMS = [
   // Nón
   { id: 'hat-none', slot: 'hat', name: 'Không đội', price: 0, rarity: 'common', model: null },
   { id: 'hat-cap', slot: 'hat', name: 'Nón lưỡi trai VA', price: 80, rarity: 'common', model: 'cap', params: { color: '#9A0036' } },
-  { id: 'hat-nonla', slot: 'hat', name: 'Nón lá', price: 150, rarity: 'rare', model: 'nonLa' },
-  { id: 'hat-grad', slot: 'hat', name: 'Mũ tốt nghiệp', price: 250, rarity: 'epic', model: 'gradCap' },
-  { id: 'hat-crown', slot: 'hat', name: 'Vương miện vàng', price: 0, rank: 'vang', rarity: 'legendary', model: 'crown' },
+  { id: 'hat-nonla', slot: 'hat', name: 'Nón lá', price: 150, rarity: 'rare', model: 'nonLa', icon: '👒' },
+  { id: 'hat-grad', slot: 'hat', name: 'Mũ tốt nghiệp', price: 250, rarity: 'epic', model: 'gradCap', icon: '🎓' },
+  { id: 'hat-crown', slot: 'hat', name: 'Vương miện vàng', price: 0, rank: 'vang', rarity: 'legendary', model: 'crown', icon: '👑' },
 
   // Kính
   { id: 'glasses-none', slot: 'glasses', name: 'Không đeo', price: 0, rarity: 'common', model: null },
@@ -58,7 +59,7 @@ export const ITEMS = [
 
   // Hiệu ứng
   { id: 'aura-none', slot: 'aura', name: 'Không', price: 0, rarity: 'common', model: null },
-  { id: 'aura-legend', slot: 'aura', name: 'Hào quang Huyền Thoại', price: 0, rank: 'huyenThoai', rarity: 'legendary', model: 'aura' },
+  { id: 'aura-legend', slot: 'aura', name: 'Hào quang Huyền Thoại', price: 0, rank: 'huyenThoai', rarity: 'legendary', model: 'aura', icon: '🌟' },
 ];
 
 /** Đồ được sở hữu sẵn khi bắt đầu. */

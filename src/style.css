@@ -355,6 +355,38 @@ button {
   }
 }
 
+/* Biến thể "side" (Tủ đồ): nền trong suốt, canvas phía sau vẫn tương tác được. */
+.sheet--side {
+  pointer-events: none;
+}
+
+.sheet--side .sheet-backdrop {
+  display: none;
+}
+
+.sheet--side .sheet-panel {
+  pointer-events: auto;
+  max-height: 48vh;
+}
+
+@media (min-width: 768px) {
+  .sheet--side {
+    align-items: stretch;
+    justify-content: flex-end;
+    padding: 16px;
+  }
+
+  .sheet--side .sheet-panel {
+    width: 400px;
+    max-height: none;
+  }
+
+  /* Toast dời sang trái bảng Tủ đồ để không che thẻ trang phục. */
+  .sheet--side:not([hidden]) ~ .toasts {
+    right: 432px;
+  }
+}
+
 @keyframes slide-up {
   from {
     transform: translateY(40px);
