@@ -12,14 +12,22 @@ const LETTERS = ['A', 'B', 'C', 'D'];
  *   rewardedLeft: () => number,
  *   createRound: () => { questions: { topic: string, q: string, options: string[], correctIndex: number, explain?: string }[] },
  *   onAnswer: (isCorrect: boolean) => void,
- *   onComplete: (result: { correct: number, total: number }) => { xp: number, coins: number, golden: boolean, rewarded: boolean, perfect: boolean },
+ *   onComplete: (result: { correct: number, total: number, timedOut: boolean }) => { xp: number, coins: number, golden: boolean, rewarded: boolean, perfect: boolean },
+ *   onClose?: () => void,
  * }} handlers
  */
 export function openQuiz(handlers) {
   let timerId = 0;
   const stopTimer = () => clearInterval(timerId);
 
-  openSheet({ title: '🧠 Thử thách Tri Thức', content: renderIntro(), onClose: stopTimer });
+  openSheet({
+    title: '🧠 Thử thách Tri Thức',
+    content: renderIntro(),
+    onClose: () => {
+      stopTimer();
+      handlers.onClose?.();
+    },
+  });
 
   function renderIntro() {
     const left = handlers.rewardedLeft();
@@ -151,7 +159,7 @@ export function openQuiz(handlers) {
       if (!isSheetOpen()) return;
       const correct = results.filter(Boolean).length;
       const total = questions.length;
-      const reward = handlers.onComplete({ correct, total });
+      const reward = handlers.onComplete({ correct, total, timedOut });
       setSheetContent(renderResult({ correct, total, reward, timedOut }));
     }
   }

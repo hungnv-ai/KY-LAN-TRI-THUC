@@ -27,6 +27,7 @@ npm run preview   # xem bản build
 
 ```
 docs/GAME_DESIGN.md   # thiết kế game đã chốt — nguồn sự thật cho tính năng
+docs/mascot-reference/ # ẢNH MẪU mascot chuẩn + bảng sticker → cảm xúc — đối chiếu khi chỉnh hình 3D
 index.html            # canvas + HUD + thanh điều hướng + bảng trượt + toast + loading
 src/
   main.js             # entry: lắp ráp module + animation loop duy nhất
@@ -46,7 +47,9 @@ src/
     world.js          # renderer, camera, OrbitControls, chạm vào object
     lights.js         # ánh sáng + environment map
     stage.js          # nền trời, bục 5 màu, 5 cột Vùng Đất
-    mascot.js         # Kỳ lân VA dựng bằng code + animation (vẫy tay, ăn mừng, lắc đầu)
+    mascot.js         # Kỳ lân VA: lắp ráp thân/đầu, nét mặt, tư thế, emote(), setMood()
+    mascotParts.js    # dựng chi tiết: bờm lửa cánh hoa, sừng, mắt/miệng nhiều kiểu, tay, huy hiệu
+    emotes.js         # bộ cảm xúc theo sticker (wave, happy, cheer, oops, think, cry, faint, cool, bored)
     outfits.js        # dựng & gắn trang phục 3D theo item.model
     loader.js         # tải .glb (để dành cho model 3D thật ở GĐ4)
   ui/                 # DOM
@@ -68,8 +71,11 @@ src/
    Khởi tạo phải được gọi tường minh từ `main.js`.
 4. **Ranh giới DOM:** chỉ các module `ui/*` được đụng tới DOM (dùng `h()` — không chèn
    `innerHTML` từ dữ liệu). Nơi khác gọi API của chúng (`showToast`, `renderHud`…).
-5. **Kỳ lân & trang phục.** Nhân vật dựng trong `scene/mascot.js`, giữ đủ nét nhận diện bắt buộc
-   (sừng vàng, lông mày vàng xoắn, tay 4 ngón, bờm lửa, áo VA). Điểm gắn phụ kiện:
+5. **Kỳ lân & trang phục.** Nhân vật dựng trong `scene/mascot.js` + `mascotParts.js`, giữ đủ nét
+   nhận diện bắt buộc (đầu đỏ, sừng vàng, lông mày vàng xoắn, tay 4 ngón, bờm lửa cánh hoa, áo VA).
+   **Luôn đối chiếu ảnh trong `docs/mascot-reference/`** trước/sau khi chỉnh hình.
+   - Phản ứng của Kỳ lân: gọi `mascot.emote('tên')` (một lần) hoặc `mascot.setMood('tên' | null)`
+     (kéo dài, ví dụ `think` khi đang làm quiz). Thêm cảm xúc mới = thêm entry trong `emotes.js`. Điểm gắn phụ kiện:
    `HeadTop`, `Face`, `Torso`, `Back`, `FootL/FootR`, `Root` (`mascot.anchors`).
    - Thêm trang phục = thêm entry vào `data/items.js` (+ builder trong `scene/outfits.js`
      nếu là `model` mới). Mỗi slot chỉ mặc một món; `createWardrobe().equip` tự gỡ món cũ.

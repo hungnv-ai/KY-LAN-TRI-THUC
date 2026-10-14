@@ -62,10 +62,17 @@ refreshHud();
 setInterval(refreshHud, 60_000); // cập nhật Giờ Vàng
 
 // ── Tương tác ───────────────────────────────────────────────────────────
+/** Cảm xúc ngẫu nhiên khi chạm vào Kỳ lân. */
+const TAP_EMOTES = ['wave', 'happy', 'cool', 'think', 'cheer'];
+
 world.onTap(mascot.object, () => {
-  mascot.wave();
-  say(MASCOT_LINES[Math.floor(Math.random() * MASCOT_LINES.length)]);
+  mascot.emote(pick(TAP_EMOTES));
+  say(pick(MASCOT_LINES));
 });
+
+function pick(list) {
+  return list[Math.floor(Math.random() * list.length)];
+}
 
 /** Hiển thị thưởng chung (toast + ăn mừng + lên hạng). */
 async function announceReward(reward, label) {
@@ -78,7 +85,7 @@ async function announceReward(reward, label) {
   }
   if (reward.rankUp) {
     const { to, items } = reward.rankUp;
-    mascot.celebrate();
+    mascot.emote('cheer');
     const gift = items.length ? ` Bạn nhận được: ${items.map((i) => i.name).join(', ')} — xem trong Tủ đồ!` : '';
     await celebrateDialog({
       icon: to.icon,
@@ -93,10 +100,10 @@ const actions = {
     const result = checkIn();
     if (!result) {
       showToast('Hôm nay bạn đã điểm danh rồi. Hẹn gặp lại ngày mai nhé!', { icon: '📅' });
-      mascot.wave();
+      mascot.emote('wave');
       return;
     }
-    mascot.celebrate();
+    mascot.emote('cheer');
     say(`Điểm danh thành công! Chuỗi ${result.streak} ngày 🔥 — Trách nhiệm là giữ lời hứa với chính mình!`);
     await announceReward(result, 'Điểm danh');
   },
@@ -105,13 +112,28 @@ const actions = {
     openQuiz({
       rewardedLeft: rewardedRoundsLeft,
       createRound: () => createQuizRound(),
-      onAnswer: (correct) => (correct ? mascot.celebrate() : mascot.shake()),
+      onAnswer: (correct) => mascot.emote(correct ? 'happy' : 'oops'),
       onComplete: (result) => {
         const reward = completeQuizRound(result);
+        const ratio = result.correct / result.total;
+        if (result.timedOut) {
+          mascot.emote('faint');
+          say('Hết giờ rồi… xỉu mất! Lần sau mình nhanh tay hơn nhé! 😵');
+        } else if (reward.perfect) {
+          mascot.emote('cheer');
+          say('Đúng hết luôn! Bạn đúng là Kỳ lân Tri Thức! 🏆');
+        } else if (ratio < 0.4) {
+          mascot.emote('cry');
+          say('Huhu… không sao đâu, thử sai là cách mình lớn lên mà! 🌱');
+        } else {
+          mascot.emote('happy');
+        }
         if (reward.rankUp) announceReward({ ...reward, xp: 0, coins: 0 }, '');
         return reward;
       },
+      onClose: () => mascot.setMood(null),
     });
+    mascot.setMood('think');
   },
 
   wardrobe() {
@@ -124,6 +146,7 @@ const actions = {
         if (status === 'locked') {
           const rank = RANKS.find((r) => r.id === item.rank);
           showToast(`Đạt hạng ${rank.name} để mở khoá "${item.name}"!`, { type: 'warn', icon: '🔒' });
+          mascot.emote('think');
           return;
         }
         if (status === 'tooPoor') {
@@ -132,6 +155,7 @@ const actions = {
             icon: '🪙',
           });
           wardrobe.equip(item.id); // cho mặc thử
+          mascot.emote('cry');
           setTimeout(() => wardrobe.equip(getState().equipped[item.slot]), 2500);
           return;
         }
@@ -148,10 +172,12 @@ const actions = {
             return;
           }
           showToast(`Đã mua "${item.name}"!`, { type: 'success', icon: '🛍️' });
+          mascot.emote('cool');
+        } else {
+          mascot.emote('happy');
         }
         equipItem(item.id);
         wardrobe.equip(item.id);
-        mascot.celebrate();
         view.refresh();
       },
     });
@@ -196,6 +222,6 @@ world.renderer.setAnimationLoop((timestamp) => {
 
 hideLoading();
 setTimeout(() => {
-  mascot.wave();
+  mascot.emote('wave');
   say(hasCheckedInToday() ? 'Chào mừng trở lại! Làm một lượt Tri Thức nhé?' : 'Xin chào! Bấm "Điểm danh" để nhận quà hôm nay nhé! 🎁');
 }, 700);
