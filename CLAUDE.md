@@ -1,7 +1,12 @@
 # CLAUDE.md — Kỳ Lân Tri Thức
 
-Game giáo dục 3D trên web. Nhân vật chính là một Kỳ lân 3D có thể thay trang phục/phụ kiện
-(nón, giày, …). Người chơi kiếm **Coins** qua các hoạt động học tập để mở khoá phụ kiện.
+Game giáo dục 3D trên web cho VA Schools. Nhân vật chính là **linh vật Kỳ lân của trường**
+(đỏ, chibi, sừng vàng, lông mày vàng xoắn, tay 4 ngón — KHÔNG phải ngựa trắng có sừng), có thể
+thay trang phục/phụ kiện. **Đọc `docs/GAME_DESIGN.md` trước** — đó là thiết kế game đã thống nhất
+với người dùng (hạng, XP/Xu, 5 giá trị, lộ trình, màu & font thương hiệu).
+
+Người dùng là người mới học lập trình: giải thích bằng tiếng Việt đơn giản, hướng dẫn từng bước
+có thể làm theo bằng cách bấm chuột; Claude viết toàn bộ code.
 
 ## Stack
 
@@ -21,6 +26,7 @@ npm run preview   # xem bản build
 ## Cấu trúc thư mục
 
 ```
+docs/GAME_DESIGN.md   # thiết kế game đã chốt — nguồn sự thật cho tính năng
 index.html            # #canvas-container (Three.js) + #hud (Coins) + #loading-screen
 vite.config.js
 public/models/        # file .glb, phục vụ tại /models/...
