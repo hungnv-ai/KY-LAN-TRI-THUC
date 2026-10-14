@@ -18,6 +18,9 @@ Game online: https://ky-lan-tri-thuc.vercel.app (tự cập nhật mỗi khi nh�
 - Điểm danh hằng ngày + chuỗi ngày 🔥
 - Quiz Tri Thức: ~100 câu về 5 giá trị cốt lõi, văn hoá VA, kiến thức chung
 - XP & 7 hạng, Xu & Tủ đồ (áo, nón, kính, giày, ba lô, hiệu ứng), Giờ Vàng x2 XP
+- **Khám phá Vùng Đất**: chạy bằng phím mũi tên/WASD hoặc cần điều khiển, 5 Vùng Đất,
+  câu hỏi mỗi 100 m, xu vàng, hộp quà bất ngờ
+- Kỳ lân có 9 cảm xúc theo bộ sticker mascot
 
 Thiết kế đầy đủ: [docs/GAME_DESIGN.md](./docs/GAME_DESIGN.md).
 

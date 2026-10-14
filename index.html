@@ -37,6 +37,22 @@
       </div>
     </header>
 
+    <!-- Khám phá: quãng đường, câu hỏi kế tiếp, số Vùng Đất đã ghé -->
+    <div class="explore-bar">
+      <span class="pill explore-pill" title="Quãng đường đã chạy">
+        <span aria-hidden="true">🏃</span><span id="distance-value">0 m</span>
+        <span class="explore-next" id="next-question">❓ 100 m</span>
+      </span>
+      <span class="pill" title="Vùng Đất đã ghé hôm nay"><span aria-hidden="true">🗺️</span><span id="stations-value">0/5</span></span>
+      <button id="home-btn" class="pill pill-btn" type="button" aria-label="Về quảng trường" title="Về quảng trường">🏠</button>
+    </div>
+
+    <!-- Gợi ý phím (máy tính) & cần điều khiển (điện thoại) -->
+    <div id="key-hint" class="key-hint" hidden>⌨️ Dùng <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> hoặc <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> để chạy · giữ <kbd>Shift</kbd> chạy nhanh</div>
+    <div id="joystick" class="joystick" hidden aria-label="Cần điều khiển: kéo để chạy">
+      <span id="joystick-knob" class="joystick-knob"></span>
+    </div>
+
     <!-- Bong bóng lời thoại của Kỳ lân -->
     <div id="speech" class="speech" role="status" aria-live="polite" hidden></div>
 

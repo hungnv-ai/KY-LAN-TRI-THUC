@@ -56,6 +56,21 @@ Linh vật Kỳ lân của VA Schools (KHÔNG phải ngựa trắng có sừng).
 - **Trách Nhiệm** — điểm danh, chuỗi ngày 🔥, làm lại câu sai vẫn được điểm
 - **Khai Phóng** — mở vùng đất mới, mini-game sáng tạo
 
+## Chế độ Khám phá Vùng Đất (đã làm)
+
+- Điều khiển: mũi tên / WASD (Shift chạy nhanh); điện thoại dùng cần điều khiển ảo.
+  Hướng chạy theo hướng camera; nút 🏠 về Quảng trường.
+- Bản đồ: đảo bán kính ~30 m; Quảng trường ở giữa; 5 đường dẫn tới 5 Vùng Đất cách 16 m:
+  Nhân Ái (vườn hoa, trái tim) · Bản Lĩnh (núi tuyết, đá) · Tri Thức (cây, chồng sách) ·
+  Trách Nhiệm (cán cân, đồng hồ) · Khai Phóng (hồ, thuyền buồm, máy bay giấy).
+- Thưởng (chỉnh trong `src/config.js` → `EXPLORE`):
+  - Mỗi 100 m: 1 câu hỏi nhanh (đúng +5 XP +3 Xu, sai +1 XP), tối đa 6 câu có thưởng/ngày.
+  - Chạm cột Vùng Đất: câu hỏi đúng giá trị đó (đúng +10 XP +8 Xu, sai +3 XP), mỗi cột 1 lần/ngày.
+  - Ghé đủ 5 Vùng Đất trong ngày: "Nhà thám hiểm" +25 XP +25 Xu.
+  - Xu vàng rơi: +1 Xu, tối đa 40/ngày. Hộp quà bất ngờ (cột sáng vàng): tối đa 5/ngày,
+    60% Xu · 30% XP · 10% trang phục miễn phí.
+- Quà hiện vật / "Phiếu quà": để GĐ2 (cần máy chủ chống gian lận, BGH duyệt).
+
 ## Cơ chế giữ chân
 
 Chuỗi ngày + Khiên bảo vệ · 3 nhiệm vụ ngày + 1 nhiệm vụ tuần + Rương · Giờ Vàng x2 XP
@@ -65,7 +80,8 @@ không gacha; giới hạn thời gian chơi cho học sinh.
 
 ## Lộ trình
 
-1. ✅ **GĐ1 – Bản chơi thử** (đang review): Kỳ lân 3D đúng mascot, tủ đồ, quiz, Xu/XP/hạng (lưu tạm trên máy), deploy Vercel.
-2. **GĐ2:** Đăng nhập Google + Supabase, BXH, nhiệm vụ ngày, chuỗi ngày.
-3. **GĐ3:** 5 Nhà, Cúp, công cụ soạn câu hỏi cho GV, dashboard thống kê.
-4. **GĐ4:** Tên miền riêng, tối ưu tốc độ, model 3D chất lượng cao.
+1. ✅ **GĐ1 – Bản chơi thử**: Kỳ lân 3D đúng mascot, tủ đồ, quiz, Xu/XP/hạng (lưu tạm trên máy), deploy Vercel.
+2. ✅ **Khám phá Vùng Đất** (thêm theo yêu cầu): chạy trên đảo, 5 Vùng Đất, câu hỏi theo quãng đường, xu, hộp quà.
+3. **GĐ2:** Đăng nhập Google + Supabase, BXH, nhiệm vụ ngày, Phiếu quà hiện vật.
+4. **GĐ3:** 5 Nhà, Cúp, công cụ soạn câu hỏi cho GV, dashboard thống kê.
+5. **GĐ4:** Tên miền riêng, tối ưu tốc độ, model 3D chất lượng cao.

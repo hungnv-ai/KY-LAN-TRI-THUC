@@ -45,6 +45,10 @@ const HEAD_SIZE = 0.88;
 const HEAD_SCALE = new THREE.Vector3(1.12, 0.92, 0.9);
 const ARM_REST_Z = REST_POSE.armL[1];
 const TORSO_Y = 1.05;
+/** Độ cao khớp hông (chân xoay quanh điểm này khi bước). */
+const HIP_Y = 0.48;
+/** Nhịp bước (rad/giây) khi đi; chạy nhanh hơn theo tốc độ. */
+const STEP_RATE = 9;
 /** Profile áo khoác [bán kính, y] từ gấu áo lên cổ. */
 const JACKET_PROFILE = [
   [0.001, -0.34],
@@ -85,6 +89,7 @@ const IDLE_BORED_SEC = 28;
  *   update: (delta: number, elapsed: number) => void,
  *   emote: (name: keyof typeof EMOTES) => void,
  *   setMood: (name: keyof typeof EMOTES | null) => void,
+ *   setLocomotion: (speed: number) => void,
  *   headWorldPosition: (target?: THREE.Vector3) => THREE.Vector3,
  * }}
  */
@@ -115,7 +120,7 @@ export function createMascot() {
   root.add(bounce);
 
   const anchors = { Root: root };
-  const { torso, arms } = buildBody(bounce, materials, anchors);
+  const { torso, arms, legs } = buildBody(bounce, materials, anchors);
   const { head, skull, face } = buildHead(bounce, materials, anchors);
 
   root.traverse((o) => {
@@ -134,6 +139,8 @@ export function createMascot() {
   let current = null; // { name, def, time }
   let mood = null;
   let idleTime = 0;
+  let locomotion = 0; // 0 = đứng, 1 = đi, ~1.8 = chạy
+  let stepPhase = 0;
   const props = createPropLayer(head);
 
   function play(name) {
@@ -163,7 +170,7 @@ export function createMascot() {
     if (current) {
       current.time += delta;
       if (current.time >= current.def.duration) endEmote();
-    } else if (!mood) {
+    } else if (!mood && locomotion === 0) {
       idleTime += delta;
       if (idleTime > IDLE_BORED_SEC) play('bored');
     }
@@ -194,6 +201,23 @@ export function createMascot() {
       MOTIONS[motion]({ t, env, elapsed, bounce, head, arms });
     }
 
+    // Bước đi / chạy: chân bước luân phiên, tay vung ngược chiều, người nhún nhẹ.
+    if (locomotion > 0) {
+      stepPhase += delta * STEP_RATE * locomotion;
+      const swing = Math.sin(stepPhase) * Math.min(0.75, 0.5 * locomotion);
+      legs.L.rotation.x = swing;
+      legs.R.rotation.x = -swing;
+      if (!current) {
+        arms.L.rotation.x -= swing * 0.9;
+        arms.R.rotation.x += swing * 0.9;
+      }
+      bounce.position.y += Math.abs(Math.sin(stepPhase)) * 0.05 * locomotion;
+      bounce.rotation.x += 0.06 * locomotion;
+    } else {
+      legs.L.rotation.x *= 0.8;
+      legs.R.rotation.x *= 0.8;
+    }
+
     face.update(delta);
     props.update(delta);
   }
@@ -205,6 +229,11 @@ export function createMascot() {
     anchors,
     update,
     emote: play,
+    /** @param {number} speed 0 = đứng, 1 = đi bộ, >1 = chạy */
+    setLocomotion(speed) {
+      locomotion = speed;
+      if (speed > 0) idleTime = 0;
+    },
     setMood(name) {
       mood = name && EMOTES[name] ? name : null;
       idleTime = 0;
@@ -258,18 +287,24 @@ const MOTIONS = {
 // ── Dựng thân & đầu ───────────────────────────────────────────────────────
 
 function buildBody(bounce, materials, anchors) {
-  // Chân ngắn, chắc & điểm gắn giày.
+  // Chân ngắn, chắc (khớp ở hông để bước đi) & điểm gắn giày.
   const legGeo = new THREE.CylinderGeometry(0.12, 0.13, 0.36, 16);
+  const legs = {};
   for (const side of [-1, 1]) {
+    const hip = new THREE.Group();
+    hip.position.set(0.17 * side, HIP_Y, 0);
+    bounce.add(hip);
+
     const leg = mesh(legGeo, materials.limb);
-    leg.position.set(0.17 * side, 0.3, 0);
-    bounce.add(leg);
+    leg.position.y = 0.3 - HIP_Y;
+    hip.add(leg);
 
     const foot = new THREE.Group();
     foot.name = side < 0 ? 'FootR' : 'FootL';
-    foot.position.set(0.17 * side, 0, 0.03);
-    bounce.add(foot);
+    foot.position.set(0, -HIP_Y, 0.03);
+    hip.add(foot);
     anchors[foot.name] = foot;
+    legs[side < 0 ? 'R' : 'L'] = hip;
   }
 
   // Quần soóc dài tới gối, ống rộng.
@@ -357,7 +392,7 @@ function buildBody(bounce, materials, anchors) {
     arms[side < 0 ? 'R' : 'L'] = shoulder;
   }
 
-  return { torso, arms };
+  return { torso, arms, legs };
 }
 
 function buildHead(bounce, materials, anchors) {

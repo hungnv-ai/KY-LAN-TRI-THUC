@@ -121,3 +121,8 @@ export function setSpeechAnchor(x, y) {
   speechEl.style.left = `${x}px`;
   speechEl.style.top = `${Math.max(90, y)}px`;
 }
+
+/** @returns {boolean} đang có hộp thoại (xác nhận / chúc mừng) mở */
+export function isDialogOpen() {
+  return dialogRoot.childElementCount > 0;
+}
