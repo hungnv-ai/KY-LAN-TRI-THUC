@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kỳ Lân Tri Thức</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <!-- Three.js sẽ gắn <canvas> vào đây -->
+    <div id="canvas-container"></div>
+
+    <!-- HUD: lớp giao diện nằm trên canvas -->
+    <div id="hud">
+      <div class="hud-panel" id="coins-panel" aria-live="polite">
+        <span class="hud-icon" aria-hidden="true">🪙</span>
+        <span class="hud-label">Coins:</span>
+        <span id="coins-value">0</span>
+      </div>
+    </div>
+
+    <!-- Màn hình loading, ẩn khi tài nguyên đã sẵn sàng -->
+    <div id="loading-screen">
+      <p>Đang tải Kỳ lân… <span id="loading-progress">0%</span></p>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
