@@ -20,6 +20,7 @@ import { createQualityManager } from './scene/quality.js';
 import { setupIsland } from './scene/island.js';
 import { setupLights } from './scene/lights.js';
 import { createMascot } from './scene/mascot.js';
+import { NAME_TAG_Y, nameTagPixelHeight } from './scene/nameTag.js';
 import { createWardrobe } from './scene/outfits.js';
 import { createWorld } from './scene/world.js';
 import { say, setSpeechAnchor } from './ui/feedback.js';
@@ -46,7 +47,9 @@ let social = null;
 // ── Vòng lặp duy nhất ───────────────────────────────────────────────────
 const timer = new THREE.Timer();
 timer.connect(document); // tạm dừng delta khi tab bị ẩn
-const headPos = new THREE.Vector3();
+const tagPos = new THREE.Vector3();
+/** Khoảng hở giữa bong bóng thoại và mép trên bảng tên (px). */
+const SPEECH_GAP_PX = 10;
 
 world.renderer.setAnimationLoop((timestamp) => {
   timer.update(timestamp);
@@ -63,10 +66,11 @@ world.renderer.setAnimationLoop((timestamp) => {
   world.controls.update();
   world.update(delta);
 
-  mascot.headWorldPosition(headPos);
-  headPos.y += 1.5; // phía trên bảng tên
-  const p = world.toScreen(headPos);
-  setSpeechAnchor(p.x, p.y);
+  // Bong bóng thoại nằm ngay trên bảng tên (không đè lên nhau dù zoom gần/xa).
+  mascot.object.getWorldPosition(tagPos);
+  tagPos.y += NAME_TAG_Y;
+  const p = world.toScreen(tagPos);
+  setSpeechAnchor(p.x, p.y - nameTagPixelHeight(world.camera, window.innerHeight) - SPEECH_GAP_PX);
 
   world.renderer.render(world.scene, world.camera);
 });

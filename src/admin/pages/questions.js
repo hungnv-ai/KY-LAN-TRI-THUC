@@ -24,7 +24,7 @@ const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
  */
 export function renderQuestions(el, { role }) {
   const manager = role === 'bgh' || role === 'admin';
-  const filter = { status: manager ? 'pending' : '', topic: '', search: '', offset: 0 };
+  const filter = { status: '', topic: '', search: '', offset: 0 };
 
   const statusTabs = h(
     'div',
