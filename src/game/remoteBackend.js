@@ -38,5 +38,7 @@ export function createRemoteBackend(supabase) {
     myVouchers: () => rpc('my_vouchers'),
     leaderboard: (scope, unit = null) => rpc('leaderboard', { p_scope: scope, p_unit: unit }),
     houseStandings: () => rpc('house_standings'),
+    giftShop: () => rpc('gift_shop'),
+    redeemGift: (giftId) => rpc('redeem_gift', { p_gift: giftId }),
   };
 }

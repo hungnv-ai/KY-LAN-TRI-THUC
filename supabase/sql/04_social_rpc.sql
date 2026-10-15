@@ -200,7 +200,8 @@ returns jsonb language plpgsql stable security definer set search_path = public 
 declare v_uid uuid := public._require_player();
 begin
   return coalesce((
-    select jsonb_agg(jsonb_build_object('id', id, 'title', title, 'reason', reason, 'status', status, 'note', note, 'at', created_at) order by created_at desc)
+    select jsonb_agg(jsonb_build_object('id', id, 'title', title, 'reason', reason, 'status', status, 'note', note, 'at', created_at,
+      'source', source, 'coinsSpent', coins_spent, 'refunded', refunded) order by created_at desc)
     from vouchers where user_id = v_uid
   ), '[]');
 end;

@@ -17,6 +17,9 @@ const MESSAGES = {
   not_authenticated: 'Phiên đăng nhập đã hết — vui lòng đăng nhập lại.',
   email_domain_not_allowed: 'Tài khoản không thuộc tên miền của trường.',
   questions_q_unique: 'Câu hỏi này đã có trong ngân hàng.',
+  invalid_name: 'Tên quá ngắn.',
+  invalid_cost: 'Giá Xu phải lớn hơn 0.',
+  invalid_stock: 'Số lượng không hợp lệ.',
 };
 
 /**
@@ -80,6 +83,18 @@ export const api = {
   listVouchers: (status) => rpc('admin_list_vouchers', { p_status: status || null }),
   grantVoucher: (userId, title, reason) => rpc('admin_grant_voucher', { p_user: userId, p_title: title, p_reason: reason || null }),
   decideVoucher: (id, status, note) => rpc('admin_decide_voucher', { p_id: id, p_status: status, p_note: note || null }),
+  listGifts: () => rpc('admin_list_gifts'),
+  saveGift: (g) =>
+    rpc('admin_save_gift', {
+      p_id: g.id || null,
+      p_name: g.name,
+      p_icon: g.icon,
+      p_description: g.description || null,
+      p_cost: g.cost,
+      p_stock: g.stock,
+      p_active: g.active,
+      p_sort: g.sort ?? 0,
+    }),
   setAllowedDomains: (domains) => rpc('admin_set_allowed_domains', { p_domains: domains }),
 };
 

@@ -4,6 +4,7 @@ import { MASCOT_LINES } from './data/lines.js';
 import { getRankInfo } from './data/ranks.js';
 import { createExplore } from './features/explore.js';
 import { setupExpressions } from './features/expressions.js';
+import { setupGiftShop } from './features/giftShop.js';
 import { setupMenu } from './features/menu.js';
 import { createRewards } from './features/rewards.js';
 import { startSession } from './features/session.js';
@@ -141,6 +142,7 @@ async function boot() {
   });
 
   setupExpressions({ world, mascot, social });
+  setupGiftShop({ mascot, fx });
 
   setupMenu({
     world,

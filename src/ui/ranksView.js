@@ -5,7 +5,7 @@ import { openSheet } from './sheet.js';
 
 const HOUSE = Object.fromEntries(VALUES.map((v) => [v.id, v]));
 const MEDALS = ['🥇', '🥈', '🥉'];
-const VOUCHER_STATUS = {
+export const VOUCHER_STATUS = {
   pending: { label: 'Chờ BGH duyệt', color: '#8F7562' },
   approved: { label: 'Đã duyệt — chờ nhận quà', color: '#1750B5' },
   redeemed: { label: 'Đã nhận quà', color: '#00796f' },

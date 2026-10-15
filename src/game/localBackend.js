@@ -363,6 +363,14 @@ export function createLocalBackend() {
       return [];
     },
 
+    async giftShop() {
+      throw new Error('online_only');
+    },
+
+    async redeemGift() {
+      throw new Error('online_only');
+    },
+
     async leaderboard(scope) {
       const since = scope === 'week' ? startOfWeek() : scope === 'month' ? startOfMonth() : 0;
       const score = scope === 'all' ? state.xp : state.rewardLog.filter((e) => e.t >= since).reduce((s, e) => s + e.xp, 0);

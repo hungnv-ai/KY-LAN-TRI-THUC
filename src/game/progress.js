@@ -32,6 +32,10 @@ const ERROR_MESSAGES = {
   ticket_expired: 'Câu hỏi đã hết hạn.',
   not_enough_distance: 'Chạy thêm một chút nữa nhé!',
   no_questions: 'Ngân hàng câu hỏi đang trống.',
+  gift_out_of_stock: 'Món quà này vừa hết. Chọn món khác nhé!',
+  gift_not_found: 'Món quà này không còn trong cửa hàng.',
+  too_many_pending: 'Bạn đang có phiếu chờ duyệt — đợi BGH duyệt rồi đổi tiếp nhé.',
+  monthly_limit: 'Tháng này bạn đã đổi đủ số lần. Hẹn tháng sau!',
 };
 
 /**
@@ -267,6 +271,18 @@ export async function sendKudos(toUserId, kind, message) {
   return call('sendKudos', toUserId, kind, message);
 }
 
+/**
+ * Đổi Xu lấy phiếu quà hiện vật (chờ BGH duyệt).
+ *
+ * @param {string} giftId
+ * @returns {Promise<{ ok: boolean, voucherId: number }>}
+ */
+export async function redeemGift(giftId) {
+  return call('redeemGift', giftId);
+}
+
+/** @returns {Promise<{ gifts: object[], pending: number, thisMonth: number, maxPending: number, monthlyLimit: number }>} */
+export const getGiftShop = () => backend.giftShop();
 export const getPublicProfiles = (ids) => backend.publicProfiles(ids);
 export const getPublicProfile = (id) => backend.publicProfile(id);
 export const getMyKudos = () => backend.myKudos();

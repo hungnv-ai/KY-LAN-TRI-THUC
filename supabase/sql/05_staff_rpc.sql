@@ -195,6 +195,7 @@ begin
   return coalesce((
     select jsonb_agg(jsonb_build_object(
       'id', v.id, 'title', v.title, 'reason', v.reason, 'status', v.status, 'note', v.note, 'at', v.created_at,
+      'source', v.source, 'coinsSpent', v.coins_spent, 'refunded', v.refunded,
       'userId', v.user_id, 'name', coalesce(p.display_name, p.full_name), 'unit', p.unit, 'email', p.email
     ) order by v.created_at desc)
     from vouchers v join profiles p on p.id = v.user_id
@@ -216,11 +217,22 @@ $$;
 
 create or replace function public.admin_decide_voucher(p_id bigint, p_status text, p_note text default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
-declare v_uid uuid := public._require_manager();
+declare
+  v_uid uuid := public._require_manager();
+  v vouchers;
 begin
   if p_status not in ('approved', 'rejected', 'redeemed') then raise exception 'invalid_status'; end if;
-  update vouchers set status = p_status, note = coalesce(p_note, note), decided_by = v_uid, decided_at = now() where id = p_id;
+  select * into v from vouchers where id = p_id for update;
   if not found then raise exception 'voucher_not_found'; end if;
+  update vouchers set status = p_status, note = coalesce(p_note, note), decided_by = v_uid, decided_at = now() where id = p_id;
+  -- Phiếu đổi bằng Xu bị từ chối → hoàn Xu (một lần) và trả lại số lượng quà.
+  if p_status = 'rejected' and v.coins_spent > 0 and not v.refunded then
+    update vouchers set refunded = true where id = p_id;
+    update player_state set coins = coins + v.coins_spent, updated_at = now() where user_id = v.user_id;
+    insert into reward_log (user_id, kind, xp, coins, meta)
+    values (v.user_id, 'gift_refund', 0, v.coins_spent, jsonb_build_object('voucher', p_id));
+    update gift_catalog set stock = stock + 1 where id = v.gift_id and stock is not null;
+  end if;
   return jsonb_build_object('ok', true);
 end;
 $$;

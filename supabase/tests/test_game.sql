@@ -349,4 +349,38 @@ begin
   update game_settings set value = jsonb_set(value, '{RANGES}', '[[12, 13], [19, 21]]') where key = 'GOLDEN_HOURS';
 end $$;
 
+\echo '16. Đổi Xu lấy Phiếu quà: trừ Xu, giới hạn, hoàn Xu khi không duyệt'
+do $$
+declare r jsonb; v_coins int; v_id bigint;
+begin
+  perform test_admin();
+  update player_state set coins = 5000 where user_id = '00000000-0000-0000-0000-00000000000b';
+  update gift_catalog set stock = 1 where id = 'gau-bong';
+  perform test_as('00000000-0000-0000-0000-00000000000b');
+  r := gift_shop();
+  assert jsonb_array_length(r -> 'gifts') >= 8, 'có danh mục quà';
+  r := redeem_gift('gau-bong');
+  v_id := (r ->> 'voucherId')::bigint;
+  assert (r -> 'state' ->> 'coins')::int = 1000, 'trừ 4000 Xu';
+  perform test_expect_error($q$select redeem_gift('gau-bong')$q$, 'gift_out_of_stock');
+  perform redeem_gift('so-tay');
+  perform test_expect_error($q$select redeem_gift('but-va')$q$, 'too_many_pending');
+  perform test_expect_error($q$select redeem_gift('khong-co')$q$, 'gift_not_found');
+  r := my_vouchers();
+  assert r -> 0 ->> 'source' = 'shop' and r -> 0 ->> 'status' = 'pending', 'phiếu chờ duyệt';
+  -- BGH không duyệt gấu bông → hoàn 4000 Xu + trả lại 1 món.
+  perform test_as('00000000-0000-0000-0000-00000000000a');
+  perform admin_decide_voucher(v_id, 'rejected', 'Hết hàng');
+  perform admin_decide_voucher(v_id, 'rejected', 'Bấm lại'); -- không hoàn 2 lần
+  perform test_as('00000000-0000-0000-0000-00000000000b');
+  select coins into v_coins from player_state where user_id = '00000000-0000-0000-0000-00000000000b';
+  assert v_coins = 200 + 4000, 'hoàn Xu đúng 1 lần (5000 - 4000 - 800 + 4000)';
+  assert (select stock from gift_catalog where id = 'gau-bong') = 1, 'trả lại số lượng';
+  -- Người chơi thường không sửa được danh mục.
+  perform test_expect_error($q$select admin_save_gift('x', 'Quà', '🎁', null, 10, null, true)$q$, 'forbidden');
+  perform test_as('00000000-0000-0000-0000-00000000000a');
+  r := admin_save_gift(null, 'Huy hiệu cài áo', '📛', 'Huy hiệu Kỳ lân', 300, 50, true, 9);
+  assert jsonb_array_length(admin_list_gifts()) >= 9, 'thêm quà mới';
+end $$;
+
 select '✔ Tất cả kiểm thử máy chủ đều đạt' as ket_qua;

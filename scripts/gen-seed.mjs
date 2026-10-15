@@ -13,6 +13,7 @@ import * as config from '../src/config.js';
 import { RANKS } from '../src/data/ranks.js';
 import { ITEMS, STARTER_ITEMS, DEFAULT_EQUIPPED } from '../src/data/items.js';
 import { QUESTIONS } from '../src/data/questions.js';
+import { GIFTS } from '../src/data/gifts.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const sqlDir = join(root, 'supabase', 'sql');
@@ -29,6 +30,7 @@ const settings = {
   MISSIONS: config.MISSIONS,
   KUDOS: config.KUDOS,
   VOUCHER: config.VOUCHER,
+  GIFT_SHOP: config.GIFT_SHOP,
   VALUES: config.VALUES,
   ALLOWED_EMAIL_DOMAINS: config.ALLOWED_EMAIL_DOMAINS,
   DEFAULT_EQUIPPED,
@@ -57,6 +59,15 @@ for (const it of ITEMS) {
     ].join(', ')}) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;`,
   );
 }
+
+// Quà hiện vật: chỉ thêm món chưa có (BGH có thể đã sửa giá / số lượng).
+GIFTS.forEach((g, i) => {
+  seed.push(
+    `insert into public.gift_catalog (id, name, icon, description, cost, stock, sort) values (${[
+      lit(g.id), lit(g.name), lit(g.icon), lit(g.description), g.cost, g.stock ?? 'null', i,
+    ].join(', ')}) on conflict (id) do nothing;`,
+  );
+});
 
 // Câu hỏi mẫu: chỉ thêm câu chưa có (không ghi đè câu giáo viên đã sửa).
 for (const q of QUESTIONS) {

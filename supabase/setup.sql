@@ -179,6 +179,25 @@ create table if not exists public.vouchers (
 create index if not exists vouchers_user_idx on public.vouchers (user_id);
 create index if not exists vouchers_status_idx on public.vouchers (status);
 
+-- Cửa hàng đổi Xu lấy quà hiện vật (sổ tay, bình nước, áo VA…). Admin sửa giá / số lượng.
+create table if not exists public.gift_catalog (
+  id text primary key,
+  name text not null,
+  icon text not null default '🎁',
+  description text,
+  cost int not null check (cost > 0),
+  stock int check (stock is null or stock >= 0), -- null = không giới hạn
+  active boolean not null default true,
+  sort int not null default 0,
+  created_at timestamptz not null default now()
+);
+
+-- Phiếu quà đổi từ cửa hàng: nhớ món, số Xu đã trừ (để hoàn lại khi BGH không duyệt).
+alter table public.vouchers add column if not exists source text not null default 'grant';
+alter table public.vouchers add column if not exists gift_id text references public.gift_catalog (id) on delete set null;
+alter table public.vouchers add column if not exists coins_spent int not null default 0;
+alter table public.vouchers add column if not exists refunded boolean not null default false;
+
 -- Cúp Kỳ Lân hằng tháng (GĐ3): lưu Nhà thắng của mỗi tháng đã kết thúc.
 create table if not exists public.house_cups (
   month date primary key,
@@ -202,6 +221,7 @@ alter table public.reward_log enable row level security;
 alter table public.kudos enable row level security;
 alter table public.vouchers enable row level security;
 alter table public.house_cups enable row level security;
+alter table public.gift_catalog enable row level security;
 
 
 -- >>> 02_helpers.sql
@@ -1211,7 +1231,8 @@ returns jsonb language plpgsql stable security definer set search_path = public 
 declare v_uid uuid := public._require_player();
 begin
   return coalesce((
-    select jsonb_agg(jsonb_build_object('id', id, 'title', title, 'reason', reason, 'status', status, 'note', note, 'at', created_at) order by created_at desc)
+    select jsonb_agg(jsonb_build_object('id', id, 'title', title, 'reason', reason, 'status', status, 'note', note, 'at', created_at,
+      'source', source, 'coinsSpent', coins_spent, 'refunded', refunded) order by created_at desc)
     from vouchers where user_id = v_uid
   ), '[]');
 end;
@@ -1416,6 +1437,7 @@ begin
   return coalesce((
     select jsonb_agg(jsonb_build_object(
       'id', v.id, 'title', v.title, 'reason', v.reason, 'status', v.status, 'note', v.note, 'at', v.created_at,
+      'source', v.source, 'coinsSpent', v.coins_spent, 'refunded', v.refunded,
       'userId', v.user_id, 'name', coalesce(p.display_name, p.full_name), 'unit', p.unit, 'email', p.email
     ) order by v.created_at desc)
     from vouchers v join profiles p on p.id = v.user_id
@@ -1437,11 +1459,22 @@ $$;
 
 create or replace function public.admin_decide_voucher(p_id bigint, p_status text, p_note text default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
-declare v_uid uuid := public._require_manager();
+declare
+  v_uid uuid := public._require_manager();
+  v vouchers;
 begin
   if p_status not in ('approved', 'rejected', 'redeemed') then raise exception 'invalid_status'; end if;
-  update vouchers set status = p_status, note = coalesce(p_note, note), decided_by = v_uid, decided_at = now() where id = p_id;
+  select * into v from vouchers where id = p_id for update;
   if not found then raise exception 'voucher_not_found'; end if;
+  update vouchers set status = p_status, note = coalesce(p_note, note), decided_by = v_uid, decided_at = now() where id = p_id;
+  -- Phiếu đổi bằng Xu bị từ chối → hoàn Xu (một lần) và trả lại số lượng quà.
+  if p_status = 'rejected' and v.coins_spent > 0 and not v.refunded then
+    update vouchers set refunded = true where id = p_id;
+    update player_state set coins = coins + v.coins_spent, updated_at = now() where user_id = v.user_id;
+    insert into reward_log (user_id, kind, xp, coins, meta)
+    values (v.user_id, 'gift_refund', 0, v.coins_spent, jsonb_build_object('voucher', p_id));
+    update gift_catalog set stock = stock + 1 where id = v.gift_id and stock is not null;
+  end if;
   return jsonb_build_object('ok', true);
 end;
 $$;
@@ -1473,6 +1506,106 @@ end;
 $$;
 
 
+-- >>> 07_gift_shop.sql
+-- ════════════════════════════════════════════════════════════════════════
+-- Cửa hàng đổi Xu lấy Phiếu quà hiện vật
+-- Người chơi đổi → trừ Xu, giữ chỗ 1 món, tạo phiếu "Chờ duyệt". BGH duyệt → "Chờ trao" → "Đã trao".
+-- BGH không duyệt → hoàn Xu tự động (admin_decide_voucher).
+-- ════════════════════════════════════════════════════════════════════════
+
+drop policy if exists "đọc danh mục quà" on public.gift_catalog;
+create policy "đọc danh mục quà" on public.gift_catalog for select to authenticated using (true);
+
+-- Danh mục quà đang mở + giới hạn của người chơi.
+create or replace function public.gift_shop()
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare v_uid uuid := public._require_player();
+begin
+  return jsonb_build_object(
+    'gifts', coalesce((
+      select jsonb_agg(jsonb_build_object('id', id, 'name', name, 'icon', icon, 'description', description, 'cost', cost, 'stock', stock)
+        order by sort, cost)
+      from gift_catalog where active
+    ), '[]'),
+    'pending', (select count(*) from vouchers where user_id = v_uid and source = 'shop' and status = 'pending'),
+    'thisMonth', (select count(*) from vouchers where user_id = v_uid and source = 'shop' and status <> 'rejected'
+                   and created_at >= date_trunc('month', public._now_vn()) at time zone 'Asia/Ho_Chi_Minh'),
+    'maxPending', public._cfgn('GIFT_SHOP', 'MAX_PENDING', 2),
+    'monthlyLimit', public._cfgn('GIFT_SHOP', 'MONTHLY_LIMIT', 3)
+  );
+end;
+$$;
+
+create or replace function public.redeem_gift(p_gift text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  v_uid uuid := public._require_player();
+  g gift_catalog;
+  s player_state;
+  v_pending int;
+  v_month int;
+  v_id bigint;
+begin
+  select * into s from player_state where user_id = v_uid for update;
+  select * into g from gift_catalog where id = p_gift and active for update;
+  if not found then raise exception 'gift_not_found'; end if;
+  if g.stock is not null and g.stock <= 0 then raise exception 'gift_out_of_stock'; end if;
+
+  select count(*) into v_pending from vouchers where user_id = v_uid and source = 'shop' and status = 'pending';
+  if v_pending >= public._cfgn('GIFT_SHOP', 'MAX_PENDING', 2) then raise exception 'too_many_pending'; end if;
+  select count(*) into v_month from vouchers where user_id = v_uid and source = 'shop' and status <> 'rejected'
+    and created_at >= date_trunc('month', public._now_vn()) at time zone 'Asia/Ho_Chi_Minh';
+  if v_month >= public._cfgn('GIFT_SHOP', 'MONTHLY_LIMIT', 3) then raise exception 'monthly_limit'; end if;
+  if s.coins < g.cost then raise exception 'not_enough_coins'; end if;
+
+  update player_state set coins = coins - g.cost, updated_at = now() where user_id = v_uid;
+  update gift_catalog set stock = stock - 1 where id = g.id and stock is not null;
+  insert into vouchers (user_id, title, reason, status, source, gift_id, coins_spent)
+  values (v_uid, g.icon || ' ' || g.name, 'Đổi bằng ' || g.cost || ' Xu', 'pending', 'shop', g.id, g.cost)
+  returning id into v_id;
+  insert into reward_log (user_id, kind, xp, coins, meta)
+  values (v_uid, 'gift_redeem', 0, -g.cost, jsonb_build_object('gift', g.id, 'voucher', v_id));
+  return jsonb_build_object('ok', true, 'voucherId', v_id, 'state', public._state_json(v_uid));
+end;
+$$;
+
+-- ── Quản lý danh mục (BGH / Quản trị) ─────────────────────────────────────
+create or replace function public.admin_list_gifts()
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+begin
+  perform public._require_manager();
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'id', g.id, 'name', g.name, 'icon', g.icon, 'description', g.description, 'cost', g.cost, 'stock', g.stock,
+      'active', g.active, 'sort', g.sort,
+      'redeemed', (select count(*) from vouchers v where v.gift_id = g.id and v.status <> 'rejected')
+    ) order by g.sort, g.cost)
+    from gift_catalog g
+  ), '[]');
+end;
+$$;
+
+create or replace function public.admin_save_gift(
+  p_id text, p_name text, p_icon text, p_description text, p_cost int, p_stock int, p_active boolean, p_sort int default 0
+)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_id text := nullif(btrim(coalesce(p_id, '')), '');
+begin
+  perform public._require_manager();
+  if length(btrim(coalesce(p_name, ''))) < 2 then raise exception 'invalid_name'; end if;
+  if coalesce(p_cost, 0) <= 0 then raise exception 'invalid_cost'; end if;
+  if p_stock is not null and p_stock < 0 then raise exception 'invalid_stock'; end if;
+  v_id := coalesce(v_id, 'gift-' || substr(md5(random()::text || clock_timestamp()::text), 1, 8));
+  insert into gift_catalog (id, name, icon, description, cost, stock, active, sort)
+  values (v_id, btrim(p_name), coalesce(nullif(btrim(p_icon), ''), '🎁'), nullif(btrim(coalesce(p_description, '')), ''),
+          p_cost, p_stock, coalesce(p_active, true), coalesce(p_sort, 0))
+  on conflict (id) do update set name = excluded.name, icon = excluded.icon, description = excluded.description,
+    cost = excluded.cost, stock = excluded.stock, active = excluded.active, sort = excluded.sort;
+  return jsonb_build_object('ok', true, 'id', v_id);
+end;
+$$;
+
+
 -- ── Dữ liệu ban đầu (sinh tự động từ src/ — đừng sửa tay) ──
 insert into public.game_settings (key, value) values ('QUIZ', '{"QUESTIONS_PER_ROUND":5,"TIME_LIMIT_SEC":180,"XP_PER_CORRECT":10,"COINS_PER_CORRECT":5,"XP_PER_TRY":2,"PERFECT_BONUS_XP":20,"PERFECT_BONUS_COINS":10,"REWARDED_ROUNDS_PER_DAY":3}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('CHECK_IN', '{"XP":20,"COINS":15,"STREAK_BONUS_COINS_PER_DAY":2,"STREAK_BONUS_MAX_DAYS":7}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
@@ -1481,6 +1614,7 @@ insert into public.game_settings (key, value) values ('EXPLORE', '{"WALK_SPEED":
 insert into public.game_settings (key, value) values ('MISSIONS', '{"PER_DAY":3,"CATALOG":[{"id":"checkin","label":"Điểm danh hôm nay","counter":"checkedIn","target":1},{"id":"quiz","label":"Hoàn thành 1 lượt Tri Thức","counter":"quizRounds","target":1},{"id":"stations","label":"Chinh phục 2 Vùng Đất","counter":"stationCount","target":2},{"id":"coins","label":"Nhặt 10 xu vàng","counter":"coinPickups","target":10},{"id":"distance","label":"Chạy 300 m","counter":"distance","target":300},{"id":"runq","label":"Trả lời 2 câu hỏi dọc đường","counter":"runQuestions","target":2},{"id":"gift","label":"Mở 1 hộp quà bất ngờ","counter":"gifts","target":1},{"id":"thanks","label":"Gửi 1 lời cảm ơn","counter":"thanksSent","target":1}],"CHEST_XP":30,"CHEST_COINS":30}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('KUDOS', '{"THANKS_PER_DAY":3,"THANKS_COINS_SENDER":5,"THANKS_COINS_RECEIVER":5,"HEARTS_PER_DAY":20,"MESSAGE_MAX":120}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('VOUCHER', '{"GIFT_CHANCE":0.01,"GIFT_TITLE":"Phiếu quà may mắn"}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
+insert into public.game_settings (key, value) values ('GIFT_SHOP', '{"MAX_PENDING":2,"MONTHLY_LIMIT":3}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('VALUES', '[{"id":"nhanAi","name":"Nhân Ái","color":"#009082","motto":"Biết nghĩ cho người khác"},{"id":"banLinh","name":"Bản Lĩnh","color":"#725139","motto":"Dám đặt đòi hỏi của bản thân ở phía sau"},{"id":"triThuc","name":"Tri Thức","color":"#9A0036","motto":"Học hỏi liên tục để mở rộng dung lượng trái tim"},{"id":"trachNhiem","name":"Trách Nhiệm","color":"#C49C57","motto":"Thử sai và chấp nhận các hệ quả"},{"id":"khaiPhong","name":"Khai Phóng","color":"#1750B5","motto":"Nung nấu hoài bão và nguyện ước lớn"}]'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('ALLOWED_EMAIL_DOMAINS', '["vaschools.edu.vn"]'::jsonb) on conflict (key) do nothing;
 insert into public.game_settings (key, value) values ('DEFAULT_EQUIPPED', '{"jacket":"jacket-va","hat":"hat-none","glasses":"glasses-none","shoes":"shoes-red","backpack":"backpack-none","aura":"aura-none"}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
@@ -1514,6 +1648,14 @@ insert into public.items (id, slot, name, price, rank_id, rarity, model, starter
 insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('backpack-teal', 'backpack', 'Ba lô Nhân Ái', 100, null, 'rare', 'backpack', false) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
 insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('aura-none', 'aura', 'Không', 0, null, 'common', null, true) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
 insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('aura-legend', 'aura', 'Hào quang Huyền Thoại', 0, 'huyenThoai', 'legendary', 'aura', false) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
+insert into public.gift_catalog (id, name, icon, description, cost, stock, sort) values ('but-va', 'Bút bi VA', '🖊️', 'Bút bi in logo VA Schools.', 400, null, 0) on conflict (id) do nothing;
+insert into public.gift_catalog (id, name, icon, description, cost, stock, sort) values ('moc-khoa', 'Móc khoá Kỳ lân', '🔑', 'Móc khoá hình Kỳ lân VA dễ thương.', 600, null, 1) on conflict (id) do nothing;
+insert into public.gift_catalog (id, name, icon, description, cost, stock, sort) values ('ca-phe', 'Phiếu cà phê căng tin', '☕', 'Một ly cà phê / trà sữa tại căng tin trường.', 700, null, 2) on conflict (id) do nothing;
+insert into public.gift_catalog (id, name, icon, description, cost, stock, sort) values ('so-tay', 'Sổ tay VA', '📒', 'Sổ tay bìa cứng VA Schools.', 800, null, 3) on conflict (id) do nothing;
+insert into public.gift_catalog (id, name, icon, description, cost, stock, sort) values ('ly-su', 'Ly sứ VA', '🍵', 'Ly sứ in hình Kỳ lân và 5 giá trị.', 1200, 30, 4) on conflict (id) do nothing;
+insert into public.gift_catalog (id, name, icon, description, cost, stock, sort) values ('binh-nuoc', 'Bình nước VA', '🧴', 'Bình giữ nhiệt VA Schools.', 1500, 30, 5) on conflict (id) do nothing;
+insert into public.gift_catalog (id, name, icon, description, cost, stock, sort) values ('ao-thun', 'Áo thun VA', '👕', 'Áo thun đỏ VA Schools (chọn size khi nhận).', 3000, 20, 6) on conflict (id) do nothing;
+insert into public.gift_catalog (id, name, icon, description, cost, stock, sort) values ('gau-bong', 'Gấu bông Kỳ lân', '🧸', 'Kỳ lân nhồi bông — quà hiếm!', 4000, 10, 7) on conflict (id) do nothing;
 insert into public.questions (topic, value, q, options, explain) values ('values', null, 'VA Schools có bao nhiêu giá trị cốt lõi?', array['5', '3', '4', '7']::text[], null) on conflict (md5(q)) do nothing;
 insert into public.questions (topic, value, q, options, explain) values ('values', null, 'Thứ tự đúng của 5 giá trị cốt lõi VA Schools là gì?', array['Nhân ái – Bản lĩnh – Tri thức – Trách nhiệm – Khai phóng', 'Tri thức – Nhân ái – Khai phóng – Bản lĩnh – Trách nhiệm', 'Trách nhiệm – Tri thức – Nhân ái – Khai phóng – Bản lĩnh', 'Khai phóng – Trách nhiệm – Bản lĩnh – Tri thức – Nhân ái']::text[], null) on conflict (md5(q)) do nothing;
 insert into public.questions (topic, value, q, options, explain) values ('values', 'nhanAi', 'Giá trị cốt lõi ĐẦU TIÊN mà VA Schools đề cao là gì?', array['Nhân ái', 'Tri thức', 'Khai phóng', 'Bản lĩnh']::text[], 'Nhân ái là nền tảng cho các giá trị tiếp theo.') on conflict (md5(q)) do nothing;

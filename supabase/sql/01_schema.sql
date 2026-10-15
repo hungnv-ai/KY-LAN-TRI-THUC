@@ -171,6 +171,25 @@ create table if not exists public.vouchers (
 create index if not exists vouchers_user_idx on public.vouchers (user_id);
 create index if not exists vouchers_status_idx on public.vouchers (status);
 
+-- Cửa hàng đổi Xu lấy quà hiện vật (sổ tay, bình nước, áo VA…). Admin sửa giá / số lượng.
+create table if not exists public.gift_catalog (
+  id text primary key,
+  name text not null,
+  icon text not null default '🎁',
+  description text,
+  cost int not null check (cost > 0),
+  stock int check (stock is null or stock >= 0), -- null = không giới hạn
+  active boolean not null default true,
+  sort int not null default 0,
+  created_at timestamptz not null default now()
+);
+
+-- Phiếu quà đổi từ cửa hàng: nhớ món, số Xu đã trừ (để hoàn lại khi BGH không duyệt).
+alter table public.vouchers add column if not exists source text not null default 'grant';
+alter table public.vouchers add column if not exists gift_id text references public.gift_catalog (id) on delete set null;
+alter table public.vouchers add column if not exists coins_spent int not null default 0;
+alter table public.vouchers add column if not exists refunded boolean not null default false;
+
 -- Cúp Kỳ Lân hằng tháng (GĐ3): lưu Nhà thắng của mỗi tháng đã kết thúc.
 create table if not exists public.house_cups (
   month date primary key,
@@ -194,3 +213,4 @@ alter table public.reward_log enable row level security;
 alter table public.kudos enable row level security;
 alter table public.vouchers enable row level security;
 alter table public.house_cups enable row level security;
+alter table public.gift_catalog enable row level security;

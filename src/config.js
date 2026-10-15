@@ -133,6 +133,14 @@ export const MULTIPLAYER = {
 export const ALLOWED_EMAIL_DOMAINS = ['vaschools.edu.vn'];
 
 /** Phiếu quà hiện vật: tỉ lệ hộp quà ra phiếu (chờ BGH duyệt). 0 = tắt. */
+/** Cửa hàng đổi Xu lấy quà hiện vật (danh mục: src/data/gifts.js, sửa trong trang quản trị). */
+export const GIFT_SHOP = {
+  /** Số phiếu đang chờ BGH duyệt tối đa cùng lúc. */
+  MAX_PENDING: 2,
+  /** Số lần đổi tối đa mỗi tháng. */
+  MONTHLY_LIMIT: 3,
+};
+
 export const VOUCHER = {
   GIFT_CHANCE: 0.01,
   GIFT_TITLE: 'Phiếu quà may mắn',
