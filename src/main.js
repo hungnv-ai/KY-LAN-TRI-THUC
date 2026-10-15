@@ -9,6 +9,8 @@ import { setupPets } from './features/pets.js';
 import { setupEvents } from './features/events.js';
 import { setupGoldenBell } from './features/goldenBell.js';
 import { setupOverview } from './features/overview.js';
+import { playIntroOnce } from './features/intro.js';
+import { setupZoneGrowth } from './features/zoneGrowth.js';
 import { setupMenu } from './features/menu.js';
 import { createRewards } from './features/rewards.js';
 import { startSession } from './features/session.js';
@@ -25,6 +27,8 @@ import { createFx } from './scene/fx.js';
 import { createQualityManager } from './scene/quality.js';
 import { createLabelFader } from './scene/labelFader.js';
 import { createScenery } from './scene/scenery.js';
+import { createDayCycle } from './scene/dayCycle.js';
+import { createSea } from './scene/sea.js';
 import { setupIsland } from './scene/island.js';
 import { setupLights } from './scene/lights.js';
 import { createMascot } from './scene/mascot.js';
@@ -40,9 +44,12 @@ import { hideLoading, renderHud, setupSoundButton, showAdminLink } from './ui/hu
 
 // ── 3D (vẽ ngay để màn hình đăng nhập có cảnh đảo phía sau) ─────────────
 const world = createWorld(document.getElementById('canvas-container'));
-const { sun } = setupLights(world.scene, world.renderer);
+const lights = setupLights(world.scene, world.renderer);
+const { sun } = lights;
 const island = setupIsland(world.scene);
 const scenery = createScenery(world.scene);
+const sea = createSea(world.scene);
+const dayCycle = createDayCycle(world.scene, lights);
 const labelFader = createLabelFader(world.scene, world.camera);
 const fx = createFx(world.scene);
 const mascot = createMascot();
@@ -57,6 +64,7 @@ let pets = null;
 let events = null;
 let goldenBell = null;
 let overview = null;
+let zoneGrowth = null;
 
 // ── Vòng lặp duy nhất ───────────────────────────────────────────────────
 const timer = new THREE.Timer();
@@ -81,6 +89,9 @@ world.renderer.setAnimationLoop((timestamp) => {
   wardrobe.update(delta, elapsed);
   island.update(delta, elapsed);
   scenery.update(delta, elapsed);
+  sea.update(delta, elapsed);
+  dayCycle.update(delta, elapsed);
+  zoneGrowth?.update(delta, elapsed);
   overview?.update(delta);
   labelFader.update(delta, world.isOverview());
   world.controls.update();
@@ -175,6 +186,8 @@ async function boot() {
   events = setupEvents({ world, island, mascot, openWardrobe: () => menu.wardrobe() });
   goldenBell = setupGoldenBell({ world, island, mascot, fx, rewards });
   overview = setupOverview({ world, isMoving: () => explore.isMoving() });
+  zoneGrowth = setupZoneGrowth({ world, island });
+  await playIntroOnce({ world });
 
   // Chạm vào Kỳ lân của mình: cảm xúc ngẫu nhiên + câu nói về 5 giá trị.
   const TAP_EMOTES = ['wave', 'happy', 'cool', 'think', 'cheer'];

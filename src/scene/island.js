@@ -130,6 +130,7 @@ function buildGround(scene) {
   );
   water.rotation.x = -Math.PI / 2;
   water.position.y = -0.25;
+  water.name = 'sea'; // scene/dayCycle.js đổi màu biển theo giờ
   scene.add(water);
 
   const sand = new THREE.Mesh(

@@ -16,6 +16,10 @@ const OVERVIEW_FIT_RADIUS = 34;
 const OVERVIEW_FOV = 48;
 const DEFAULT_FOV = 35;
 const CAMERA_FLY_SPEED = 2.6;
+/** Màn chào: camera lượn nửa vòng quanh đảo rồi đáp xuống Kỳ lân. */
+const INTRO_SEC = 5;
+const INTRO_START_RADIUS = 62;
+const INTRO_START_HEIGHT = 38;
 /** Sương mù tối thiểu khi ở gần (m). */
 const FOG_NEAR = 36;
 const FOG_FAR = 110;
@@ -39,7 +43,8 @@ const FOLLOW_GROUND_Y = 0.18;
  *   controls: OrbitControls, onTap: (object: THREE.Object3D, handler: () => void) => () => void,
  *   toScreen: (world: THREE.Vector3) => { x: number, y: number },
  *   setPanelFocus: (open: boolean) => void, update: (delta: number) => void,
- *   follow: (position: THREE.Vector3) => void, setOverview: (on: boolean) => void, isOverview: () => boolean }}
+ *   follow: (position: THREE.Vector3) => void, setOverview: (on: boolean) => void, isOverview: () => boolean,
+ *   playIntro: () => Promise<void> }}
  */
 export function createWorld(container) {
   const scene = new THREE.Scene();
@@ -142,7 +147,60 @@ export function createWorld(container) {
     scene.fog.far = Math.max(FOG_FAR, d + 95);
   }
 
+  // ── Màn chào khi mở game ──────────────────────────────────────────────
+  let intro = null;
+  function playIntro() {
+    return new Promise((resolve) => {
+      const endT = controls.target.clone();
+      const endP = camera.position.clone();
+      const off = endP.clone().sub(endT);
+      const endAngle = Math.atan2(off.x, off.z);
+      intro = {
+        t: 0,
+        endT,
+        endP,
+        endAngle,
+        endRadius: Math.hypot(off.x, off.z),
+        endHeight: off.y,
+        resolve,
+      };
+      flying = true;
+      controls.enabled = false;
+      const skip = () => finishIntro();
+      intro.skip = skip;
+      window.addEventListener('pointerdown', skip, { once: true });
+      window.addEventListener('keydown', skip, { once: true });
+    });
+  }
+
+  function finishIntro() {
+    if (!intro) return;
+    controls.target.copy(intro.endT);
+    camera.position.copy(intro.endP);
+    window.removeEventListener('pointerdown', intro.skip);
+    window.removeEventListener('keydown', intro.skip);
+    const done = intro.resolve;
+    intro = null;
+    flying = false;
+    controls.enabled = true;
+    done();
+  }
+
+  function updateIntro(delta) {
+    if (!intro) return;
+    intro.t = Math.min(1, intro.t + delta / INTRO_SEC);
+    const e = 1 - (1 - intro.t) ** 3; // chậm dần khi đáp xuống
+    const angle = intro.endAngle + Math.PI * (1 - e);
+    const radius = THREE.MathUtils.lerp(INTRO_START_RADIUS, intro.endRadius, e);
+    const height = THREE.MathUtils.lerp(INTRO_START_HEIGHT, intro.endHeight, e);
+    controls.target.lerpVectors(OVERVIEW_TARGET, intro.endT, e);
+    camera.position.set(controls.target.x + Math.sin(angle) * radius, controls.target.y + height, controls.target.z + Math.cos(angle) * radius);
+    camera.lookAt(controls.target);
+    if (intro.t >= 1) finishIntro();
+  }
+
   function update(delta) {
+    updateIntro(delta);
     updateFly(delta);
     updateFog();
     const w = window.innerWidth;
@@ -239,7 +297,7 @@ export function createWorld(container) {
   }
 
   return {
-    scene, camera, renderer, controls, onTap, toScreen, setPanelFocus, update, follow, setOverview,
+    scene, camera, renderer, controls, onTap, toScreen, setPanelFocus, update, follow, setOverview, playIntro,
     isOverview: () => overview,
   };
 }

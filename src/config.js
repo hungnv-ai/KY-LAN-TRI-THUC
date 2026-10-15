@@ -159,6 +159,15 @@ export const BELL = {
   PRACTICE_BOT_ACCURACY: 0.78,
 };
 
+/**
+ * Vùng Đất "lớn lên" theo tổng XP tháng này của Nhà tương ứng (5 Nhà = 5 Vùng Đất).
+ * Mốc XP để đạt cấp 1 → 4; tải lại bảng điểm mỗi REFRESH_MIN phút.
+ */
+export const ZONE_GROWTH = {
+  LEVEL_XP: [200, 1000, 3000, 8000],
+  REFRESH_MIN: 5,
+};
+
 /** Cửa hàng đổi Xu lấy quà hiện vật (danh mục: src/data/gifts.js, sửa trong trang quản trị). */
 export const GIFT_SHOP = {
   /** Số phiếu đang chờ BGH duyệt tối đa cùng lúc. */
