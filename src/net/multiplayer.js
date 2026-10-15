@@ -24,10 +24,12 @@ const MAX_ROOMS = 50;
  *   onPeerLeave: (id: string) => void,
  *   onMotion: (id: string, motion: { x: number, z: number, ry: number, s: number }) => void,
  *   onEmote: (id: string, name: string) => void,
+ *   onSticker?: (id: string, sticker: string) => void,
  *   onKudos?: (msg: { from: string, fromName: string, kind: string }) => void,
  *   onRoomChange?: (info: { room: string, count: number }) => void,
  * }} opts
  * @returns {{ start: () => Promise<void>, sendMotion: (m: object, moving: boolean) => void, sendEmote: (name: string) => void,
+ *   sendSticker: (sticker: string) => void,
  *   notifyProfileChanged: () => void, sendKudos: (to: string, kind: string) => void, stop: () => void,
  *   peerCount: () => number }}
  */
@@ -68,6 +70,11 @@ export function createMultiplayer(opts) {
       if (isMe(id)) return;
       ensurePeer(id).lastSeen = performance.now();
       opts.onEmote(id, name);
+    },
+    sticker(id, sticker) {
+      if (isMe(id) || typeof sticker !== 'string') return;
+      ensurePeer(id).lastSeen = performance.now();
+      opts.onSticker?.(id, sticker);
     },
     profileChanged(id) {
       if (isMe(id) || !peers.has(id)) return;
@@ -154,6 +161,9 @@ export function createMultiplayer(opts) {
     sendEmote(name) {
       transport.send('emote', { id: opts.myId, name });
     },
+    sendSticker(sticker) {
+      transport.send('sticker', { id: opts.myId, sticker });
+    },
     /** Báo người khác tải lại hồ sơ của mình (vừa đổi đồ, lên hạng…). */
     notifyProfileChanged() {
       if (opts.supabase) transport.send('profileChanged', { id: opts.myId });
@@ -185,6 +195,7 @@ function createSupabaseTransport({ supabase, myId }) {
     ch.on('presence', { event: 'leave' }, ({ key }) => handlers.leave(key));
     ch.on('broadcast', { event: 'motion' }, ({ payload }) => handlers.motion(payload.id, payload));
     ch.on('broadcast', { event: 'emote' }, ({ payload }) => handlers.emote(payload.id, payload.name));
+    ch.on('broadcast', { event: 'sticker' }, ({ payload }) => handlers.sticker(payload.id, payload.sticker));
     ch.on('broadcast', { event: 'profileChanged' }, ({ payload }) => handlers.profileChanged(payload.id));
     ch.on('broadcast', { event: 'kudos' }, ({ payload }) => handlers.kudos(payload));
 
@@ -244,6 +255,8 @@ function createLocalTransport({ myId, getLocalProfile }) {
           handlers.motion(payload.id, payload);
         } else if (event === 'emote') {
           handlers.emote(payload.id, payload.name);
+        } else if (event === 'sticker') {
+          handlers.sticker(payload.id, payload.sticker);
         } else if (event === 'kudos') {
           handlers.kudos(payload);
         }

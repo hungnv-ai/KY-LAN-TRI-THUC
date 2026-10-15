@@ -10,6 +10,8 @@ import {
 } from '../game/progress.js';
 import { createMultiplayer } from '../net/multiplayer.js';
 import { createNameTag } from '../scene/nameTag.js';
+import { createStickerBubble } from '../scene/stickerBubble.js';
+import { getSticker } from '../data/stickers.js';
 import { createRemotePlayers } from '../scene/remotePlayers.js';
 import { say, showToast } from '../ui/feedback.js';
 import { renderOnline } from '../ui/hud.js';
@@ -21,12 +23,14 @@ import { openProfileCard } from '../ui/profileCard.js';
  *
  * @param {{ world: object, island: object, mascot: object, supabase: object | null, userId: string,
  *   isMoving: () => boolean }} deps
- * @returns {{ update: (delta: number, elapsed: number) => void, notifyProfileChanged: () => void }}
+ * @returns {{ update: (delta: number, elapsed: number) => void, notifyProfileChanged: () => void,
+ *   sendSticker: (stickerId: string) => void }}
  */
 export function setupSocial({ world, island, mascot, supabase, userId, isMoving }) {
   // ── Bảng tên của mình ───────────────────────────────────────────────
   const myTag = createNameTag();
   mascot.object.add(myTag.sprite);
+  const mySticker = createStickerBubble(mascot.object);
   const refreshMyTag = () => {
     const p = getProfile();
     myTag.set({ name: p.displayName, unit: p.unit, xp: getState().xp, house: p.house, isMe: true });
@@ -56,6 +60,10 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving 
     onPeerLeave: (id) => remote.remove(id),
     onMotion: (id, m) => remote.setMotion(id, m),
     onEmote: (id, name) => remote.playEmote(id, name),
+    onSticker: (id, stickerId) => {
+      const sticker = getSticker(stickerId);
+      if (sticker) remote.playSticker(id, sticker.emoji);
+    },
     onKudos: ({ fromName, kind }) => {
       sfx.gift();
       mascot.emote(kind === 'thanks' ? 'cheer' : 'happy');
@@ -73,6 +81,14 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving 
   function notifyProfileChanged() {
     refreshMyTag();
     mp.notifyProfileChanged();
+  }
+
+  /** Hiện sticker trên đầu Kỳ lân của mình và gửi cho mọi người cùng đảo. */
+  function sendSticker(stickerId) {
+    const sticker = getSticker(stickerId);
+    if (!sticker) return;
+    mySticker.show(sticker.emoji);
+    mp.sendSticker(stickerId);
   }
 
   function openPeer(id) {
@@ -118,6 +134,7 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving 
     );
     remote.update(delta, elapsed, world.camera);
     myTag.update(elapsed);
+    mySticker.update(delta);
     const xp = getState().xp;
     if (xp !== lastXp) {
       // XP đổi → bảng tên đổi hạng; báo người khác khi qua mốc hạng (đỡ tốn băng thông).
@@ -127,7 +144,7 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving 
   }
 
   if (import.meta.env.DEV) window.__kltSocial = { remote, mp };
-  return { update, notifyProfileChanged };
+  return { update, notifyProfileChanged, sendSticker };
 }
 
 function round2(n) {

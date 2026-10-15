@@ -1409,3 +1409,175 @@ textarea.input {
 .pill-online {
   font-size: 13px;
 }
+
+/* ── Nút nhanh bên phải (sticker, chụp ảnh, sự kiện) ───────────────────── */
+.quick-actions {
+  position: fixed;
+  right: 12px;
+  bottom: calc(112px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 5;
+}
+
+.qa-btn {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-glass);
+  box-shadow: var(--shadow);
+  font-size: 24px;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.qa-btn:hover {
+  transform: scale(1.08);
+  background: #fff;
+}
+
+.qa-btn:focus-visible {
+  outline: 3px solid var(--accent, var(--tri-thuc));
+  outline-offset: 2px;
+}
+
+.qa-btn.is-pulse::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 3px solid var(--accent, var(--tri-thuc));
+  animation: qa-pulse 1.4s ease-out infinite;
+}
+
+@keyframes qa-pulse {
+  from {
+    transform: scale(0.9);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+.qa-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--tri-thuc);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 18px;
+}
+
+.sticker-picker {
+  position: absolute;
+  right: 60px;
+  display: grid;
+  grid-template-columns: repeat(4, 44px);
+  gap: 6px;
+  padding: 10px;
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  animation: pop 0.18s ease-out;
+}
+
+.sticker-btn {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  font-size: 26px;
+  cursor: pointer;
+}
+
+.sticker-btn:hover,
+.sticker-btn:focus-visible {
+  background: #f6efe6;
+  outline: none;
+}
+
+/* ── Chụp ảnh ───────────────────────────────────────────────────────────── */
+.photo-countdown {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: min(30vw, 220px);
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 6px 30px rgba(154, 0, 54, 0.55);
+  pointer-events: none;
+  z-index: 50;
+}
+
+.photo-countdown.tick {
+  animation: countdown-pop 0.8s ease-out;
+}
+
+@keyframes countdown-pop {
+  from {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  30% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.9);
+    opacity: 0.2;
+  }
+}
+
+.photo-flash {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  pointer-events: none;
+  z-index: 60;
+  animation: photo-flash 0.5s ease-out forwards;
+}
+
+@keyframes photo-flash {
+  from {
+    opacity: 0.95;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+body.is-photo .nav,
+body.is-photo .quick-actions,
+body.is-photo .key-hint,
+body.is-photo .speech {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.photo-dialog .dialog-card {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.photo-preview {
+  display: block;
+  width: 100%;
+  margin: 12px 0 8px;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.small {
+  font-size: 13px;
+}

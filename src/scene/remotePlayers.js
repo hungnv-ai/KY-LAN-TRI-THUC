@@ -3,6 +3,7 @@ import { MULTIPLAYER } from '../config.js';
 import { createMascot } from './mascot.js';
 import { createNameTag } from './nameTag.js';
 import { createWardrobe } from './outfits.js';
+import { createStickerBubble } from './stickerBubble.js';
 
 /** Tốc độ bám theo vị trí nhận được (càng lớn càng sát, càng nhỏ càng mượt). */
 const FOLLOW_SPEED = 10;
@@ -41,6 +42,7 @@ export function createRemotePlayers({ scene, island, onTap, onSelect }) {
     hit.position.y = 1.4;
     root.add(hit);
     const offTap = onTap(hit, () => onSelect(id));
+    const sticker = createStickerBubble(root);
 
     p = {
       id,
@@ -48,6 +50,7 @@ export function createRemotePlayers({ scene, island, onTap, onSelect }) {
       tag,
       hit,
       offTap,
+      sticker,
       mascot: null,
       wardrobe: null,
       profile: null,
@@ -105,10 +108,17 @@ export function createRemotePlayers({ scene, island, onTap, onSelect }) {
     else p.pendingEmote = name;
   }
 
+  /** Hiện sticker trên đầu người chơi khác. */
+  function playSticker(id, emoji) {
+    const p = players.get(id);
+    if (p?.hasMotion) p.sticker.show(emoji);
+  }
+
   function remove(id) {
     const p = players.get(id);
     if (!p) return;
     p.offTap();
+    p.sticker.dispose();
     dropDetail(p);
     p.tag.dispose();
     p.hit.geometry.dispose();
@@ -152,6 +162,7 @@ export function createRemotePlayers({ scene, island, onTap, onSelect }) {
         p.wardrobe.update(delta, elapsed);
       }
       p.tag.update(elapsed);
+      p.sticker.update(delta);
     }
   }
 
@@ -159,6 +170,7 @@ export function createRemotePlayers({ scene, island, onTap, onSelect }) {
     updateProfile,
     setMotion,
     playEmote,
+    playSticker,
     remove,
     update,
     get: (id) => players.get(id),

@@ -3,6 +3,7 @@ import { initAudio, isMuted, setMuted, sfx } from './audio/sfx.js';
 import { MASCOT_LINES } from './data/lines.js';
 import { getRankInfo } from './data/ranks.js';
 import { createExplore } from './features/explore.js';
+import { setupExpressions } from './features/expressions.js';
 import { setupMenu } from './features/menu.js';
 import { createRewards } from './features/rewards.js';
 import { startSession } from './features/session.js';
@@ -138,6 +139,8 @@ async function boot() {
     userId: session.userId,
     isMoving: () => explore.isMoving(),
   });
+
+  setupExpressions({ world, mascot, social });
 
   setupMenu({
     world,

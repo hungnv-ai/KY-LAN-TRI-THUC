@@ -154,4 +154,25 @@ export const sfx = {
   faint() {
     tone(440, 0, 0.6, { type: 'triangle', vol: 0.16, slideTo: 110 });
   },
+  /** Đếm ngược (bíp). */
+  tick() {
+    tone(880, 0, 0.08, { type: 'sine', vol: 0.12 });
+  },
+  /** Màn trập máy ảnh. */
+  shutter() {
+    shimmer(0, 0.12, 0.25);
+    tone(1800, 0, 0.03, { type: 'square', vol: 0.05 });
+  },
+  /** Chuông vàng ngân (Rung Chuông Vàng). */
+  bell() {
+    [C6, G6, C6].forEach((f, i) => tone(f, i * 0.02, 1.6, { type: 'sine', vol: 0.12 }));
+    tone(E6, 0.01, 1.2, { type: 'triangle', vol: 0.06 });
+  },
+  /** Trứng nở. */
+  hatch() {
+    tone(300, 0, 0.06, { type: 'square', vol: 0.08 });
+    tone(360, 0.12, 0.06, { type: 'square', vol: 0.08 });
+    [G5, C6, E6, G6].forEach((f, i) => tone(f, 0.3 + i * 0.07, 0.3, { type: 'triangle', vol: 0.16 }));
+    shimmer(0.45, 0.7, 0.07);
+  },
 };
