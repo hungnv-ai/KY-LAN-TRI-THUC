@@ -53,9 +53,14 @@ Chuẩn bị một file ghi chú (Notepad) để dán tạm 4 thông tin sẽ g�
 File cài đặt đã được Claude chuẩn bị sẵn: **`supabase/setup.sql`**. Nó tạo toàn bộ bảng,
 luật thưởng chống gian lận, 106 câu hỏi, 7 hạng, 23 món đồ.
 
-1. Mở file trên GitHub: vào trang repo → thư mục **supabase** → bấm file **setup.sql**.
-2. Ở góc phải phía trên khung code, bấm nút **Copy raw file** (biểu tượng 2 tờ giấy chồng
-   nhau). Toàn bộ nội dung đã vào bộ nhớ tạm.
+1. Mở thẳng bản "chữ thô" của file (đã đăng nhập GitHub):
+   **https://github.com/hungnv-ai/KY-LAN-TRI-THUC/raw/main/supabase/setup.sql**
+   → trình duyệt hiện một trang toàn chữ (code).
+   (Cách đi bằng chuột: trang repo → bấm thư mục **supabase** trong danh sách file → bấm
+   **setup.sql**. Nếu không thấy thư mục: kiểm tra ô nhánh ở góc trên trái đang là **main**.)
+2. Bấm vào trang chữ đó → **Ctrl + A** (chọn hết) → **Ctrl + C** (copy).
+   (Hoặc ở trang xem file thường, bấm nút **Copy raw file** — biểu tượng 2 tờ giấy chồng nhau,
+   góc phải phía trên khung code.)
 3. Quay lại Supabase → thanh bên trái bấm **SQL Editor** (biểu tượng `>_`).
 4. Bấm **+ New query** (hoặc dấu **+**) để có trang trống.
 5. Bấm vào khung trống → **Ctrl + V** để dán → bấm nút **Run** (góc phải dưới, hoặc
