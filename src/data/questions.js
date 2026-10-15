@@ -10,6 +10,7 @@ export const TOPICS = {
   values: '5 Giá trị cốt lõi',
   va: 'Văn hoá VA Schools',
   general: 'Kiến thức chung',
+  event: 'Sự kiện',
 };
 
 export const QUESTIONS = [

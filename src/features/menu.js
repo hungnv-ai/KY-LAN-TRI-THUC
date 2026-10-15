@@ -40,9 +40,9 @@ const TRY_ON_MS = 2500;
  *
  * @param {{ world: object, mascot: object, wardrobe: object, fx: object,
  *   rewards: ReturnType<typeof import('./rewards.js').createRewards>,
- *   onOutfitChanged: () => void }} deps
+ *   onOutfitChanged: () => void, onCheckedIn?: (result: object) => void | Promise<void> }} deps
  */
-export function setupMenu({ world, mascot, wardrobe, fx, rewards, onOutfitChanged }) {
+export function setupMenu({ world, mascot, wardrobe, fx, rewards, onOutfitChanged, onCheckedIn }) {
   const warn = (err) => showToast(friendlyError(err), { type: 'warn', icon: '⚠️' });
 
   async function doCheckIn() {
@@ -62,6 +62,7 @@ export function setupMenu({ world, mascot, wardrobe, fx, rewards, onOutfitChange
     rewards.celebrate('#C49C57');
     say(`Điểm danh thành công! Chuỗi ${result.streak} ngày 🔥 — Trách nhiệm là giữ lời hứa với chính mình!`);
     await rewards.announce(result, 'Điểm danh');
+    await onCheckedIn?.(result);
   }
 
   const actions = {
@@ -153,6 +154,10 @@ export function setupMenu({ world, mascot, wardrobe, fx, rewards, onOutfitChange
             const rank = RANKS.find((r) => r.id === item.rank);
             showToast(`Đạt hạng ${rank.name} để mở khoá "${item.name}"!`, { type: 'warn', icon: '🔒' });
             mascot.emote('think');
+            return;
+          }
+          if (status === 'eventLocked') {
+            showToast(`"${item.name}" chỉ bán trong thời gian sự kiện.`, { type: 'warn', icon: '🌸' });
             return;
           }
           if (status === 'tooPoor') {

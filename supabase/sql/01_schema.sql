@@ -48,6 +48,11 @@ create table if not exists public.questions (
   updated_at timestamptz not null default now()
 );
 create unique index if not exists questions_q_unique on public.questions (md5(q));
+-- Sự kiện theo mùa (thêm sau): câu hỏi / trang phục chỉ dùng khi sự kiện đang diễn ra.
+alter table public.questions add column if not exists event text;
+alter table public.questions drop constraint if exists questions_topic_check;
+alter table public.questions add constraint questions_topic_check check (topic in ('values', 'va', 'general', 'event'));
+alter table public.items add column if not exists event text;
 create index if not exists questions_status_idx on public.questions (status);
 
 create table if not exists public.profiles (
@@ -81,6 +86,10 @@ create table if not exists public.player_state (
   updated_at timestamptz not null default now()
 );
 create index if not exists player_state_xp_idx on public.player_state (xp desc);
+-- Thú cưng (thêm sau → dùng add column để bảng cũ cũng có cột mới).
+alter table public.player_state add column if not exists pets text[] not null default '{}';
+alter table public.player_state add column if not exists active_pet text;
+alter table public.player_state add column if not exists egg_progress int not null default 0;
 
 create table if not exists public.daily_counters (
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -156,6 +165,7 @@ create table if not exists public.kudos (
 );
 create index if not exists kudos_to_idx on public.kudos (to_user, created_at desc);
 create unique index if not exists kudos_once_per_day on public.kudos (from_user, to_user, kind, day);
+alter table public.kudos add column if not exists card text; -- mẫu thiệp sự kiện (vd thiệp 20/11)
 
 create table if not exists public.vouchers (
   id bigint generated always as identity primary key,
@@ -170,6 +180,75 @@ create table if not exists public.vouchers (
 );
 create index if not exists vouchers_user_idx on public.vouchers (user_id);
 create index if not exists vouchers_status_idx on public.vouchers (status);
+
+-- Cửa hàng đổi Xu lấy quà hiện vật (sổ tay, bình nước, áo VA…). Admin sửa giá / số lượng.
+create table if not exists public.gift_catalog (
+  id text primary key,
+  name text not null,
+  icon text not null default '🎁',
+  description text,
+  cost int not null check (cost > 0),
+  stock int check (stock is null or stock >= 0), -- null = không giới hạn
+  active boolean not null default true,
+  sort int not null default 0,
+  created_at timestamptz not null default now()
+);
+
+-- Phiếu quà đổi từ cửa hàng: nhớ món, số Xu đã trừ (để hoàn lại khi BGH không duyệt).
+alter table public.vouchers add column if not exists source text not null default 'grant';
+alter table public.vouchers add column if not exists gift_id text references public.gift_catalog (id) on delete set null;
+alter table public.vouchers add column if not exists coins_spent int not null default 0;
+alter table public.vouchers add column if not exists refunded boolean not null default false;
+
+-- Rung Chuông Vàng: trận đấu loại trực tiếp theo giờ hẹn (máy chủ chạy theo đồng hồ).
+create table if not exists public.bell_games (
+  id bigint generated always as identity primary key,
+  title text not null,
+  starts_at timestamptz not null,
+  question_count int not null check (question_count between 3 and 30),
+  answer_sec int not null default 15 check (answer_sec between 8 and 60),
+  reveal_sec int not null default 6 check (reveal_sec between 3 and 20),
+  prize_xp int not null default 50 check (prize_xp >= 0),
+  prize_coins int not null default 100 check (prize_coins >= 0),
+  join_xp int not null default 5 check (join_xp >= 0),
+  winner_voucher text,
+  status text not null default 'scheduled' check (status in ('scheduled', 'finished', 'cancelled')),
+  settled_round int not null default 0,
+  created_by uuid references auth.users (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists bell_games_starts_idx on public.bell_games (starts_at);
+
+create table if not exists public.bell_rounds (
+  game_id bigint not null references public.bell_games (id) on delete cascade,
+  round int not null,
+  question_id bigint references public.questions (id) on delete set null,
+  q text not null,
+  options text[] not null,          -- đã xáo trộn
+  correct_index int not null,       -- 0-based theo options đã xáo
+  explain text,
+  primary key (game_id, round)
+);
+
+create table if not exists public.bell_players (
+  game_id bigint not null references public.bell_games (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  joined_at timestamptz not null default now(),
+  out_round int,                    -- null = còn trụ lại
+  correct int not null default 0,
+  primary key (game_id, user_id)
+);
+
+create table if not exists public.bell_answers (
+  game_id bigint not null,
+  round int not null,
+  user_id uuid not null,
+  choice int not null,
+  correct boolean not null,
+  answered_at timestamptz not null default now(),
+  primary key (game_id, round, user_id),
+  foreign key (game_id, user_id) references public.bell_players (game_id, user_id) on delete cascade
+);
 
 -- Cúp Kỳ Lân hằng tháng (GĐ3): lưu Nhà thắng của mỗi tháng đã kết thúc.
 create table if not exists public.house_cups (
@@ -194,3 +273,8 @@ alter table public.reward_log enable row level security;
 alter table public.kudos enable row level security;
 alter table public.vouchers enable row level security;
 alter table public.house_cups enable row level security;
+alter table public.gift_catalog enable row level security;
+alter table public.bell_games enable row level security;
+alter table public.bell_rounds enable row level security;
+alter table public.bell_players enable row level security;
+alter table public.bell_answers enable row level security;

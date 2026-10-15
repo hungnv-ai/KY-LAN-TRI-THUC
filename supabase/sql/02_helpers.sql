@@ -242,6 +242,12 @@ begin
     'owned', to_jsonb(s.owned),
     'equipped', s.equipped,
     'streak', jsonb_build_object('count', s.streak_count, 'lastDay', s.streak_last),
+    'pets', jsonb_build_object(
+      'owned', to_jsonb(s.pets),
+      'active', s.active_pet,
+      'egg', s.egg_progress,
+      'eggNeed', public._cfgn('PETS', 'EGG_DAYS', 3)
+    ),
     'daily', jsonb_build_object(
       'day', d.day,
       'checkedIn', d.checked_in,
@@ -275,6 +281,7 @@ begin
       'role', p.role,
       'house', p.house
     ),
+    'event', public._active_event(),
     'serverTime', now()
   );
 end;

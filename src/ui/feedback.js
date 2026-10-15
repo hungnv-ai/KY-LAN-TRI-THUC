@@ -126,3 +126,30 @@ export function setSpeechAnchor(x, y) {
 export function isDialogOpen() {
   return dialogRoot.childElementCount > 0;
 }
+
+/**
+ * Hộp thoại tuỳ biến (ảnh chụp, thiệp…): tự gắn nền mờ, đóng bằng Esc/bấm nền.
+ *
+ * @param {{ className?: string, labelledBy?: string, children: (Node | string)[], onClose?: () => void }} options
+ * @returns {() => void} hàm đóng hộp thoại
+ */
+export function openCustomDialog({ className = '', labelledBy, children, onClose }) {
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    dialog.remove();
+    document.removeEventListener('keydown', onKey);
+    onClose?.();
+  };
+  const onKey = (e) => e.key === 'Escape' && close();
+  const dialog = h(
+    'div',
+    { class: `dialog ${className}`, role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': labelledBy },
+    h('div', { class: 'sheet-backdrop', onclick: close }),
+    h('div', { class: 'dialog-card' }, ...children),
+  );
+  dialogRoot.append(dialog);
+  document.addEventListener('keydown', onKey);
+  return close;
+}

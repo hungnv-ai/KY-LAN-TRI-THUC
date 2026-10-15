@@ -349,4 +349,200 @@ begin
   update game_settings set value = jsonb_set(value, '{RANGES}', '[[12, 13], [19, 21]]') where key = 'GOLDEN_HOURS';
 end $$;
 
+\echo '16. Đổi Xu lấy Phiếu quà: trừ Xu, giới hạn, hoàn Xu khi không duyệt'
+do $$
+declare r jsonb; v_coins int; v_id bigint;
+begin
+  perform test_admin();
+  update player_state set coins = 5000 where user_id = '00000000-0000-0000-0000-00000000000b';
+  update gift_catalog set stock = 1 where id = 'gau-bong';
+  perform test_as('00000000-0000-0000-0000-00000000000b');
+  r := gift_shop();
+  assert jsonb_array_length(r -> 'gifts') >= 8, 'có danh mục quà';
+  r := redeem_gift('gau-bong');
+  v_id := (r ->> 'voucherId')::bigint;
+  assert (r -> 'state' ->> 'coins')::int = 1000, 'trừ 4000 Xu';
+  perform test_expect_error($q$select redeem_gift('gau-bong')$q$, 'gift_out_of_stock');
+  perform redeem_gift('so-tay');
+  perform test_expect_error($q$select redeem_gift('but-va')$q$, 'too_many_pending');
+  perform test_expect_error($q$select redeem_gift('khong-co')$q$, 'gift_not_found');
+  r := my_vouchers();
+  assert r -> 0 ->> 'source' = 'shop' and r -> 0 ->> 'status' = 'pending', 'phiếu chờ duyệt';
+  -- BGH không duyệt gấu bông → hoàn 4000 Xu + trả lại 1 món.
+  perform test_as('00000000-0000-0000-0000-00000000000a');
+  perform admin_decide_voucher(v_id, 'rejected', 'Hết hàng');
+  perform admin_decide_voucher(v_id, 'rejected', 'Bấm lại'); -- không hoàn 2 lần
+  perform test_as('00000000-0000-0000-0000-00000000000b');
+  select coins into v_coins from player_state where user_id = '00000000-0000-0000-0000-00000000000b';
+  assert v_coins = 200 + 4000, 'hoàn Xu đúng 1 lần (5000 - 4000 - 800 + 4000)';
+  assert (select stock from gift_catalog where id = 'gau-bong') = 1, 'trả lại số lượng';
+  -- Người chơi thường không sửa được danh mục.
+  perform test_expect_error($q$select admin_save_gift('x', 'Quà', '🎁', null, 10, null, true)$q$, 'forbidden');
+  perform test_as('00000000-0000-0000-0000-00000000000a');
+  r := admin_save_gift(null, 'Huy hiệu cài áo', '📛', 'Huy hiệu Kỳ lân', 300, 50, true, 9);
+  assert jsonb_array_length(admin_list_gifts()) >= 9, 'thêm quà mới';
+end $$;
+
+\echo '17. Thú cưng: ấp trứng khi điểm danh, nở thú chưa có, dắt đi cùng'
+do $$
+declare r jsonb; v_pet text; v_all text[];
+begin
+  perform test_admin();
+  update player_state set egg_progress = 0, pets = '{}', active_pet = null where user_id = '00000000-0000-0000-0000-00000000000b';
+  update daily_counters set checked_in = false where user_id = '00000000-0000-0000-0000-00000000000b';
+  perform test_as('00000000-0000-0000-0000-00000000000b');
+  r := claim_checkin() -> 'result' -> 'egg';
+  assert (r ->> 'progress')::int = 1 and r -> 'hatched' = 'null'::jsonb, 'trứng ấp được 1 ngày';
+  -- Ngày thứ 3 → nở.
+  perform test_admin();
+  update player_state set egg_progress = 2 where user_id = '00000000-0000-0000-0000-00000000000b';
+  update daily_counters set checked_in = false where user_id = '00000000-0000-0000-0000-00000000000b';
+  perform test_as('00000000-0000-0000-0000-00000000000b');
+  r := claim_checkin();
+  v_pet := r -> 'result' -> 'egg' -> 'hatched' ->> 'id';
+  assert v_pet is not null, 'trứng nở';
+  assert r -> 'state' -> 'pets' ->> 'active' = v_pet, 'tự dắt thú cưng đầu tiên';
+  assert (r -> 'state' -> 'pets' ->> 'egg')::int = 0, 'trứng mới bắt đầu lại';
+  perform test_expect_error($q$select equip_pet('khong-co')$q$, 'pet_not_owned');
+  r := equip_pet(null);
+  assert r -> 'state' -> 'pets' ->> 'active' is null, 'cho thú cưng nghỉ';
+  perform equip_pet(v_pet);
+  assert (public_profiles(array['00000000-0000-0000-0000-00000000000b'::uuid]) -> 0 ->> 'pet') = v_pet, 'người khác thấy thú cưng';
+  -- Có đủ thú cưng → trứng nở ra Xu.
+  perform test_admin();
+  select array_agg(p ->> 'id') into v_all from jsonb_array_elements(_cfg('PET_CATALOG')) p;
+  update player_state set pets = v_all, egg_progress = 2 where user_id = '00000000-0000-0000-0000-00000000000b';
+  update daily_counters set checked_in = false where user_id = '00000000-0000-0000-0000-00000000000b';
+  perform test_as('00000000-0000-0000-0000-00000000000b');
+  r := claim_checkin() -> 'result' -> 'egg';
+  assert (r ->> 'coins')::int = 40 and r -> 'hatched' = 'null'::jsonb, 'đủ bộ → nở ra 40 Xu';
+end $$;
+
+\echo '18. Sự kiện 20/11: bật/tắt, đồ sự kiện, thiệp tri ân, câu hỏi sự kiện'
+do $$
+declare r jsonb; v_before int; v_after int; v_q questions; i int;
+begin
+  perform test_admin();
+  update player_state set coins = 1000 where user_id in ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b');
+  delete from kudos where kind = 'thanks';
+  update daily_counters set thanks_sent = 0;
+  assert (select count(*) from questions where event = 'tri-an-2011') >= 14, 'có câu hỏi sự kiện';
+  -- Người chơi thường không bật được sự kiện.
+  perform test_as('00000000-0000-0000-0000-00000000000b');
+  perform test_expect_error($q$select admin_set_event('on', 'tri-an-2011')$q$, 'forbidden');
+  perform test_as('00000000-0000-0000-0000-00000000000a');
+  perform admin_set_event('off');
+  perform test_as('00000000-0000-0000-0000-00000000000b');
+  assert get_my_state() -> 'event' = 'null'::jsonb, 'tắt sự kiện';
+  perform test_expect_error($q$select buy_item('hat-flower')$q$, 'event_item_unavailable');
+  perform test_admin();
+  for i in 1..40 loop
+    v_q := _pick_question('00000000-0000-0000-0000-00000000000b', null);
+    assert v_q.event is null, 'không phát câu hỏi sự kiện khi tắt';
+  end loop;
+  -- Bật sự kiện.
+  perform test_as('00000000-0000-0000-0000-00000000000a');
+  r := admin_set_event('on', 'tri-an-2011');
+  assert r ->> 'active' = 'tri-an-2011', 'bật sự kiện';
+  perform test_as('00000000-0000-0000-0000-00000000000b');
+  assert get_my_state() ->> 'event' = 'tri-an-2011', 'người chơi thấy sự kiện';
+  r := buy_item('hat-flower');
+  assert r -> 'state' -> 'owned' ? 'hat-flower', 'mua được đồ sự kiện';
+  select coins into v_before from player_state where user_id = '00000000-0000-0000-0000-00000000000a';
+  r := send_kudos('00000000-0000-0000-0000-00000000000a', 'thanks', 'Cảm ơn cô!', 'hoa-hong');
+  assert r ->> 'card' = 'hoa-hong' and (r -> 'reward' ->> 'coins')::int = 10, 'thiệp tri ân: người gửi +10 Xu';
+  select coins into v_after from player_state where user_id = '00000000-0000-0000-0000-00000000000a';
+  assert v_after - v_before = 10, 'người nhận thiệp +10 Xu';
+  perform test_as('00000000-0000-0000-0000-00000000000a');
+  assert my_kudos() -> 0 ->> 'card' = 'hoa-hong', 'người nhận thấy mẫu thiệp';
+  -- Mẫu thiệp lạ → gửi như lời cảm ơn thường.
+  r := send_kudos('00000000-0000-0000-0000-00000000000b', 'thanks', 'Hi', 'thiep-gia');
+  assert r -> 'card' = 'null'::jsonb and (r -> 'reward' ->> 'coins')::int = 5, 'thiệp không hợp lệ không có thưởng thêm';
+  perform admin_set_event('auto');
+end $$;
+
+\echo '19. Rung Chuông Vàng: tham gia, trả lời, loại người sai, cứu trợ, trao thưởng'
+do $$
+declare
+  r jsonb; v_game bigint; v_cycle int; v_c1 int; v_c2 int;
+  v_coins_a int; v_xp_b int;
+  A uuid := '00000000-0000-0000-0000-00000000000a';
+  B uuid := '00000000-0000-0000-0000-00000000000b';
+begin
+  perform test_as(A);
+  perform admin_set_event('off'); -- tránh phụ thuộc lịch sự kiện
+  perform test_as(B);
+  perform test_expect_error($q$select admin_bell_create('Trận thử', now() + interval '10 minutes', 3, 10, 50, 100)$q$, 'forbidden');
+  perform test_as(A);
+  r := admin_bell_create('Rung Chuông Vàng thử', now() + interval '10 minutes', 3, 10, 50, 100, 'Sổ tay VA');
+  v_game := (r ->> 'id')::bigint;
+  perform bell_join(v_game);
+  perform test_as(B);
+  r := bell_upcoming();
+  assert (r -> 'game' ->> 'id')::bigint = v_game and not (r ->> 'joined')::boolean, 'thấy trận sắp diễn ra';
+  perform bell_join(v_game);
+  r := bell_state(v_game);
+  assert r ->> 'phase' = 'lobby' and (r ->> 'players')::int = 2, 'phòng chờ 2 người';
+  assert r -> 'question' is null, 'chưa lộ câu hỏi trong phòng chờ';
+
+  -- Vòng 1 bắt đầu.
+  perform test_admin();
+  select answer_sec + reveal_sec into v_cycle from bell_games where id = v_game;
+  update bell_games set starts_at = now() - interval '6 seconds' where id = v_game;
+  select correct_index into v_c1 from bell_rounds where game_id = v_game and round = 1;
+  select correct_index into v_c2 from bell_rounds where game_id = v_game and round = 2;
+  perform test_as(B);
+  r := bell_state(v_game);
+  assert r ->> 'phase' = 'answer' and (r ->> 'round')::int = 1 and r -> 'question' ->> 'q' is not null, 'vòng 1 đang nhận đáp án';
+  assert r -> 'reveal' is null, 'chưa lộ đáp án';
+  perform test_expect_error($q$select bell_join($q$ || v_game || $q$)$q$, 'bell_join_closed');
+  perform bell_answer(v_game, 1, (v_c1 + 1) % 4); -- B sai
+  r := bell_answer(v_game, 1, v_c1);
+  assert not (r ->> 'ok')::boolean, 'chỉ được trả lời 1 lần';
+  perform test_as(A);
+  perform bell_answer(v_game, 1, v_c1); -- A đúng
+
+  -- Công bố vòng 1 (đã qua thời gian bù trễ).
+  perform test_admin();
+  update bell_games set starts_at = now() - make_interval(secs => 10 + 2) where id = v_game;
+  perform test_as(B);
+  r := bell_state(v_game);
+  assert r ->> 'phase' = 'reveal' and (r -> 'reveal' ->> 'correctIndex')::int = v_c1, 'công bố đáp án vòng 1';
+  assert not (r -> 'reveal' ->> 'myCorrect')::boolean and (r -> 'me' ->> 'outRound')::int = 1, 'B bị loại ở câu 1';
+  assert (r ->> 'alive')::int = 1, 'còn 1 người';
+
+  -- Vòng 2: B không trả lời được nữa; A trả lời sai nhưng là người duy nhất → cứu trợ.
+  perform test_admin();
+  update bell_games set starts_at = now() - make_interval(secs => v_cycle + 1) where id = v_game;
+  perform test_as(B);
+  perform test_expect_error(format('select bell_answer(%s, 2, 0)', v_game), 'bell_eliminated');
+  perform test_as(A);
+  perform test_expect_error(format('select bell_answer(%s, 1, 0)', v_game), 'bell_round_closed');
+  perform bell_answer(v_game, 2, (v_c2 + 1) % 4);
+  perform test_admin();
+  update bell_games set starts_at = now() - make_interval(secs => v_cycle + 10 + 2) where id = v_game;
+  perform test_as(A);
+  r := bell_state(v_game);
+  assert (r -> 'me' ->> 'outRound') is null and (r ->> 'alive')::int = 1, 'cứu trợ: không ai đúng thì không ai bị loại';
+
+  -- Kết thúc: trao thưởng.
+  perform test_admin();
+  select coins into v_coins_a from player_state where user_id = A;
+  select xp into v_xp_b from player_state where user_id = B;
+  update bell_games set starts_at = now() - make_interval(secs => 3 * v_cycle + 1) where id = v_game;
+  perform test_as(A);
+  r := bell_state(v_game);
+  assert r ->> 'phase' = 'ended' and (r -> 'results' ->> 'survivors')::int = 1, 'kết thúc: 1 người thắng';
+  assert (r -> 'results' -> 'winners' -> 0 ->> 'me')::boolean, 'A trong danh sách thắng';
+  r := bell_state(v_game); -- gọi lại không trao thưởng 2 lần
+  perform test_admin();
+  assert (select coins from player_state where user_id = A) = v_coins_a + 100, 'A nhận 100 Xu đúng 1 lần';
+  assert (select xp from player_state where user_id = B) > v_xp_b, 'B nhận XP tham gia';
+  assert exists (select 1 from vouchers where user_id = A and source = 'bell'), 'A nhận phiếu quà (≤ 3 người thắng)';
+  perform test_as(A);
+  assert jsonb_array_length(admin_bell_results(v_game)) = 2, 'kết quả cho BGH';
+  assert (admin_bell_list() -> 0 ->> 'status') = 'finished', 'danh sách trận';
+  perform admin_set_event('auto');
+end $$;
+
 select '✔ Tất cả kiểm thử máy chủ đều đạt' as ket_qua;

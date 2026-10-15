@@ -13,6 +13,9 @@ import * as config from '../src/config.js';
 import { RANKS } from '../src/data/ranks.js';
 import { ITEMS, STARTER_ITEMS, DEFAULT_EQUIPPED } from '../src/data/items.js';
 import { QUESTIONS } from '../src/data/questions.js';
+import { GIFTS } from '../src/data/gifts.js';
+import { PETS } from '../src/data/pets.js';
+import { EVENTS, EVENT_QUESTIONS } from '../src/data/events.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const sqlDir = join(root, 'supabase', 'sql');
@@ -29,6 +32,11 @@ const settings = {
   MISSIONS: config.MISSIONS,
   KUDOS: config.KUDOS,
   VOUCHER: config.VOUCHER,
+  GIFT_SHOP: config.GIFT_SHOP,
+  PETS: config.PETS_CONFIG,
+  BELL: config.BELL,
+  PET_CATALOG: PETS.map(({ id, name, rarity, weight }) => ({ id, name, rarity, weight })),
+  EVENTS: EVENTS.map(({ id, name, start, end, cards, cardBonusCoins }) => ({ id, name, start, end, cards: cards.map((c) => c.id), cardBonusCoins })),
   VALUES: config.VALUES,
   ALLOWED_EMAIL_DOMAINS: config.ALLOWED_EMAIL_DOMAINS,
   DEFAULT_EQUIPPED,
@@ -42,6 +50,9 @@ for (const [key, value] of Object.entries(settings)) {
   seed.push(`insert into public.game_settings (key, value) values (${lit(key)}, ${jsonLit(value)}) on conflict (key) ${conflict};`);
 }
 
+// Sự kiện: mặc định tự bật theo lịch; không ghi đè lựa chọn bật/tắt của BGH.
+seed.push(`insert into public.game_settings (key, value) values ('EVENT_OVERRIDE', ${jsonLit({ mode: 'auto', id: null })}) on conflict (key) do nothing;`);
+
 RANKS.forEach((r, i) => {
   seed.push(
     `insert into public.ranks (id, sort, name, icon, xp, color, reward, tiers) values (${[
@@ -52,11 +63,20 @@ RANKS.forEach((r, i) => {
 
 for (const it of ITEMS) {
   seed.push(
-    `insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values (${[
-      lit(it.id), lit(it.slot), lit(it.name), it.price, lit(it.rank ?? null), lit(it.rarity), lit(it.model), STARTER_ITEMS.includes(it.id) ? 'true' : 'false',
-    ].join(', ')}) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;`,
+    `insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values (${[
+      lit(it.id), lit(it.slot), lit(it.name), it.price, lit(it.rank ?? null), lit(it.rarity), lit(it.model), STARTER_ITEMS.includes(it.id) ? 'true' : 'false', lit(it.event ?? null),
+    ].join(', ')}) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;`,
   );
 }
+
+// Quà hiện vật: chỉ thêm món chưa có (BGH có thể đã sửa giá / số lượng).
+GIFTS.forEach((g, i) => {
+  seed.push(
+    `insert into public.gift_catalog (id, name, icon, description, cost, stock, sort) values (${[
+      lit(g.id), lit(g.name), lit(g.icon), lit(g.description), g.cost, g.stock ?? 'null', i,
+    ].join(', ')}) on conflict (id) do nothing;`,
+  );
+});
 
 // Câu hỏi mẫu: chỉ thêm câu chưa có (không ghi đè câu giáo viên đã sửa).
 for (const q of QUESTIONS) {
@@ -64,6 +84,19 @@ for (const q of QUESTIONS) {
     `insert into public.questions (topic, value, q, options, explain) values (${[
       lit(q.topic), lit(q.value ?? null), lit(q.q), arrLit(q.a), lit(q.explain ?? null),
     ].join(', ')}) on conflict (md5(q)) do nothing;`,
+  );
+}
+
+// Câu hỏi sự kiện: gắn mã sự kiện (chỉ xuất hiện khi sự kiện đang diễn ra).
+// Không được trùng chữ với câu hỏi thường (nếu trùng, câu thường sẽ bị biến thành câu sự kiện).
+const baseTexts = new Set(QUESTIONS.map((q) => q.q));
+const dup = EVENT_QUESTIONS.filter((q) => baseTexts.has(q.q));
+if (dup.length) throw new Error(`Câu hỏi sự kiện trùng câu thường: ${dup.map((q) => q.q).join(' | ')}`);
+for (const q of EVENT_QUESTIONS) {
+  seed.push(
+    `insert into public.questions (topic, value, q, options, explain, event) values (${[
+      lit(q.topic), lit(q.value ?? null), lit(q.q), arrLit(q.a), lit(q.explain ?? null), lit(q.event),
+    ].join(', ')}) on conflict (md5(q)) do update set event = excluded.event;`,
   );
 }
 

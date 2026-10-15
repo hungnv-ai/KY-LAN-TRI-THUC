@@ -234,6 +234,15 @@ Phần này cần **bộ phận IT** (người quản lý tên miền `vaschools
 
 ---
 
+## Dùng các tính năng mới (dành cho BGH / Quản trị)
+
+| Muốn | Vào đâu |
+|---|---|
+| Hẹn giờ một trận **Rung Chuông Vàng** | `/admin` → **Rung Chuông Vàng** → **+ Tạo trận mới** (chọn giờ, số câu, giải). Phòng chờ mở trước 30 phút, Kỳ lân tự nhắc mọi người. |
+| Xem / sửa **quà đổi bằng Xu** (giá, số lượng, ẩn/hiện) | `/admin` → **Phiếu quà** → tab **🛍️ Danh mục quà** |
+| Duyệt phiếu đổi quà | `/admin` → **Phiếu quà** → **Chờ duyệt** (Không duyệt = tự hoàn Xu cho người chơi) |
+| Mở **Tuần lễ Tri ân 20/11** sớm để xem thử | `/admin` → **Cài đặt & phân quyền** → **Sự kiện theo mùa** → chọn "Bật ngay" → **Áp dụng**. Xem xong chọn lại "Tự động theo lịch". |
+
 ## Cập nhật về sau
 
 | Tình huống | Bạn làm gì |

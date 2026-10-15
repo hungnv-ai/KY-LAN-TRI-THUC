@@ -1,4 +1,5 @@
 import { EXPLORE, QUIZ, VALUES } from '../config.js';
+import { getEvent } from '../data/events.js';
 import { dayKey, yesterdayKey } from './time.js';
 
 /**
@@ -32,6 +33,17 @@ const ERROR_MESSAGES = {
   ticket_expired: 'Câu hỏi đã hết hạn.',
   not_enough_distance: 'Chạy thêm một chút nữa nhé!',
   no_questions: 'Ngân hàng câu hỏi đang trống.',
+  gift_out_of_stock: 'Món quà này vừa hết. Chọn món khác nhé!',
+  gift_not_found: 'Món quà này không còn trong cửa hàng.',
+  too_many_pending: 'Bạn đang có phiếu chờ duyệt — đợi BGH duyệt rồi đổi tiếp nhé.',
+  monthly_limit: 'Tháng này bạn đã đổi đủ số lần. Hẹn tháng sau!',
+  pet_not_owned: 'Bạn chưa có thú cưng này.',
+  event_item_unavailable: 'Món này chỉ bán trong thời gian sự kiện.',
+  bell_join_closed: 'Trận đã bắt đầu — bạn có thể xem và cổ vũ nhé!',
+  bell_not_open: 'Phòng chờ chưa mở. Quay lại gần giờ bắt đầu nhé!',
+  bell_round_closed: 'Hết giờ trả lời câu này rồi!',
+  bell_eliminated: 'Bạn đã dừng chân — tiếp tục cổ vũ mọi người nhé!',
+  bell_not_joined: 'Bạn chưa tham gia trận này.',
 };
 
 /**
@@ -178,14 +190,20 @@ export function getHouse() {
   return VALUES.find((v) => v.id === state.profile.house) ?? null;
 }
 
+/** @returns {(typeof import('../data/events.js').EVENTS)[number] | null} sự kiện đang diễn ra (máy chủ quyết định) */
+export function getActiveEvent() {
+  return getEvent(state?.event) ?? null;
+}
+
 /**
  * @param {object} item
- * @returns {'equipped' | 'owned' | 'buyable' | 'tooPoor' | 'locked'}
+ * @returns {'equipped' | 'owned' | 'buyable' | 'tooPoor' | 'locked' | 'eventLocked'}
  */
 export function itemStatus(item) {
   if (state.equipped[item.slot] === item.id) return 'equipped';
   if (state.owned.includes(item.id)) return 'owned';
   if (item.rank) return 'locked';
+  if (item.event && item.event !== state.event) return 'eventLocked';
   return state.coins >= item.price ? 'buyable' : 'tooPoor';
 }
 
@@ -196,7 +214,8 @@ export async function updateProfile(displayName, unit) {
   return call('updateProfile', displayName, unit);
 }
 
-/** @returns {Promise<null | { xp: number, coins: number, golden: boolean, rankUp: object | null, streak: number }>} */
+/** @returns {Promise<null | { xp: number, coins: number, golden: boolean, rankUp: object | null, streak: number,
+ *   egg: { progress: number, need: number, hatched: { id: string, name: string, rarity: string } | null, coins?: number } }>} */
 export async function checkIn() {
   return (await call('claimCheckin')).result;
 }
@@ -257,15 +276,54 @@ export async function equipItem(itemId) {
   await call('equipItem', itemId);
 }
 
+/** @returns {{ owned: string[], active: string | null, egg: number, eggNeed: number }} */
+export function getPets() {
+  return state.pets ?? { owned: [], active: null, egg: 0, eggNeed: 3 };
+}
+
+/**
+ * Dắt thú cưng đi cùng (null = cho nghỉ).
+ *
+ * @param {string | null} petId
+ */
+export async function equipPet(petId) {
+  await call('equipPet', petId);
+}
+
 /** @returns {Promise<null | object>} phần thưởng rương nhiệm vụ */
 export async function claimMissionChest() {
   return (await call('claimMissionChest')).result;
 }
 
-/** @returns {Promise<{ ok: boolean, reason?: string, reward?: object }>} */
-export async function sendKudos(toUserId, kind, message) {
-  return call('sendKudos', toUserId, kind, message);
+/**
+ * @param {string} toUserId
+ * @param {'heart' | 'thanks'} kind
+ * @param {string} [message]
+ * @param {string | null} [card] mẫu thiệp sự kiện
+ * @returns {Promise<{ ok: boolean, reason?: string, reward?: object, card?: string | null }>}
+ */
+export async function sendKudos(toUserId, kind, message, card = null) {
+  return call('sendKudos', toUserId, kind, message, card);
 }
+
+/**
+ * Đổi Xu lấy phiếu quà hiện vật (chờ BGH duyệt).
+ *
+ * @param {string} giftId
+ * @returns {Promise<{ ok: boolean, voucherId: number }>}
+ */
+export async function redeemGift(giftId) {
+  return call('redeemGift', giftId);
+}
+
+/** @returns {Promise<{ gifts: object[], pending: number, thisMonth: number, maxPending: number, monthlyLimit: number }>} */
+export const getGiftShop = () => backend.giftShop();
+// ── Rung Chuông Vàng (ghi nhận thưởng do máy chủ tự trao khi kết thúc → tải lại trạng thái) ──
+export const bellUpcoming = () => backend.bellUpcoming();
+export const bellPractice = () => backend.bellPractice();
+export const bellJoin = (gameId) => backend.bellJoin(gameId);
+export const bellState = (gameId) => backend.bellState(gameId);
+export const bellAnswer = (gameId, round, choice) => backend.bellAnswer(gameId, round, choice);
 
 export const getPublicProfiles = (ids) => backend.publicProfiles(ids);
 export const getPublicProfile = (id) => backend.publicProfile(id);

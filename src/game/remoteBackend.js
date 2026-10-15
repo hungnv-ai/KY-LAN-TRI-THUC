@@ -31,12 +31,22 @@ export function createRemoteBackend(supabase) {
     buyItem: (itemId) => rpc('buy_item', { p_item: itemId }),
     equipItem: (itemId) => rpc('equip_item', { p_item: itemId }),
     claimMissionChest: () => rpc('claim_mission_chest'),
-    sendKudos: (to, kind, message = null) => rpc('send_kudos', { p_to: to, p_kind: kind, p_message: message }),
+    equipPet: (petId) => rpc('equip_pet', { p_pet: petId }),
+    sendKudos: (to, kind, message = null, card = null) => rpc('send_kudos', { p_to: to, p_kind: kind, p_message: message, p_card: card }),
     publicProfiles: (ids) => rpc('public_profiles', { p_ids: ids }),
     publicProfile: (id) => rpc('public_profile', { p_id: id }),
     myKudos: () => rpc('my_kudos'),
     myVouchers: () => rpc('my_vouchers'),
     leaderboard: (scope, unit = null) => rpc('leaderboard', { p_scope: scope, p_unit: unit }),
     houseStandings: () => rpc('house_standings'),
+    giftShop: () => rpc('gift_shop'),
+    bellUpcoming: () => rpc('bell_upcoming'),
+    bellPractice: async () => {
+      throw new Error('offline_only');
+    },
+    bellJoin: (gameId) => rpc('bell_join', { p_game: gameId }),
+    bellState: (gameId) => rpc('bell_state', { p_game: gameId }),
+    bellAnswer: (gameId, round, choice) => rpc('bell_answer', { p_game: gameId, p_round: round, p_choice: choice }),
+    redeemGift: (giftId) => rpc('redeem_gift', { p_gift: giftId }),
   };
 }

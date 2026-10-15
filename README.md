@@ -22,6 +22,10 @@ Chưa cài thì game vẫn chạy ở chế độ ngoại tuyến (lưu trên m�
 - **Nhiều người chơi**: thấy Kỳ lân của nhau (bảng tên, hạng, trang phục), thả tim, gửi lời cảm ơn
 - **Đăng nhập Google** chỉ email `@vaschools.edu.vn`; máy chủ tính điểm, chống gian lận
 - **Trang quản trị**: thống kê, soạn/duyệt câu hỏi (nhập CSV), phân quyền, Phiếu quà
+- **Rung Chuông Vàng** trực tuyến theo giờ hẹn (BGH tạo trận), luyện tập với bạn ảo khi ngoại tuyến
+- **Thú cưng** nở từ trứng khi điểm danh, đi theo Kỳ lân
+- **Đổi Xu lấy quà thật** (BGH duyệt), **sticker** & **chụp ảnh nhóm** có khung VA
+- **Sự kiện theo mùa**: Tuần lễ Tri ân 20/11 (trang trí, trang phục giới hạn, thiệp tri ân, câu hỏi chủ đề)
 - Hiệu ứng và âm thanh nhận thưởng, tự giảm chất lượng trên máy yếu, cài như ứng dụng (PWA)
 
 ## Dành cho lập trình viên

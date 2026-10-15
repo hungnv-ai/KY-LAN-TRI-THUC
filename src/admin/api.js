@@ -17,6 +17,13 @@ const MESSAGES = {
   not_authenticated: 'Phiên đăng nhập đã hết — vui lòng đăng nhập lại.',
   email_domain_not_allowed: 'Tài khoản không thuộc tên miền của trường.',
   questions_q_unique: 'Câu hỏi này đã có trong ngân hàng.',
+  invalid_name: 'Tên quá ngắn.',
+  event_not_found: 'Không tìm thấy sự kiện.',
+  bell_start_in_past: 'Giờ bắt đầu phải sau thời điểm hiện tại ít nhất 1 phút.',
+  not_enough_questions: 'Ngân hàng không đủ câu hỏi đã duyệt cho số câu / chủ đề này.',
+  bell_not_cancellable: 'Trận đã bắt đầu hoặc đã kết thúc — không huỷ được.',
+  invalid_cost: 'Giá Xu phải lớn hơn 0.',
+  invalid_stock: 'Số lượng không hợp lệ.',
 };
 
 /**
@@ -80,6 +87,34 @@ export const api = {
   listVouchers: (status) => rpc('admin_list_vouchers', { p_status: status || null }),
   grantVoucher: (userId, title, reason) => rpc('admin_grant_voucher', { p_user: userId, p_title: title, p_reason: reason || null }),
   decideVoucher: (id, status, note) => rpc('admin_decide_voucher', { p_id: id, p_status: status, p_note: note || null }),
+  listGifts: () => rpc('admin_list_gifts'),
+  saveGift: (g) =>
+    rpc('admin_save_gift', {
+      p_id: g.id || null,
+      p_name: g.name,
+      p_icon: g.icon,
+      p_description: g.description || null,
+      p_cost: g.cost,
+      p_stock: g.stock,
+      p_active: g.active,
+      p_sort: g.sort ?? 0,
+    }),
+  bellList: () => rpc('admin_bell_list'),
+  bellCreate: (g) =>
+    rpc('admin_bell_create', {
+      p_title: g.title,
+      p_starts_at: g.startsAt,
+      p_count: g.count,
+      p_answer_sec: g.answerSec,
+      p_prize_xp: g.prizeXp,
+      p_prize_coins: g.prizeCoins,
+      p_winner_voucher: g.voucher || null,
+      p_topic: g.topic || null,
+    }),
+  bellCancel: (id) => rpc('admin_bell_cancel', { p_game: id }),
+  bellResults: (id) => rpc('admin_bell_results', { p_game: id }),
+  eventStatus: () => rpc('admin_event_status'),
+  setEvent: (mode, id = null) => rpc('admin_set_event', { p_mode: mode, p_id: id }),
   setAllowedDomains: (domains) => rpc('admin_set_allowed_domains', { p_domains: domains }),
 };
 

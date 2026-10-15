@@ -3,13 +3,17 @@ import {
   EXPLORE,
   GOLDEN_HOURS,
   MISSIONS,
+  PETS_CONFIG,
   QUIZ,
   SAVE_KEY,
   VALUES,
 } from '../config.js';
 import { DEFAULT_EQUIPPED, ITEMS, STARTER_ITEMS, getItem } from '../data/items.js';
+import { EVENT_QUESTIONS, activeEventId } from '../data/events.js';
+import { PETS } from '../data/pets.js';
 import { QUESTIONS } from '../data/questions.js';
 import { getRankInfo, rankIndexOf } from '../data/ranks.js';
+import { createLocalBell } from './localBell.js';
 import { missionStatus } from './missions.js';
 import { loadJSON, saveJSON } from './storage.js';
 import { dayKey, isGoldenHour, yesterdayKey } from './time.js';
@@ -22,6 +26,23 @@ import { dayKey, isGoldenHour, yesterdayKey } from './time.js';
  */
 
 const RECENT_LIMIT = 20;
+/** Xác suất ưu tiên câu hỏi sự kiện khi sự kiện đang diễn ra. */
+const EVENT_QUESTION_CHANCE = 0.4;
+
+/**
+ * Sự kiện đang diễn ra ở chế độ ngoại tuyến. Xem thử sự kiện trước ngày: thêm `?event=<id>` vào
+ * địa chỉ (hoặc `?event=off` để tắt).
+ */
+function localActiveEvent() {
+  let param = null;
+  try {
+    param = new URLSearchParams(window.location.search).get('event');
+  } catch {
+    /* không có window (kiểm thử) */
+  }
+  if (param === 'off') return null;
+  return activeEventId(new Date(), param ? { mode: 'on', id: param } : null);
+}
 const HOUSES = VALUES.map((v) => v.id);
 
 function createDaily() {
@@ -50,6 +71,7 @@ function createInitialState() {
     owned: [...STARTER_ITEMS],
     equipped: { ...DEFAULT_EQUIPPED },
     streak: { count: 0, lastDay: null },
+    pets: { owned: [], active: null, egg: 0, eggNeed: PETS_CONFIG.EGG_DAYS },
     daily: createDaily(),
     stats: { answered: 0, correct: 0, rounds: 0, distance: 0, heartsReceived: 0, thanksReceived: 0 },
     profile: {
@@ -80,6 +102,7 @@ export function createLocalBackend() {
       ...saved,
       equipped: { ...base.equipped, ...saved.equipped },
       streak: { ...base.streak, ...saved.streak },
+      pets: { ...base.pets, ...saved.pets, eggNeed: PETS_CONFIG.EGG_DAYS },
       daily: { ...base.daily, ...saved.daily },
       stats: { ...base.stats, ...saved.stats },
       profile: { ...base.profile, ...saved.profile },
@@ -96,7 +119,7 @@ export function createLocalBackend() {
     rollDaily();
     saveJSON(SAVE_KEY, state);
     const { rewardLog: _log, ...rest } = state;
-    return structuredClone({ ...rest, daily: { ...rest.daily, missions: missionStatus(rest.daily) } });
+    return structuredClone({ ...rest, event: localActiveEvent(), daily: { ...rest.daily, missions: missionStatus(rest.daily) } });
   }
 
   function grantRankItems() {
@@ -130,7 +153,38 @@ export function createLocalBackend() {
 
   const noReward = () => ({ xp: 0, coins: 0, golden: false, rankUp: null });
 
+  /** Ấp trứng thêm 1 ngày; đủ ngày → nở thú cưng chưa có (giống _egg_tick trên máy chủ). */
+  function eggTick() {
+    const pets = state.pets;
+    const need = PETS_CONFIG.EGG_DAYS;
+    if (pets.egg + 1 < need) {
+      pets.egg += 1;
+      return { progress: pets.egg, need, hatched: null };
+    }
+    pets.egg = 0;
+    const pool = PETS.filter((p) => !pets.owned.includes(p.id));
+    if (!pool.length) {
+      applyReward(0, PETS_CONFIG.DUPLICATE_COINS, 'egg');
+      return { progress: 0, need, hatched: null, coins: PETS_CONFIG.DUPLICATE_COINS };
+    }
+    let roll = Math.random() * pool.reduce((sum, p) => sum + p.weight, 0);
+    const pick = pool.find((p) => (roll -= p.weight) < 0) ?? pool[pool.length - 1];
+    pets.owned.push(pick.id);
+    pets.active ??= pick.id;
+    return { progress: 0, need, hatched: { id: pick.id, name: pick.name, rarity: pick.rarity } };
+  }
+
   function pickQuestion(station, exclude = []) {
+    const event = localActiveEvent();
+    if (!station && event && Math.random() < EVENT_QUESTION_CHANCE) {
+      const eventPool = EVENT_QUESTIONS.filter((q) => q.event === event && !exclude.includes(q) && !recentlyAsked.includes(q));
+      if (eventPool.length) {
+        const q = eventPool[Math.floor(Math.random() * eventPool.length)];
+        recentlyAsked.push(q);
+        if (recentlyAsked.length > RECENT_LIMIT) recentlyAsked.shift();
+        return q;
+      }
+    }
     let pool = QUESTIONS.filter(
       (q) => !station || q.value === station || (station === 'triThuc' && q.topic === 'general'),
     ).filter((q) => !exclude.includes(q));
@@ -149,8 +203,29 @@ export function createLocalBackend() {
     return { ticketId, topic: q.topic, q: q.q, options: order.map((i) => q.a[i]) };
   }
 
+  const bell = createLocalBell({
+    pickQuestions: (n) => {
+      const used = [];
+      for (let i = 0; i < n; i++) used.push(pickQuestion(null, used));
+      return used;
+    },
+    applyReward: (xp, coins, kind) => {
+      const r = applyReward(xp, coins, kind);
+      saveJSON(SAVE_KEY, state);
+      return r;
+    },
+    myName: () => state.profile.displayName ?? 'Bạn',
+  });
+
   const api = {
     mode: 'local',
+
+    // ── Rung Chuông Vàng: ngoại tuyến chỉ có trận luyện tập với bạn ảo ──
+    bellUpcoming: () => bell.upcoming(),
+    bellPractice: () => bell.practice(),
+    bellJoin: (gameId) => bell.join(gameId),
+    bellState: (gameId) => bell.state(gameId),
+    bellAnswer: (gameId, round, choice) => bell.answer(gameId, round, choice),
 
     async getState() {
       return snapshot();
@@ -175,7 +250,7 @@ export function createLocalBackend() {
       state.daily.checkedIn = true;
       const bonus = Math.min(streak, CHECK_IN.STREAK_BONUS_MAX_DAYS) * CHECK_IN.STREAK_BONUS_COINS_PER_DAY;
       const r = applyReward(CHECK_IN.XP, CHECK_IN.COINS + bonus, 'checkin');
-      return { result: { ...r, streak }, state: snapshot() };
+      return { result: { ...r, streak, egg: eggTick() }, state: snapshot() };
     },
 
     async startQuizRound() {
@@ -298,7 +373,8 @@ export function createLocalBackend() {
       const roll = Math.random();
       let result = null;
       if (roll >= EXPLORE.GIFT_COIN_CHANCE + EXPLORE.GIFT_XP_CHANCE) {
-        const candidates = ITEMS.filter((it) => it.price > 0 && !it.rank && !state.owned.includes(it.id));
+        const event = localActiveEvent();
+        const candidates = ITEMS.filter((it) => it.price > 0 && !it.rank && !state.owned.includes(it.id) && (!it.event || it.event === event));
         if (candidates.length) {
           const item = candidates[Math.floor(Math.random() * candidates.length)];
           state.owned.push(item.id);
@@ -318,6 +394,7 @@ export function createLocalBackend() {
     async buyItem(itemId) {
       const item = getItem(itemId);
       if (!item || item.rank) throw new Error('item_not_buyable');
+      if (item.event && item.event !== localActiveEvent()) throw new Error('event_item_unavailable');
       if (state.owned.includes(itemId)) throw new Error('already_owned');
       if (state.coins < item.price) throw new Error('not_enough_coins');
       state.coins -= item.price;
@@ -330,6 +407,12 @@ export function createLocalBackend() {
       if (!item) throw new Error('item_not_found');
       if (!state.owned.includes(itemId)) throw new Error('not_owned');
       state.equipped[item.slot] = itemId;
+      return { ok: true, state: snapshot() };
+    },
+
+    async equipPet(petId) {
+      if (petId && !state.pets.owned.includes(petId)) throw new Error('pet_not_owned');
+      state.pets.active = petId || null;
       return { ok: true, state: snapshot() };
     },
 
@@ -361,6 +444,14 @@ export function createLocalBackend() {
 
     async myVouchers() {
       return [];
+    },
+
+    async giftShop() {
+      throw new Error('online_only');
+    },
+
+    async redeemGift() {
+      throw new Error('online_only');
     },
 
     async leaderboard(scope) {

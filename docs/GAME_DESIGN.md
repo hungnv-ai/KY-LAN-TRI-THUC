@@ -71,6 +71,19 @@ Linh vật Kỳ lân của VA Schools (KHÔNG phải ngựa trắng có sừng).
     60% Xu · 30% XP · 10% trang phục miễn phí.
 - Quà hiện vật / "Phiếu quà": để GĐ2 (cần máy chủ chống gian lận, BGH duyệt).
 
+## Tính năng mở rộng (đã làm, theo lựa chọn của người dùng)
+
+- **Sticker & chụp ảnh nhóm**: 12 sticker cố định gửi cho mọi người cùng đảo (Kỳ lân làm cảm xúc
+  tương ứng); chụp ảnh có đếm ngược và khung VA, tải về / chia sẻ.
+- **Đổi Xu lấy quà thật**: cửa hàng quà hiện vật (sổ tay, bình nước, áo VA…), tối đa 2 phiếu chờ duyệt
+  và 3 lần/tháng; BGH duyệt → trao tại trường; không duyệt → hoàn Xu tự động.
+- **Thú cưng ấp trứng**: điểm danh 3 ngày → trứng nở 1 trong 8 bạn (Thường → Huyền thoại), dắt đi
+  cùng, người khác nhìn thấy. Đủ bộ → trứng nở ra Xu.
+- **Sự kiện theo mùa — Tuần lễ Tri ân 20/11** (10/11–22/11, BGH bật sớm được): cổng hoa + cánh hoa
+  rơi, 3 trang phục giới hạn, thiệp tri ân (cả hai +5 Xu), 14 câu hỏi "Tôn sư trọng đạo".
+- **Rung Chuông Vàng**: BGH hẹn giờ; cả trường cùng trả lời, sai là dừng chân, cả vòng sai thì cứu trợ;
+  người trụ lại nhận XP + Xu (+ phiếu quà nếu ≤ 3 người). Ngoại tuyến có trận luyện tập với bạn ảo.
+
 ## Cơ chế giữ chân
 
 Chuỗi ngày + Khiên bảo vệ · 3 nhiệm vụ ngày + 1 nhiệm vụ tuần + Rương · Giờ Vàng x2 XP
@@ -92,4 +105,7 @@ không gacha; giới hạn thời gian chơi cho học sinh.
    (xem `docs/HUONG_DAN_TRIEN_KHAI.md` Bước 8).
 
 Việc của người dùng để chạy thật: làm theo `docs/HUONG_DAN_TRIEN_KHAI.md`.
-Ý tưởng tiếp theo (chưa làm): model 3D `.glb` vẽ bởi hoạ sĩ, mở cho học sinh, sự kiện theo mùa.
+6. ✅ **Mở rộng**: sticker & ảnh nhóm, đổi quà thật, thú cưng, sự kiện 20/11, Rung Chuông Vàng.
+
+Ý tưởng tiếp theo (chưa làm): huy hiệu + quét QR sự kiện thật, mini-game ở 5 Vùng Đất, loa phát thanh
+BGH, model 3D `.glb` vẽ bởi hoạ sĩ, mở cho học sinh, thêm sự kiện Tết / Trung thu.

@@ -133,6 +133,40 @@ export const MULTIPLAYER = {
 export const ALLOWED_EMAIL_DOMAINS = ['vaschools.edu.vn'];
 
 /** Phiếu quà hiện vật: tỉ lệ hộp quà ra phiếu (chờ BGH duyệt). 0 = tắt. */
+/** Thú cưng: điểm danh đủ EGG_DAYS ngày (không cần liên tục) → trứng nở. Danh mục: src/data/pets.js. */
+export const PETS_CONFIG = {
+  EGG_DAYS: 3,
+  /** Đã có đủ mọi thú cưng: trứng nở ra Xu. */
+  DUPLICATE_COINS: 40,
+};
+
+/** Rung Chuông Vàng: trận loại trực tiếp theo giờ hẹn (BGH tạo trận trong trang quản trị). */
+export const BELL = {
+  /** Mở phòng chờ trước giờ bắt đầu (phút). */
+  LOBBY_MIN: 30,
+  /** Còn cho vào sau giờ bắt đầu (giây) — bù trễ mạng. */
+  JOIN_GRACE_SEC: 5,
+  /** Nhận đáp án trễ tối đa (giây) sau khi hết giờ — bù trễ mạng. */
+  ANSWER_GRACE_SEC: 1,
+  DEFAULT_ANSWER_SEC: 15,
+  REVEAL_SEC: 6,
+  /** Chỉ trao phiếu quà khi số người trụ lại không quá bấy nhiêu. */
+  MAX_VOUCHER_WINNERS: 3,
+  /** Chế độ luyện tập (ngoại tuyến): số "bạn ảo", số câu, đếm ngược trước khi bắt đầu. */
+  PRACTICE_BOTS: 24,
+  PRACTICE_QUESTIONS: 8,
+  PRACTICE_DELAY_SEC: 12,
+  PRACTICE_BOT_ACCURACY: 0.78,
+};
+
+/** Cửa hàng đổi Xu lấy quà hiện vật (danh mục: src/data/gifts.js, sửa trong trang quản trị). */
+export const GIFT_SHOP = {
+  /** Số phiếu đang chờ BGH duyệt tối đa cùng lúc. */
+  MAX_PENDING: 2,
+  /** Số lần đổi tối đa mỗi tháng. */
+  MONTHLY_LIMIT: 3,
+};
+
 export const VOUCHER = {
   GIFT_CHANCE: 0.01,
   GIFT_TITLE: 'Phiếu quà may mắn',

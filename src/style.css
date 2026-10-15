@@ -1409,3 +1409,590 @@ textarea.input {
 .pill-online {
   font-size: 13px;
 }
+
+/* ── Nút nhanh bên phải (sticker, chụp ảnh, sự kiện) ───────────────────── */
+.quick-actions {
+  position: fixed;
+  right: 12px;
+  bottom: calc(112px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 5;
+}
+
+.qa-btn {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-glass);
+  box-shadow: var(--shadow);
+  font-size: 24px;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.qa-btn:hover {
+  transform: scale(1.08);
+  background: #fff;
+}
+
+.qa-btn:focus-visible {
+  outline: 3px solid var(--accent, var(--tri-thuc));
+  outline-offset: 2px;
+}
+
+.qa-btn.is-pulse::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 3px solid var(--accent, var(--tri-thuc));
+  animation: qa-pulse 1.4s ease-out infinite;
+}
+
+@keyframes qa-pulse {
+  from {
+    transform: scale(0.9);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+.qa-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--tri-thuc);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 18px;
+}
+
+.sticker-picker {
+  position: absolute;
+  right: 60px;
+  display: grid;
+  grid-template-columns: repeat(4, 44px);
+  gap: 6px;
+  padding: 10px;
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  animation: pop 0.18s ease-out;
+}
+
+.sticker-btn {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  font-size: 26px;
+  cursor: pointer;
+}
+
+.sticker-btn:hover,
+.sticker-btn:focus-visible {
+  background: #f6efe6;
+  outline: none;
+}
+
+/* ── Chụp ảnh ───────────────────────────────────────────────────────────── */
+.photo-countdown {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: min(30vw, 220px);
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 6px 30px rgba(154, 0, 54, 0.55);
+  pointer-events: none;
+  z-index: 50;
+}
+
+.photo-countdown.tick {
+  animation: countdown-pop 0.8s ease-out;
+}
+
+@keyframes countdown-pop {
+  from {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  30% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.9);
+    opacity: 0.2;
+  }
+}
+
+.photo-flash {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  pointer-events: none;
+  z-index: 60;
+  animation: photo-flash 0.5s ease-out forwards;
+}
+
+@keyframes photo-flash {
+  from {
+    opacity: 0.95;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+body.is-photo .nav,
+body.is-photo .quick-actions,
+body.is-photo .key-hint,
+body.is-photo .speech {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.photo-dialog .dialog-card {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.photo-preview {
+  display: block;
+  width: 100%;
+  margin: 12px 0 8px;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.small {
+  font-size: 13px;
+}
+
+/* ── Cửa hàng đổi quà ───────────────────────────────────────────────────── */
+.gift-shop {
+  display: grid;
+  gap: 12px;
+}
+
+.gift-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #fff7e6;
+  font-size: 16px;
+}
+
+.gift-icon {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.gift-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ── Thú cưng ───────────────────────────────────────────────────────────── */
+.pets {
+  display: grid;
+  gap: 12px;
+}
+
+.egg-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #fff7e6, #fdeef2);
+}
+
+.egg-icon {
+  font-size: 44px;
+  line-height: 1;
+}
+
+.egg-icon.is-wobble {
+  animation: egg-wobble 1.6s ease-in-out infinite;
+}
+
+@keyframes egg-wobble {
+  0%,
+  60%,
+  100% {
+    transform: rotate(0);
+  }
+  70% {
+    transform: rotate(-12deg);
+  }
+  80% {
+    transform: rotate(10deg);
+  }
+  90% {
+    transform: rotate(-6deg);
+  }
+}
+
+.egg-body {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+}
+
+.pet-emoji {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.pet-emoji.is-hidden {
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+
+.pet-card:disabled {
+  cursor: default;
+}
+
+/* ── Thiệp tri ân (sự kiện) ─────────────────────────────────────────────── */
+.card-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.card-option {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  border: 2px solid;
+  border-radius: 14px;
+  font-size: 24px;
+  cursor: pointer;
+  opacity: 0.65;
+}
+
+.card-option small {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.card-option[aria-checked='true'] {
+  opacity: 1;
+  box-shadow: 0 0 0 3px rgba(216, 27, 96, 0.25);
+}
+
+.card-dialog .dialog-card {
+  width: min(380px, calc(100vw - 32px));
+  background: transparent;
+  box-shadow: none;
+}
+
+.greeting-card {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 28px 22px 22px;
+  border: 3px solid var(--card-ink);
+  border-radius: 22px;
+  background: radial-gradient(circle at 50% 0%, #fff 0%, var(--card-bg) 70%);
+  color: var(--card-ink);
+  text-align: center;
+  box-shadow: var(--shadow);
+  animation: card-open 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  transform-origin: 50% 100%;
+}
+
+@keyframes card-open {
+  from {
+    transform: perspective(700px) rotateX(85deg) scale(0.7);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.greeting-icon {
+  font-size: 64px;
+  line-height: 1;
+}
+
+.greeting-title {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.greeting-message {
+  color: var(--ink);
+  font-size: 16px;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.greeting-from {
+  font-weight: 800;
+}
+
+.greeting-event {
+  opacity: 0.75;
+}
+
+.item-event-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #fce4ec;
+  color: #ad1457;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* ── Sự kiện ────────────────────────────────────────────────────────────── */
+.event-sheet {
+  display: grid;
+  gap: 12px;
+}
+
+.event-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--event-color), #f48fb1);
+  color: #fff;
+  font-size: 18px;
+}
+
+.event-hero-icon {
+  font-size: 40px;
+}
+
+/* ── Rung Chuông Vàng ───────────────────────────────────────────────────── */
+.bell {
+  display: grid;
+  gap: 12px;
+}
+
+.bell-hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #f7d27a, #e8b54e);
+  color: #4a2a00;
+  font-size: 20px;
+}
+
+.bell-hero span {
+  font-size: 36px;
+}
+
+.bell-head {
+  display: grid;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #fff7e6;
+}
+
+.bell-lobby {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 10px;
+}
+
+.bell-countdown {
+  font-size: 44px;
+  font-weight: 800;
+  color: #b07a12;
+  font-variant-numeric: tabular-nums;
+}
+
+.bell-rules {
+  display: grid;
+  gap: 4px;
+  padding-left: 20px;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.bell-status {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+}
+
+.bell-timer {
+  position: relative;
+  height: 26px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #f1e8dc;
+}
+
+.bell-timer span:first-child {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #e8b54e, #f7d27a);
+  transition: width 0.1s linear;
+}
+
+.bell-timer.is-reveal span:first-child {
+  background: #c9d8f5;
+}
+
+.bell-timer-text {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.bell-question {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.bell-options {
+  display: grid;
+  gap: 8px;
+}
+
+.bell-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 10px 12px;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bell-option:disabled {
+  cursor: default;
+}
+
+.bell-option:not(:disabled):hover {
+  border-color: #e8b54e;
+}
+
+.bell-letter {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #f6efe6;
+  font-weight: 800;
+}
+
+.bell-option.is-chosen {
+  border-color: #e8b54e;
+  background: #fff7e6;
+}
+
+.bell-option.is-correct {
+  border-color: var(--success);
+  background: #e7f6ef;
+}
+
+.bell-option.is-wrong {
+  border-color: var(--danger, #b4002f);
+  background: #fdecef;
+}
+
+.bell-spectator {
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: #eef2fb;
+  color: #1750b5;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.bell-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #f6efe6;
+}
+
+.bell-result.is-win {
+  background: linear-gradient(135deg, #fff1c2, #f7d27a);
+}
+
+.bell-result-icon {
+  font-size: 40px;
+}
+
+.bell-winners {
+  display: grid;
+  gap: 4px;
+  padding-left: 24px;
+}
+
+.bell-winners li.is-me {
+  color: var(--tri-thuc);
+}
+
+.notice-success {
+  background: #e7f6ef;
+  color: #00664f;
+}
+
+.notice-danger {
+  background: #fdecef;
+  color: #9a0036;
+}
+
+@media (max-width: 480px) {
+  .quick-actions {
+    gap: 8px;
+  }
+
+  .qa-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 21px;
+  }
+}

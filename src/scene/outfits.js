@@ -202,6 +202,66 @@ const BUILDERS = {
     };
   },
 
+  /** Vòng hoa (sự kiện 20/11): vòng lá xanh + hoa nhiều màu quanh đầu. */
+  flowerCrown(mascot) {
+    const crown = new THREE.Group();
+    const leaf = stdMat('#5E9E4A', 0.7);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.035, 10, 48), leaf);
+    ring.rotation.x = Math.PI / 2;
+    crown.add(ring);
+    const PETAL_COLORS = ['#F48FB1', '#FFFFFF', '#FFD54F', '#E57373', '#CE93D8'];
+    const COUNT = 9;
+    for (let i = 0; i < COUNT; i++) {
+      const a = (i / COUNT) * Math.PI * 2;
+      const flower = new THREE.Group();
+      const petalMat = stdMat(PETAL_COLORS[i % PETAL_COLORS.length], 0.5);
+      for (let k = 0; k < 5; k++) {
+        const petal = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), petalMat);
+        const pa = (k / 5) * Math.PI * 2;
+        petal.position.set(Math.cos(pa) * 0.045, 0, Math.sin(pa) * 0.045);
+        petal.scale.set(1, 0.45, 1);
+        flower.add(petal);
+      }
+      const center = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), stdMat('#FFB300', 0.4));
+      center.position.y = 0.015;
+      flower.add(center);
+      flower.position.set(Math.sin(a) * 0.38, 0.03, Math.cos(a) * 0.38);
+      flower.rotation.set(0.5 * Math.cos(a), 0, -0.5 * Math.sin(a));
+      crown.add(flower);
+    }
+    crown.position.y = 0.36;
+    crown.scale.setScalar(1.15);
+    mascot.anchors.HeadTop.add(crown);
+    return { objects: [crown], update: (_d, t) => (crown.rotation.y = Math.sin(t * 0.6) * 0.08) };
+  },
+
+  /** Mưa cánh hoa (sự kiện 20/11): cánh hoa hồng rơi chầm chậm quanh Kỳ lân. */
+  petals(mascot) {
+    const group = new THREE.Group();
+    const COUNT = 26;
+    const colors = ['#F8BBD0', '#F48FB1', '#FFFFFF', '#FFCDD2'];
+    const petals = [];
+    for (let i = 0; i < COUNT; i++) {
+      const m = new THREE.Mesh(new THREE.CircleGeometry(0.055, 6), new THREE.MeshStandardMaterial({ color: colors[i % colors.length], side: THREE.DoubleSide, roughness: 0.6 }));
+      m.scale.set(1, 0.6, 1);
+      group.add(m);
+      petals.push({ m, a: Math.random() * Math.PI * 2, r: 0.6 + Math.random() * 0.9, h: Math.random() * 3.2, speed: 0.35 + Math.random() * 0.35, spin: 1 + Math.random() * 2 });
+    }
+    mascot.anchors.Root.add(group);
+    return {
+      objects: [group],
+      update: (delta, t) => {
+        for (const p of petals) {
+          p.h -= p.speed * delta;
+          if (p.h < 0) p.h += 3.2;
+          const a = p.a + t * 0.4;
+          p.m.position.set(Math.sin(a) * p.r + Math.sin(t * 1.3 + p.a) * 0.12, p.h, Math.cos(a) * p.r);
+          p.m.rotation.set(t * p.spin, t * p.spin * 0.7, 0);
+        }
+      },
+    };
+  },
+
   glasses(mascot, { frame, lens, tint }) {
     const glasses = new THREE.Group();
     const frameMat = stdMat(frame, 0.4, 0.2);

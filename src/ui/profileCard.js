@@ -1,5 +1,6 @@
 import { KUDOS, VALUES } from '../config.js';
 import { ITEMS, getItem } from '../data/items.js';
+import { getPet } from '../data/pets.js';
 import { getRankInfo } from '../data/ranks.js';
 import { h, formatNumber } from './dom.js';
 import { openSheet, setSheetContent, isSheetOpen } from './sheet.js';
@@ -15,12 +16,14 @@ const ROLE_LABEL = { teacher: 'Giáo viên', bgh: 'Ban Giám hiệu', admin: 'Qu
  *   load: () => Promise<object>,
  *   fallback?: object  hồ sơ rút gọn hiện ngay trong lúc tải,
  *   onHeart: () => Promise<{ ok: boolean, reason?: string }>,
- *   onThanks: (message: string) => Promise<{ ok: boolean, reason?: string }>,
+ *   onThanks: (message: string, cardId?: string | null) => Promise<{ ok: boolean, reason?: string }>,
  *   canKudos: boolean,
+ *   event?: { name: string, icon: string, cards: { id: string, icon: string, title: string, colors: string[] }[], cardBonusCoins: number } | null
+ *     sự kiện đang diễn ra → gửi kèm thiệp,
  *   onClose?: () => void,
  * }} opts
  */
-export function openProfileCard({ load, fallback, onHeart, onThanks, canKudos, onClose }) {
+export function openProfileCard({ load, fallback, onHeart, onThanks, canKudos, event = null, onClose }) {
   openSheet({
     title: '🦄 Hồ sơ Kỳ lân',
     variant: 'side',
@@ -41,7 +44,8 @@ export function openProfileCard({ load, fallback, onHeart, onThanks, canKudos, o
     const owned = p.owned?.length ?? null;
 
     const heartBtn = h('button', { class: 'btn btn-secondary', type: 'button', disabled: !canKudos || loading || p.heartedToday }, p.heartedToday ? '❤️ Đã thả tim' : '❤️ Thả tim');
-    const thanksBtn = h('button', { class: 'btn', type: 'button', disabled: !canKudos || loading || p.thankedToday }, p.thankedToday ? '💌 Đã cảm ơn hôm nay' : '💌 Gửi lời cảm ơn');
+    const thanksLabel = event ? `${event.icon} Gửi thiệp tri ân` : '💌 Gửi lời cảm ơn';
+    const thanksBtn = h('button', { class: 'btn', type: 'button', disabled: !canKudos || loading || p.thankedToday }, p.thankedToday ? '💌 Đã cảm ơn hôm nay' : thanksLabel);
     const status = h('p', { class: 'muted', 'aria-live': 'polite' });
     const thanksBox = h('div', { class: 'thanks-box', hidden: true });
 
@@ -64,10 +68,43 @@ export function openProfileCard({ load, fallback, onHeart, onThanks, canKudos, o
       placeholder: 'Ví dụ: Cảm ơn bạn đã giúp mình chuẩn bị tiết học hôm nay!',
       'aria-label': 'Lời cảm ơn',
     });
-    const sendBtn = h('button', { class: 'btn btn-block', type: 'button' }, `Gửi (+${KUDOS.THANKS_COINS_SENDER} Xu cho bạn, +${KUDOS.THANKS_COINS_RECEIVER} Xu cho người nhận)`);
+    // Sự kiện: chọn mẫu thiệp (cả hai được thêm Xu).
+    let cardId = event?.cards[0]?.id ?? null;
+    const bonus = event ? event.cardBonusCoins : 0;
+    const cardPicker = event
+      ? h(
+          'div',
+          { class: 'card-picker', role: 'radiogroup', 'aria-label': 'Chọn mẫu thiệp' },
+          event.cards.map((c) => {
+            const btn = h(
+              'button',
+              {
+                class: 'card-option',
+                type: 'button',
+                role: 'radio',
+                'aria-checked': String(c.id === cardId),
+                style: { background: c.colors[0], borderColor: c.colors[1] },
+              },
+              h('span', { 'aria-hidden': 'true' }, c.icon),
+              h('small', {}, c.title),
+            );
+            btn.addEventListener('click', () => {
+              cardId = c.id;
+              cardPicker.querySelectorAll('.card-option').forEach((b) => b.setAttribute('aria-checked', String(b === btn)));
+            });
+            return btn;
+          }),
+        )
+      : '';
+    if (event) textarea.placeholder = 'Ví dụ: Cảm ơn cô đã luôn tận tâm với học trò! Chúc cô 20/11 thật vui!';
+    const sendBtn = h(
+      'button',
+      { class: 'btn btn-block', type: 'button' },
+      `Gửi (+${KUDOS.THANKS_COINS_SENDER + bonus} Xu cho bạn, +${KUDOS.THANKS_COINS_RECEIVER + bonus} Xu cho người nhận)`,
+    );
     sendBtn.addEventListener('click', async () => {
       sendBtn.disabled = true;
-      const res = await onThanks(textarea.value).catch(() => ({ ok: false }));
+      const res = await onThanks(textarea.value, cardId).catch(() => ({ ok: false }));
       if (res.ok) {
         thanksBox.replaceChildren(h('p', { class: 'notice' }, '💌 Đã gửi lời cảm ơn! Nhân Ái là biết nghĩ cho người khác.'));
       } else {
@@ -76,7 +113,7 @@ export function openProfileCard({ load, fallback, onHeart, onThanks, canKudos, o
           res.reason === 'limit' ? `Mỗi ngày gửi tối đa ${KUDOS.THANKS_PER_DAY} lời cảm ơn.` : res.reason === 'already' ? 'Hôm nay bạn đã cảm ơn bạn này rồi.' : 'Không gửi được, thử lại nhé.';
       }
     });
-    thanksBox.append(textarea, sendBtn);
+    thanksBox.append(cardPicker, textarea, sendBtn);
 
     return h(
       'div',
@@ -114,6 +151,9 @@ export function openProfileCard({ load, fallback, onHeart, onThanks, canKudos, o
       equipped.length
         ? h('div', { class: 'chip-row' }, equipped.map((it) => h('span', { class: 'chip' }, it.icon ?? '•', ' ', it.name)))
         : h('p', { class: 'muted' }, 'Trang phục cơ bản'),
+      getPet(p.pet)
+        ? h('p', { class: 'muted' }, `🐾 Thú cưng: ${getPet(p.pet).emoji} ${getPet(p.pet).name}${p.petCount ? ` · bộ sưu tập ${p.petCount} bạn` : ''}`)
+        : '',
       p.recentThanks?.length
         ? h(
             'div',
