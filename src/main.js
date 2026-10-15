@@ -9,7 +9,7 @@ import { setupPets } from './features/pets.js';
 import { setupEvents } from './features/events.js';
 import { setupGoldenBell } from './features/goldenBell.js';
 import { setupOverview } from './features/overview.js';
-import { playIntroOnce } from './features/intro.js';
+import { playIntro } from './features/intro.js';
 import { setupZoneGrowth } from './features/zoneGrowth.js';
 import { setupMenu } from './features/menu.js';
 import { createRewards } from './features/rewards.js';
@@ -188,7 +188,7 @@ async function boot() {
   goldenBell = setupGoldenBell({ world, island, mascot, fx, rewards });
   overview = setupOverview({ world, isMoving: () => explore.isMoving() });
   zoneGrowth = setupZoneGrowth({ world, island });
-  await playIntroOnce({ world });
+  await playIntro({ world });
 
   // Chạm vào Kỳ lân của mình: cảm xúc ngẫu nhiên + câu nói về 5 giá trị.
   const TAP_EMOTES = ['wave', 'happy', 'cool', 'think', 'cheer'];
