@@ -56,6 +56,11 @@ create table if not exists public.questions (
   updated_at timestamptz not null default now()
 );
 create unique index if not exists questions_q_unique on public.questions (md5(q));
+-- Sự kiện theo mùa (thêm sau): câu hỏi / trang phục chỉ dùng khi sự kiện đang diễn ra.
+alter table public.questions add column if not exists event text;
+alter table public.questions drop constraint if exists questions_topic_check;
+alter table public.questions add constraint questions_topic_check check (topic in ('values', 'va', 'general', 'event'));
+alter table public.items add column if not exists event text;
 create index if not exists questions_status_idx on public.questions (status);
 
 create table if not exists public.profiles (
@@ -168,6 +173,7 @@ create table if not exists public.kudos (
 );
 create index if not exists kudos_to_idx on public.kudos (to_user, created_at desc);
 create unique index if not exists kudos_once_per_day on public.kudos (from_user, to_user, kind, day);
+alter table public.kudos add column if not exists card text; -- mẫu thiệp sự kiện (vd thiệp 20/11)
 
 create table if not exists public.vouchers (
   id bigint generated always as identity primary key,
@@ -512,6 +518,7 @@ begin
       'role', p.role,
       'house', p.house
     ),
+    'event', public._active_event(),
     'serverTime', now()
   );
 end;
@@ -678,10 +685,14 @@ $$;
 -- ── Phát câu hỏi (vé) ─────────────────────────────────────────────────────
 create or replace function public._pick_question(p_uid uuid, p_station text, p_exclude bigint[] default '{}')
 returns public.questions language plpgsql security definer set search_path = public as $$
-declare v_q questions;
+declare
+  v_q questions;
+  v_event text := public._active_event();
 begin
+  -- Câu hỏi sự kiện chỉ dùng khi sự kiện đang diễn ra; khi đó được ưu tiên (khoá sắp xếp nhỏ hơn).
   select * into v_q from questions q
   where q.status = 'approved'
+    and (q.event is null or q.event = v_event)
     and (p_station is null or q.value = p_station or (p_station = 'triThuc' and q.topic = 'general'))
     and not (q.id = any (p_exclude))
     and q.id not in (
@@ -689,10 +700,12 @@ begin
       where t.user_id = p_uid and t.question_id is not null
       order by t.created_at desc limit 25
     )
-  order by random() limit 1;
+  order by case when v_event is not null and q.event = v_event then random() * 0.45 else random() end
+  limit 1;
   if not found then
     select * into v_q from questions q
     where q.status = 'approved'
+      and (q.event is null or q.event = v_event)
       and (p_station is null or q.value = p_station or (p_station = 'triThuc' and q.topic = 'general'))
       and not (q.id = any (p_exclude))
     order by random() limit 1;
@@ -958,6 +971,7 @@ begin
   elsif v_roll >= v_coin + v_xpc then
     select i.id, i.name into v_item from items i, player_state s
     where s.user_id = v_uid and i.price > 0 and i.rank_id is null and not (i.id = any (s.owned))
+      and (i.event is null or i.event = public._active_event())
     order by random() limit 1;
     if found then
       update player_state set owned = array_append(owned, v_item.id) where user_id = v_uid;
@@ -994,6 +1008,7 @@ declare
 begin
   select * into i from items where id = p_item;
   if not found or i.rank_id is not null then raise exception 'item_not_buyable'; end if;
+  if i.event is not null and i.event is distinct from public._active_event() then raise exception 'event_item_unavailable'; end if;
   select * into s from player_state where user_id = v_uid for update;
   if p_item = any (s.owned) then raise exception 'already_owned'; end if;
   if s.coins < i.price then raise exception 'not_enough_coins'; end if;
@@ -1109,10 +1124,15 @@ end;
 $$;
 
 -- Thả tim (miễn phí, giới hạn/ngày) hoặc gửi lời cảm ơn (cả hai nhận Xu).
-create or replace function public.send_kudos(p_to uuid, p_kind text, p_message text default null)
+-- p_card: mẫu thiệp của sự kiện đang diễn ra (vd thiệp 20/11) → cả hai nhận thêm Xu.
+drop function if exists public.send_kudos(uuid, text, text);
+create or replace function public.send_kudos(p_to uuid, p_kind text, p_message text default null, p_card text default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
   v_uid uuid := public._require_player();
+  v_event jsonb := public._event_def(public._active_event());
+  v_card text := null;
+  v_bonus int := 0;
   d daily_counters := public._daily(v_uid);
   v_msg text := nullif(btrim(left(coalesce(p_message, ''), public._cfgn('KUDOS', 'MESSAGE_MAX', 120)::int)), '');
   v_inserted int;
@@ -1133,22 +1153,26 @@ begin
     update daily_counters set hearts_sent = hearts_sent + 1 where user_id = v_uid and day = d.day;
     update player_state set hearts_received = hearts_received + 1 where user_id = p_to;
   elsif p_kind = 'thanks' then
+    if p_card is not null and v_event is not null and (v_event -> 'cards') ? p_card then
+      v_card := p_card;
+      v_bonus := coalesce((v_event ->> 'cardBonusCoins')::int, 0);
+    end if;
     if d.thanks_sent >= public._cfgn('KUDOS', 'THANKS_PER_DAY', 3) then
       return jsonb_build_object('ok', false, 'reason', 'limit', 'state', public._state_json(v_uid));
     end if;
-    insert into kudos (from_user, to_user, kind, message, day) values (v_uid, p_to, 'thanks', v_msg, d.day) on conflict do nothing;
+    insert into kudos (from_user, to_user, kind, message, day, card) values (v_uid, p_to, 'thanks', v_msg, d.day, v_card) on conflict do nothing;
     get diagnostics v_inserted = row_count;
     if v_inserted = 0 then
       return jsonb_build_object('ok', false, 'reason', 'already', 'state', public._state_json(v_uid));
     end if;
     update daily_counters set thanks_sent = thanks_sent + 1 where user_id = v_uid and day = d.day;
     update player_state set thanks_received = thanks_received + 1 where user_id = p_to;
-    v_sender := public._apply_reward(v_uid, 0, public._cfgn('KUDOS', 'THANKS_COINS_SENDER', 5)::int, 'thanks_sent', jsonb_build_object('to', p_to));
-    perform public._apply_reward(p_to, 0, public._cfgn('KUDOS', 'THANKS_COINS_RECEIVER', 5)::int, 'thanks_received', jsonb_build_object('from', v_uid));
+    v_sender := public._apply_reward(v_uid, 0, public._cfgn('KUDOS', 'THANKS_COINS_SENDER', 5)::int + v_bonus, 'thanks_sent', jsonb_build_object('to', p_to, 'card', v_card));
+    perform public._apply_reward(p_to, 0, public._cfgn('KUDOS', 'THANKS_COINS_RECEIVER', 5)::int + v_bonus, 'thanks_received', jsonb_build_object('from', v_uid, 'card', v_card));
   else
     raise exception 'invalid_kind';
   end if;
-  return jsonb_build_object('ok', true, 'reward', v_sender, 'state', public._state_json(v_uid));
+  return jsonb_build_object('ok', true, 'reward', v_sender, 'card', v_card, 'state', public._state_json(v_uid));
 end;
 $$;
 
@@ -1160,7 +1184,7 @@ begin
   return coalesce((
     select jsonb_agg(jsonb_build_object(
       'from', coalesce(p.display_name, p.full_name), 'fromId', k.from_user,
-      'kind', k.kind, 'message', k.message, 'at', k.created_at
+      'kind', k.kind, 'message', k.message, 'card', k.card, 'at', k.created_at
     ) order by k.created_at desc, k.id desc)
     from (select * from kudos where to_user = v_uid order by created_at desc, id desc limit least(p_limit, 50)) k
     join profiles p on p.id = k.from_user
@@ -1677,6 +1701,73 @@ end;
 $$;
 
 
+-- >>> 09_events.sql
+-- ════════════════════════════════════════════════════════════════════════
+-- Sự kiện theo mùa (vd Tuần lễ Tri ân 20/11). Lịch nằm trong game_settings.EVENTS
+-- (sinh từ src/data/events.js); BGH/Quản trị có thể bật sớm / tắt (EVENT_OVERRIDE).
+-- ════════════════════════════════════════════════════════════════════════
+
+-- Định nghĩa một sự kiện (jsonb) theo id.
+create or replace function public._event_def(p_id text)
+returns jsonb language sql stable set search_path = public as $$
+  select e from jsonb_array_elements(
+    case when jsonb_typeof(public._cfg('EVENTS')) = 'array' then public._cfg('EVENTS') else '[]'::jsonb end
+  ) e
+  where e ->> 'id' = p_id
+  limit 1;
+$$;
+
+-- Sự kiện đang diễn ra (id) theo giờ Việt Nam; hỗ trợ sự kiện vắt qua năm mới.
+create or replace function public._active_event()
+returns text language plpgsql stable set search_path = public as $$
+declare
+  o jsonb := public._cfg('EVENT_OVERRIDE');
+  v_md text := to_char(public._now_vn(), 'MM-DD');
+  v_id text;
+begin
+  if o ->> 'mode' = 'on' and public._event_def(o ->> 'id') is not null then return o ->> 'id'; end if;
+  if o ->> 'mode' = 'off' then return null; end if;
+  select e ->> 'id' into v_id
+  from jsonb_array_elements(
+    case when jsonb_typeof(public._cfg('EVENTS')) = 'array' then public._cfg('EVENTS') else '[]'::jsonb end
+  ) e
+  where case
+    when e ->> 'start' <= e ->> 'end' then v_md between e ->> 'start' and e ->> 'end'
+    else v_md >= e ->> 'start' or v_md <= e ->> 'end'
+  end
+  limit 1;
+  return v_id;
+end;
+$$;
+
+-- Bật / tắt / tự động theo lịch (BGH, Quản trị).
+create or replace function public.admin_set_event(p_mode text, p_id text default null)
+returns jsonb language plpgsql security definer set search_path = public as $$
+begin
+  perform public._require_manager();
+  if p_mode not in ('auto', 'on', 'off') then raise exception 'invalid_mode'; end if;
+  if p_mode = 'on' and public._event_def(p_id) is null then raise exception 'event_not_found'; end if;
+  insert into game_settings (key, value) values ('EVENT_OVERRIDE', jsonb_build_object('mode', p_mode, 'id', p_id))
+  on conflict (key) do update set value = excluded.value, updated_at = now();
+  return jsonb_build_object('ok', true, 'active', public._active_event());
+end;
+$$;
+
+-- Trạng thái sự kiện cho trang quản trị.
+create or replace function public.admin_event_status()
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+begin
+  perform public._require_manager();
+  return jsonb_build_object(
+    'override', public._cfg('EVENT_OVERRIDE'),
+    'active', public._active_event(),
+    'events', case when jsonb_typeof(public._cfg('EVENTS')) = 'array' then public._cfg('EVENTS') else '[]'::jsonb end,
+    'cardsSent', (select count(*) from kudos where card is not null and created_at > now() - interval '60 days')
+  );
+end;
+$$;
+
+
 -- ── Dữ liệu ban đầu (sinh tự động từ src/ — đừng sửa tay) ──
 insert into public.game_settings (key, value) values ('QUIZ', '{"QUESTIONS_PER_ROUND":5,"TIME_LIMIT_SEC":180,"XP_PER_CORRECT":10,"COINS_PER_CORRECT":5,"XP_PER_TRY":2,"PERFECT_BONUS_XP":20,"PERFECT_BONUS_COINS":10,"REWARDED_ROUNDS_PER_DAY":3}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('CHECK_IN', '{"XP":20,"COINS":15,"STREAK_BONUS_COINS_PER_DAY":2,"STREAK_BONUS_MAX_DAYS":7}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
@@ -1688,9 +1779,11 @@ insert into public.game_settings (key, value) values ('VOUCHER', '{"GIFT_CHANCE"
 insert into public.game_settings (key, value) values ('GIFT_SHOP', '{"MAX_PENDING":2,"MONTHLY_LIMIT":3}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('PETS', '{"EGG_DAYS":3,"DUPLICATE_COINS":40}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('PET_CATALOG', '[{"id":"ga","name":"Gà Con Tò Mò","rarity":"common","weight":30},{"id":"meo","name":"Mèo Mướp","rarity":"common","weight":25},{"id":"cun","name":"Cún Vàng","rarity":"common","weight":25},{"id":"tho","name":"Thỏ Bông","rarity":"rare","weight":15},{"id":"rua","name":"Rùa Thông Thái","rarity":"rare","weight":15},{"id":"gautruc","name":"Gấu Trúc Mũm Mĩm","rarity":"epic","weight":8},{"id":"cao","name":"Cáo Lửa","rarity":"epic","weight":8},{"id":"rong","name":"Rồng Con Vàng","rarity":"legendary","weight":3}]'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
+insert into public.game_settings (key, value) values ('EVENTS', '[{"id":"tri-an-2011","name":"Tuần lễ Tri ân 20/11","start":"11-10","end":"11-22","cards":["hoa-hong","sach-but","trai-tim"],"cardBonusCoins":5}]'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('VALUES', '[{"id":"nhanAi","name":"Nhân Ái","color":"#009082","motto":"Biết nghĩ cho người khác"},{"id":"banLinh","name":"Bản Lĩnh","color":"#725139","motto":"Dám đặt đòi hỏi của bản thân ở phía sau"},{"id":"triThuc","name":"Tri Thức","color":"#9A0036","motto":"Học hỏi liên tục để mở rộng dung lượng trái tim"},{"id":"trachNhiem","name":"Trách Nhiệm","color":"#C49C57","motto":"Thử sai và chấp nhận các hệ quả"},{"id":"khaiPhong","name":"Khai Phóng","color":"#1750B5","motto":"Nung nấu hoài bão và nguyện ước lớn"}]'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('ALLOWED_EMAIL_DOMAINS', '["vaschools.edu.vn"]'::jsonb) on conflict (key) do nothing;
 insert into public.game_settings (key, value) values ('DEFAULT_EQUIPPED', '{"jacket":"jacket-va","hat":"hat-none","glasses":"glasses-none","shoes":"shoes-red","backpack":"backpack-none","aura":"aura-none"}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
+insert into public.game_settings (key, value) values ('EVENT_OVERRIDE', '{"mode":"auto","id":null}'::jsonb) on conflict (key) do nothing;
 insert into public.ranks (id, sort, name, icon, xp, color, reward, tiers) values ('tapSu', 0, 'Tập Sự', '🐣', 0, '#8F7562', 'Áo khoác VA cơ bản', false) on conflict (id) do update set sort = excluded.sort, name = excluded.name, icon = excluded.icon, xp = excluded.xp, color = excluded.color, reward = excluded.reward, tiers = excluded.tiers;
 insert into public.ranks (id, sort, name, icon, xp, color, reward, tiers) values ('thanhVien', 1, 'Thành Viên', '🎒', 300, '#009082', 'Ba lô đen', false) on conflict (id) do update set sort = excluded.sort, name = excluded.name, icon = excluded.icon, xp = excluded.xp, color = excluded.color, reward = excluded.reward, tiers = excluded.tiers;
 insert into public.ranks (id, sort, name, icon, xp, color, reward, tiers) values ('dong', 2, 'Đồng', '🥉', 1500, '#B87333', 'Khung hạng màu đồng', true) on conflict (id) do update set sort = excluded.sort, name = excluded.name, icon = excluded.icon, xp = excluded.xp, color = excluded.color, reward = excluded.reward, tiers = excluded.tiers;
@@ -1698,29 +1791,32 @@ insert into public.ranks (id, sort, name, icon, xp, color, reward, tiers) values
 insert into public.ranks (id, sort, name, icon, xp, color, reward, tiers) values ('vang', 4, 'Vàng', '🥇', 12000, '#C49C57', 'Vương miện vàng', true) on conflict (id) do update set sort = excluded.sort, name = excluded.name, icon = excluded.icon, xp = excluded.xp, color = excluded.color, reward = excluded.reward, tiers = excluded.tiers;
 insert into public.ranks (id, sort, name, icon, xp, color, reward, tiers) values ('kimCuong', 5, 'Kim Cương', '💎', 25000, '#1750B5', 'Áo khoác Kim Cương', true) on conflict (id) do update set sort = excluded.sort, name = excluded.name, icon = excluded.icon, xp = excluded.xp, color = excluded.color, reward = excluded.reward, tiers = excluded.tiers;
 insert into public.ranks (id, sort, name, icon, xp, color, reward, tiers) values ('huyenThoai', 6, 'Kỳ Lân Huyền Thoại', '👑', 50000, '#9A0036', 'Hào quang Huyền Thoại', false) on conflict (id) do update set sort = excluded.sort, name = excluded.name, icon = excluded.icon, xp = excluded.xp, color = excluded.color, reward = excluded.reward, tiers = excluded.tiers;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('jacket-va', 'jacket', 'Áo khoác VA', 0, null, 'common', 'jacket', true) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('jacket-nhanai', 'jacket', 'Áo Nhân Ái', 120, null, 'rare', 'jacket', false) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('jacket-banlinh', 'jacket', 'Áo Bản Lĩnh', 120, null, 'rare', 'jacket', false) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('jacket-trachnhiem', 'jacket', 'Áo Trách Nhiệm', 120, null, 'rare', 'jacket', false) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('jacket-khaiphong', 'jacket', 'Áo Khai Phóng', 120, null, 'rare', 'jacket', false) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('jacket-kimcuong', 'jacket', 'Áo Kim Cương', 0, 'kimCuong', 'legendary', 'jacket', false) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('hat-none', 'hat', 'Không đội', 0, null, 'common', null, true) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('hat-cap', 'hat', 'Nón lưỡi trai VA', 80, null, 'common', 'cap', false) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('hat-nonla', 'hat', 'Nón lá', 150, null, 'rare', 'nonLa', false) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('hat-grad', 'hat', 'Mũ tốt nghiệp', 250, null, 'epic', 'gradCap', false) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('hat-crown', 'hat', 'Vương miện vàng', 0, 'vang', 'legendary', 'crown', false) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('glasses-none', 'glasses', 'Không đeo', 0, null, 'common', null, true) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('glasses-round', 'glasses', 'Kính học giả', 60, null, 'common', 'glasses', false) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('glasses-sun', 'glasses', 'Kính râm', 90, null, 'rare', 'glasses', false) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('shoes-red', 'shoes', 'Giày đỏ VA', 0, null, 'common', 'shoes', true) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('shoes-blue', 'shoes', 'Giày Khai Phóng', 80, null, 'common', 'shoes', false) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('shoes-white', 'shoes', 'Sneaker trắng', 100, null, 'rare', 'shoes', false) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('shoes-silver', 'shoes', 'Giày bạc', 0, 'bac', 'epic', 'shoes', false) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('backpack-none', 'backpack', 'Không đeo', 0, null, 'common', null, true) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('backpack-black', 'backpack', 'Ba lô đen', 0, 'thanhVien', 'common', 'backpack', false) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('backpack-teal', 'backpack', 'Ba lô Nhân Ái', 100, null, 'rare', 'backpack', false) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('aura-none', 'aura', 'Không', 0, null, 'common', null, true) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
-insert into public.items (id, slot, name, price, rank_id, rarity, model, starter) values ('aura-legend', 'aura', 'Hào quang Huyền Thoại', 0, 'huyenThoai', 'legendary', 'aura', false) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('jacket-va', 'jacket', 'Áo khoác VA', 0, null, 'common', 'jacket', true, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('jacket-nhanai', 'jacket', 'Áo Nhân Ái', 120, null, 'rare', 'jacket', false, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('jacket-banlinh', 'jacket', 'Áo Bản Lĩnh', 120, null, 'rare', 'jacket', false, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('jacket-trachnhiem', 'jacket', 'Áo Trách Nhiệm', 120, null, 'rare', 'jacket', false, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('jacket-khaiphong', 'jacket', 'Áo Khai Phóng', 120, null, 'rare', 'jacket', false, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('jacket-trian', 'jacket', 'Áo Tri ân đỏ thắm', 150, null, 'epic', 'jacket', false, 'tri-an-2011') on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('jacket-kimcuong', 'jacket', 'Áo Kim Cương', 0, 'kimCuong', 'legendary', 'jacket', false, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('hat-none', 'hat', 'Không đội', 0, null, 'common', null, true, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('hat-cap', 'hat', 'Nón lưỡi trai VA', 80, null, 'common', 'cap', false, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('hat-nonla', 'hat', 'Nón lá', 150, null, 'rare', 'nonLa', false, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('hat-grad', 'hat', 'Mũ tốt nghiệp', 250, null, 'epic', 'gradCap', false, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('hat-flower', 'hat', 'Vòng hoa Tri ân', 120, null, 'rare', 'flowerCrown', false, 'tri-an-2011') on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('hat-crown', 'hat', 'Vương miện vàng', 0, 'vang', 'legendary', 'crown', false, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('glasses-none', 'glasses', 'Không đeo', 0, null, 'common', null, true, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('glasses-round', 'glasses', 'Kính học giả', 60, null, 'common', 'glasses', false, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('glasses-sun', 'glasses', 'Kính râm', 90, null, 'rare', 'glasses', false, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('shoes-red', 'shoes', 'Giày đỏ VA', 0, null, 'common', 'shoes', true, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('shoes-blue', 'shoes', 'Giày Khai Phóng', 80, null, 'common', 'shoes', false, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('shoes-white', 'shoes', 'Sneaker trắng', 100, null, 'rare', 'shoes', false, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('shoes-silver', 'shoes', 'Giày bạc', 0, 'bac', 'epic', 'shoes', false, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('backpack-none', 'backpack', 'Không đeo', 0, null, 'common', null, true, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('backpack-black', 'backpack', 'Ba lô đen', 0, 'thanhVien', 'common', 'backpack', false, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('backpack-teal', 'backpack', 'Ba lô Nhân Ái', 100, null, 'rare', 'backpack', false, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('aura-none', 'aura', 'Không', 0, null, 'common', null, true, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('aura-petals', 'aura', 'Mưa cánh hoa', 200, null, 'epic', 'petals', false, 'tri-an-2011') on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
+insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values ('aura-legend', 'aura', 'Hào quang Huyền Thoại', 0, 'huyenThoai', 'legendary', 'aura', false, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;
 insert into public.gift_catalog (id, name, icon, description, cost, stock, sort) values ('but-va', 'Bút bi VA', '🖊️', 'Bút bi in logo VA Schools.', 400, null, 0) on conflict (id) do nothing;
 insert into public.gift_catalog (id, name, icon, description, cost, stock, sort) values ('moc-khoa', 'Móc khoá Kỳ lân', '🔑', 'Móc khoá hình Kỳ lân VA dễ thương.', 600, null, 1) on conflict (id) do nothing;
 insert into public.gift_catalog (id, name, icon, description, cost, stock, sort) values ('ca-phe', 'Phiếu cà phê căng tin', '☕', 'Một ly cà phê / trà sữa tại căng tin trường.', 700, null, 2) on conflict (id) do nothing;
@@ -1835,6 +1931,20 @@ insert into public.questions (topic, value, q, options, explain) values ('genera
 insert into public.questions (topic, value, q, options, explain) values ('general', null, 'Biểu hiện nào thể hiện "lắng nghe tích cực"?', array['Tóm tắt lại ý người nói để xác nhận đã hiểu đúng', 'Vừa nghe vừa xem điện thoại', 'Ngắt lời để đưa ra giải pháp ngay', 'Chuẩn bị câu trả lời khi người khác đang nói']::text[], null) on conflict (md5(q)) do nothing;
 insert into public.questions (topic, value, q, options, explain) values ('general', null, 'Mặt Trời mọc ở hướng nào?', array['Hướng Đông', 'Hướng Tây', 'Hướng Nam', 'Hướng Bắc']::text[], null) on conflict (md5(q)) do nothing;
 insert into public.questions (topic, value, q, options, explain) values ('general', null, 'Quần đảo Trường Sa thuộc tỉnh nào của Việt Nam?', array['Khánh Hoà', 'Đà Nẵng', 'Bình Định', 'Phú Yên']::text[], null) on conflict (md5(q)) do nothing;
+insert into public.questions (topic, value, q, options, explain, event) values ('event', null, 'Ngày Nhà giáo Việt Nam là ngày nào?', array['20/11', '5/10', '15/10', '20/10']::text[], null, 'tri-an-2011') on conflict (md5(q)) do update set event = excluded.event;
+insert into public.questions (topic, value, q, options, explain, event) values ('event', null, 'Ngày 20/11 chính thức mang tên "Ngày Nhà giáo Việt Nam" từ năm nào?', array['1982', '1958', '1975', '1990']::text[], 'Quyết định 167-HĐBT ngày 28/9/1982 lấy ngày 20/11 làm Ngày Nhà giáo Việt Nam.', 'tri-an-2011') on conflict (md5(q)) do update set event = excluded.event;
+insert into public.questions (topic, value, q, options, explain, event) values ('event', null, 'Trước năm 1982, ngày 20/11 ở Việt Nam được kỷ niệm với tên gọi nào?', array['Ngày Quốc tế Hiến chương các nhà giáo', 'Ngày Khuyến học', 'Ngày Sách Việt Nam', 'Ngày Tựu trường']::text[], 'Từ năm 1958, Việt Nam kỷ niệm "Ngày Quốc tế Hiến chương các nhà giáo" vào 20/11.', 'tri-an-2011') on conflict (md5(q)) do update set event = excluded.event;
+insert into public.questions (topic, value, q, options, explain, event) values ('event', null, 'Ngày Nhà giáo Thế giới (do UNESCO khởi xướng) là ngày nào?', array['5/10', '20/11', '1/6', '8/9']::text[], null, 'tri-an-2011') on conflict (md5(q)) do update set event = excluded.event;
+insert into public.questions (topic, value, q, options, explain, event) values ('event', null, 'Hoàn thành câu ca dao: "Muốn sang thì bắc cầu Kiều, muốn con hay chữ thì…"', array['yêu lấy thầy', 'chăm học bài', 'mua nhiều sách', 'đi học sớm']::text[], null, 'tri-an-2011') on conflict (md5(q)) do update set event = excluded.event;
+insert into public.questions (topic, value, q, options, explain, event) values ('event', null, 'Theo tục ngữ "Mồng một tết cha, mồng hai tết mẹ…", Tết thầy là ngày nào?', array['Mồng ba', 'Mồng bốn', 'Rằm tháng Giêng', 'Mồng năm']::text[], null, 'tri-an-2011') on conflict (md5(q)) do update set event = excluded.event;
+insert into public.questions (topic, value, q, options, explain, event) values ('event', null, '"Tôn sư trọng đạo" có nghĩa là gì?', array['Tôn kính thầy, coi trọng đạo lý', 'Tôn trọng luật giao thông', 'Học giỏi để làm thầy', 'Chỉ nghe lời thầy dạy']::text[], null, 'tri-an-2011') on conflict (md5(q)) do update set event = excluded.event;
+insert into public.questions (topic, value, q, options, explain, event) values ('event', null, '"Nhất tự vi sư, bán tự vi sư" muốn nói điều gì?', array['Dạy ta một chữ, nửa chữ cũng là thầy', 'Một người thầy dạy nửa lớp', 'Chỉ cần học một chữ mỗi ngày', 'Thầy giỏi hơn trò một nửa']::text[], null, 'tri-an-2011') on conflict (md5(q)) do update set event = excluded.event;
+insert into public.questions (topic, value, q, options, explain, event) values ('event', null, 'Câu tục ngữ nào nói về vai trò không thể thiếu của người thầy?', array['Không thầy đố mày làm nên', 'Ăn quả nhớ kẻ trồng cây', 'Có công mài sắt có ngày nên kim', 'Gần mực thì đen, gần đèn thì rạng']::text[], null, 'tri-an-2011') on conflict (md5(q)) do update set event = excluded.event;
+insert into public.questions (topic, value, q, options, explain, event) values ('event', null, 'Người thầy nổi tiếng thời Trần, từng dâng "Thất trảm sớ", là ai?', array['Chu Văn An', 'Nguyễn Trãi', 'Lê Quý Đôn', 'Nguyễn Bỉnh Khiêm']::text[], null, 'tri-an-2011') on conflict (md5(q)) do update set event = excluded.event;
+insert into public.questions (topic, value, q, options, explain, event) values ('event', null, 'Quốc Tử Giám — được xem là trường đại học đầu tiên của Việt Nam — lập năm nào?', array['1076', '1010', '1225', '1428']::text[], null, 'tri-an-2011') on conflict (md5(q)) do update set event = excluded.event;
+insert into public.questions (topic, value, q, options, explain, event) values ('event', null, '"Vì lợi ích mười năm thì phải trồng cây, vì lợi ích trăm năm thì phải…"', array['trồng người', 'xây trường', 'đọc sách', 'giữ rừng']::text[], 'Lời Chủ tịch Hồ Chí Minh về sự nghiệp giáo dục.', 'tri-an-2011') on conflict (md5(q)) do update set event = excluded.event;
+insert into public.questions (topic, value, q, options, explain, event) values ('event', null, 'Hình ảnh "người lái đò" trong văn thơ thường ẩn dụ cho ai?', array['Thầy cô giáo', 'Người nông dân', 'Bác sĩ', 'Người lính']::text[], null, 'tri-an-2011') on conflict (md5(q)) do update set event = excluded.event;
+insert into public.questions (topic, value, q, options, explain, event) values ('event', null, 'Gửi lời tri ân để người khác thấy được quan tâm, trân trọng — đó là biểu hiện của giá trị nào ở VA?', array['Nhân ái', 'Khai phóng', 'Bản lĩnh', 'Tri thức']::text[], 'Nhân ái là biết nghĩ cho người khác.', 'tri-an-2011') on conflict (md5(q)) do update set event = excluded.event;
 
 -- >>> 06_realtime_grants.sql
 -- ════════════════════════════════════════════════════════════════════════

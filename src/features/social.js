@@ -2,6 +2,8 @@ import { sfx } from '../audio/sfx.js';
 import {
   backendMode,
   friendlyError,
+  getActiveEvent,
+  getMyKudos,
   getProfile,
   getPublicProfile,
   getPublicProfiles,
@@ -12,6 +14,8 @@ import { createMultiplayer } from '../net/multiplayer.js';
 import { createNameTag } from '../scene/nameTag.js';
 import { createStickerBubble } from '../scene/stickerBubble.js';
 import { getSticker } from '../data/stickers.js';
+import { getEvent } from '../data/events.js';
+import { showCard } from '../ui/cardView.js';
 import { createRemotePlayers } from '../scene/remotePlayers.js';
 import { say, showToast } from '../ui/feedback.js';
 import { renderOnline } from '../ui/hud.js';
@@ -64,10 +68,11 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving 
       const sticker = getSticker(stickerId);
       if (sticker) remote.playSticker(id, sticker.emoji);
     },
-    onKudos: ({ fromName, kind }) => {
+    onKudos: ({ from, fromName, kind }) => {
       sfx.gift();
       mascot.emote(kind === 'thanks' ? 'cheer' : 'happy');
       say(kind === 'thanks' ? `${fromName ?? 'Một người bạn'} vừa gửi lời cảm ơn bạn! 💌` : `${fromName ?? 'Một người bạn'} thả tim cho bạn! ❤️`);
+      if (kind === 'thanks') openReceivedCard(from);
     },
     onRoomChange: ({ room, count }) => renderOnline(count, room),
   });
@@ -81,6 +86,17 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving 
   function notifyProfileChanged() {
     refreshMyTag();
     mp.notifyProfileChanged();
+  }
+
+  /** Thiệp sự kiện: lấy nội dung từ MÁY CHỦ (không tin tin nhắn người khác gửi) rồi mở thiệp. */
+  async function openReceivedCard(fromId) {
+    if (backendMode() !== 'remote') return;
+    const list = await getMyKudos().catch(() => []);
+    const k = list.find((x) => x.fromId === fromId && x.kind === 'thanks');
+    if (!k?.card) return;
+    const event = getEvent(getState().event);
+    const card = event?.cards.find((c) => c.id === k.card);
+    if (card) showCard({ card, fromName: k.from, message: k.message, eventName: event.name });
   }
 
   /** Hiện sticker trên đầu Kỳ lân của mình và gửi cho mọi người cùng đảo. */
@@ -110,8 +126,9 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving 
         }
         return res;
       },
-      onThanks: async (message) => {
-        const res = await sendKudos(id, 'thanks', message).catch((err) => {
+      event: getActiveEvent(),
+      onThanks: async (message, cardId) => {
+        const res = await sendKudos(id, 'thanks', message, cardId).catch((err) => {
           showToast(friendlyError(err), { type: 'warn' });
           return { ok: false };
         });
@@ -119,7 +136,7 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving 
           sfx.cheer();
           mascot.emote('cheer');
           mp.sendKudos(id, 'thanks');
-          showToast(`Đã gửi lời cảm ơn! +${res.reward?.coins ?? 0} Xu`, { type: 'success', icon: '💌' });
+          showToast(`${res.card ? 'Đã gửi thiệp tri ân' : 'Đã gửi lời cảm ơn'}! +${res.reward?.coins ?? 0} Xu`, { type: 'success', icon: res.card ? '🌸' : '💌' });
         }
         return res;
       },

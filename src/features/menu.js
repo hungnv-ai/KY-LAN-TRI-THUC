@@ -156,6 +156,10 @@ export function setupMenu({ world, mascot, wardrobe, fx, rewards, onOutfitChange
             mascot.emote('think');
             return;
           }
+          if (status === 'eventLocked') {
+            showToast(`"${item.name}" chỉ bán trong thời gian sự kiện.`, { type: 'warn', icon: '🌸' });
+            return;
+          }
           if (status === 'tooPoor') {
             showToast(`Cần thêm ${formatNumber(item.price - getState().coins)} Xu. Làm Quiz Tri Thức để kiếm Xu nhé!`, {
               type: 'warn',

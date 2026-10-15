@@ -418,4 +418,47 @@ begin
   assert (r ->> 'coins')::int = 40 and r -> 'hatched' = 'null'::jsonb, 'đủ bộ → nở ra 40 Xu';
 end $$;
 
+\echo '18. Sự kiện 20/11: bật/tắt, đồ sự kiện, thiệp tri ân, câu hỏi sự kiện'
+do $$
+declare r jsonb; v_before int; v_after int; v_q questions; i int;
+begin
+  perform test_admin();
+  update player_state set coins = 1000 where user_id in ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b');
+  delete from kudos where kind = 'thanks';
+  update daily_counters set thanks_sent = 0;
+  assert (select count(*) from questions where event = 'tri-an-2011') >= 14, 'có câu hỏi sự kiện';
+  -- Người chơi thường không bật được sự kiện.
+  perform test_as('00000000-0000-0000-0000-00000000000b');
+  perform test_expect_error($q$select admin_set_event('on', 'tri-an-2011')$q$, 'forbidden');
+  perform test_as('00000000-0000-0000-0000-00000000000a');
+  perform admin_set_event('off');
+  perform test_as('00000000-0000-0000-0000-00000000000b');
+  assert get_my_state() -> 'event' = 'null'::jsonb, 'tắt sự kiện';
+  perform test_expect_error($q$select buy_item('hat-flower')$q$, 'event_item_unavailable');
+  perform test_admin();
+  for i in 1..40 loop
+    v_q := _pick_question('00000000-0000-0000-0000-00000000000b', null);
+    assert v_q.event is null, 'không phát câu hỏi sự kiện khi tắt';
+  end loop;
+  -- Bật sự kiện.
+  perform test_as('00000000-0000-0000-0000-00000000000a');
+  r := admin_set_event('on', 'tri-an-2011');
+  assert r ->> 'active' = 'tri-an-2011', 'bật sự kiện';
+  perform test_as('00000000-0000-0000-0000-00000000000b');
+  assert get_my_state() ->> 'event' = 'tri-an-2011', 'người chơi thấy sự kiện';
+  r := buy_item('hat-flower');
+  assert r -> 'state' -> 'owned' ? 'hat-flower', 'mua được đồ sự kiện';
+  select coins into v_before from player_state where user_id = '00000000-0000-0000-0000-00000000000a';
+  r := send_kudos('00000000-0000-0000-0000-00000000000a', 'thanks', 'Cảm ơn cô!', 'hoa-hong');
+  assert r ->> 'card' = 'hoa-hong' and (r -> 'reward' ->> 'coins')::int = 10, 'thiệp tri ân: người gửi +10 Xu';
+  select coins into v_after from player_state where user_id = '00000000-0000-0000-0000-00000000000a';
+  assert v_after - v_before = 10, 'người nhận thiệp +10 Xu';
+  perform test_as('00000000-0000-0000-0000-00000000000a');
+  assert my_kudos() -> 0 ->> 'card' = 'hoa-hong', 'người nhận thấy mẫu thiệp';
+  -- Mẫu thiệp lạ → gửi như lời cảm ơn thường.
+  r := send_kudos('00000000-0000-0000-0000-00000000000b', 'thanks', 'Hi', 'thiep-gia');
+  assert r -> 'card' = 'null'::jsonb and (r -> 'reward' ->> 'coins')::int = 5, 'thiệp không hợp lệ không có thưởng thêm';
+  perform admin_set_event('auto');
+end $$;
+
 select '✔ Tất cả kiểm thử máy chủ đều đạt' as ket_qua;

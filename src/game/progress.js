@@ -1,4 +1,5 @@
 import { EXPLORE, QUIZ, VALUES } from '../config.js';
+import { getEvent } from '../data/events.js';
 import { dayKey, yesterdayKey } from './time.js';
 
 /**
@@ -37,6 +38,7 @@ const ERROR_MESSAGES = {
   too_many_pending: 'Bạn đang có phiếu chờ duyệt — đợi BGH duyệt rồi đổi tiếp nhé.',
   monthly_limit: 'Tháng này bạn đã đổi đủ số lần. Hẹn tháng sau!',
   pet_not_owned: 'Bạn chưa có thú cưng này.',
+  event_item_unavailable: 'Món này chỉ bán trong thời gian sự kiện.',
 };
 
 /**
@@ -183,14 +185,20 @@ export function getHouse() {
   return VALUES.find((v) => v.id === state.profile.house) ?? null;
 }
 
+/** @returns {(typeof import('../data/events.js').EVENTS)[number] | null} sự kiện đang diễn ra (máy chủ quyết định) */
+export function getActiveEvent() {
+  return getEvent(state?.event) ?? null;
+}
+
 /**
  * @param {object} item
- * @returns {'equipped' | 'owned' | 'buyable' | 'tooPoor' | 'locked'}
+ * @returns {'equipped' | 'owned' | 'buyable' | 'tooPoor' | 'locked' | 'eventLocked'}
  */
 export function itemStatus(item) {
   if (state.equipped[item.slot] === item.id) return 'equipped';
   if (state.owned.includes(item.id)) return 'owned';
   if (item.rank) return 'locked';
+  if (item.event && item.event !== state.event) return 'eventLocked';
   return state.coins >= item.price ? 'buyable' : 'tooPoor';
 }
 
@@ -282,9 +290,15 @@ export async function claimMissionChest() {
   return (await call('claimMissionChest')).result;
 }
 
-/** @returns {Promise<{ ok: boolean, reason?: string, reward?: object }>} */
-export async function sendKudos(toUserId, kind, message) {
-  return call('sendKudos', toUserId, kind, message);
+/**
+ * @param {string} toUserId
+ * @param {'heart' | 'thanks'} kind
+ * @param {string} [message]
+ * @param {string | null} [card] mẫu thiệp sự kiện
+ * @returns {Promise<{ ok: boolean, reason?: string, reward?: object, card?: string | null }>}
+ */
+export async function sendKudos(toUserId, kind, message, card = null) {
+  return call('sendKudos', toUserId, kind, message, card);
 }
 
 /**

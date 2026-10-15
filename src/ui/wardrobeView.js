@@ -7,7 +7,7 @@ import { openSheet } from './sheet.js';
  * Giao diện Tủ đồ: tab theo slot, lưới thẻ trang phục.
  *
  * @param {{
- *   getStatus: (item: object) => 'equipped' | 'owned' | 'buyable' | 'tooPoor' | 'locked',
+ *   getStatus: (item: object) => 'equipped' | 'owned' | 'buyable' | 'tooPoor' | 'locked' | 'eventLocked',
  *   onSelect: (item: object) => void | Promise<void>,
  *   onClose?: () => void,
  * }} handlers
@@ -42,7 +42,9 @@ export function openWardrobe({ getStatus, onSelect, onClose }) {
   function render() {
     tabs.querySelectorAll('.tab').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.slot === activeSlot)));
     const slot = SLOTS.find((s) => s.id === activeSlot);
-    grid.replaceChildren(...ITEMS.filter((item) => item.slot === activeSlot).map((item) => renderCard(item, slot)));
+    // Đồ sự kiện chỉ hiện khi sự kiện đang diễn ra (hoặc đã sở hữu).
+    const items = ITEMS.filter((item) => item.slot === activeSlot && getStatus(item) !== 'eventLocked');
+    grid.replaceChildren(...items.map((item) => renderCard(item, slot)));
   }
 
   function renderCard(item, slot) {
@@ -62,6 +64,7 @@ export function openWardrobe({ getStatus, onSelect, onClose }) {
         onclick: () => onSelect(item),
       },
       swatch,
+      item.event ? h('span', { class: 'item-event-badge' }, '🌸 Sự kiện') : '',
       h('span', { class: 'item-name' }, item.name),
       h('span', { class: 'item-rarity', style: { color: rarity.color } }, rarity.name),
       h('span', { class: 'item-status' }, statusText(item, status)),

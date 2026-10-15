@@ -67,10 +67,15 @@ end;
 $$;
 
 -- Thả tim (miễn phí, giới hạn/ngày) hoặc gửi lời cảm ơn (cả hai nhận Xu).
-create or replace function public.send_kudos(p_to uuid, p_kind text, p_message text default null)
+-- p_card: mẫu thiệp của sự kiện đang diễn ra (vd thiệp 20/11) → cả hai nhận thêm Xu.
+drop function if exists public.send_kudos(uuid, text, text);
+create or replace function public.send_kudos(p_to uuid, p_kind text, p_message text default null, p_card text default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
   v_uid uuid := public._require_player();
+  v_event jsonb := public._event_def(public._active_event());
+  v_card text := null;
+  v_bonus int := 0;
   d daily_counters := public._daily(v_uid);
   v_msg text := nullif(btrim(left(coalesce(p_message, ''), public._cfgn('KUDOS', 'MESSAGE_MAX', 120)::int)), '');
   v_inserted int;
@@ -91,22 +96,26 @@ begin
     update daily_counters set hearts_sent = hearts_sent + 1 where user_id = v_uid and day = d.day;
     update player_state set hearts_received = hearts_received + 1 where user_id = p_to;
   elsif p_kind = 'thanks' then
+    if p_card is not null and v_event is not null and (v_event -> 'cards') ? p_card then
+      v_card := p_card;
+      v_bonus := coalesce((v_event ->> 'cardBonusCoins')::int, 0);
+    end if;
     if d.thanks_sent >= public._cfgn('KUDOS', 'THANKS_PER_DAY', 3) then
       return jsonb_build_object('ok', false, 'reason', 'limit', 'state', public._state_json(v_uid));
     end if;
-    insert into kudos (from_user, to_user, kind, message, day) values (v_uid, p_to, 'thanks', v_msg, d.day) on conflict do nothing;
+    insert into kudos (from_user, to_user, kind, message, day, card) values (v_uid, p_to, 'thanks', v_msg, d.day, v_card) on conflict do nothing;
     get diagnostics v_inserted = row_count;
     if v_inserted = 0 then
       return jsonb_build_object('ok', false, 'reason', 'already', 'state', public._state_json(v_uid));
     end if;
     update daily_counters set thanks_sent = thanks_sent + 1 where user_id = v_uid and day = d.day;
     update player_state set thanks_received = thanks_received + 1 where user_id = p_to;
-    v_sender := public._apply_reward(v_uid, 0, public._cfgn('KUDOS', 'THANKS_COINS_SENDER', 5)::int, 'thanks_sent', jsonb_build_object('to', p_to));
-    perform public._apply_reward(p_to, 0, public._cfgn('KUDOS', 'THANKS_COINS_RECEIVER', 5)::int, 'thanks_received', jsonb_build_object('from', v_uid));
+    v_sender := public._apply_reward(v_uid, 0, public._cfgn('KUDOS', 'THANKS_COINS_SENDER', 5)::int + v_bonus, 'thanks_sent', jsonb_build_object('to', p_to, 'card', v_card));
+    perform public._apply_reward(p_to, 0, public._cfgn('KUDOS', 'THANKS_COINS_RECEIVER', 5)::int + v_bonus, 'thanks_received', jsonb_build_object('from', v_uid, 'card', v_card));
   else
     raise exception 'invalid_kind';
   end if;
-  return jsonb_build_object('ok', true, 'reward', v_sender, 'state', public._state_json(v_uid));
+  return jsonb_build_object('ok', true, 'reward', v_sender, 'card', v_card, 'state', public._state_json(v_uid));
 end;
 $$;
 
@@ -118,7 +127,7 @@ begin
   return coalesce((
     select jsonb_agg(jsonb_build_object(
       'from', coalesce(p.display_name, p.full_name), 'fromId', k.from_user,
-      'kind', k.kind, 'message', k.message, 'at', k.created_at
+      'kind', k.kind, 'message', k.message, 'card', k.card, 'at', k.created_at
     ) order by k.created_at desc, k.id desc)
     from (select * from kudos where to_user = v_uid order by created_at desc, id desc limit least(p_limit, 50)) k
     join profiles p on p.id = k.from_user

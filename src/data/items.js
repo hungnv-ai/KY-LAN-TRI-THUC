@@ -32,6 +32,7 @@ export const ITEMS = [
   { id: 'jacket-banlinh', slot: 'jacket', name: 'Áo Bản Lĩnh', price: 120, rarity: 'rare', model: 'jacket', params: { body: '#725139', trim: '#AD9A8C' } },
   { id: 'jacket-trachnhiem', slot: 'jacket', name: 'Áo Trách Nhiệm', price: 120, rarity: 'rare', model: 'jacket', params: { body: '#C49C57', trim: '#F6EFE3' } },
   { id: 'jacket-khaiphong', slot: 'jacket', name: 'Áo Khai Phóng', price: 120, rarity: 'rare', model: 'jacket', params: { body: '#1750B5', trim: '#96B5EA' } },
+  { id: 'jacket-trian', slot: 'jacket', name: 'Áo Tri ân đỏ thắm', price: 150, rarity: 'epic', model: 'jacket', event: 'tri-an-2011', params: { body: '#C2185B', trim: '#FFD54F' } },
   { id: 'jacket-kimcuong', slot: 'jacket', name: 'Áo Kim Cương', price: 0, rank: 'kimCuong', rarity: 'legendary', model: 'jacket', params: { body: '#EAF4FF', trim: '#63C5FF', sparkle: true } },
 
   // Nón
@@ -39,6 +40,7 @@ export const ITEMS = [
   { id: 'hat-cap', slot: 'hat', name: 'Nón lưỡi trai VA', price: 80, rarity: 'common', model: 'cap', params: { color: '#9A0036' } },
   { id: 'hat-nonla', slot: 'hat', name: 'Nón lá', price: 150, rarity: 'rare', model: 'nonLa', icon: '👒' },
   { id: 'hat-grad', slot: 'hat', name: 'Mũ tốt nghiệp', price: 250, rarity: 'epic', model: 'gradCap', icon: '🎓' },
+  { id: 'hat-flower', slot: 'hat', name: 'Vòng hoa Tri ân', price: 120, rarity: 'rare', model: 'flowerCrown', event: 'tri-an-2011', icon: '🌸' },
   { id: 'hat-crown', slot: 'hat', name: 'Vương miện vàng', price: 0, rank: 'vang', rarity: 'legendary', model: 'crown', icon: '👑' },
 
   // Kính
@@ -59,6 +61,7 @@ export const ITEMS = [
 
   // Hiệu ứng
   { id: 'aura-none', slot: 'aura', name: 'Không', price: 0, rarity: 'common', model: null },
+  { id: 'aura-petals', slot: 'aura', name: 'Mưa cánh hoa', price: 200, rarity: 'epic', model: 'petals', event: 'tri-an-2011', icon: '🌸' },
   { id: 'aura-legend', slot: 'aura', name: 'Hào quang Huyền Thoại', price: 0, rank: 'huyenThoai', rarity: 'legendary', model: 'aura', icon: '🌟' },
 ];
 

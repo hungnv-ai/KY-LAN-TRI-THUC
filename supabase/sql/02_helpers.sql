@@ -281,6 +281,7 @@ begin
       'role', p.role,
       'house', p.house
     ),
+    'event', public._active_event(),
     'serverTime', now()
   );
 end;

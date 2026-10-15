@@ -245,7 +245,7 @@ export function openRanks(data) {
                 { class: 'kudos-list' },
                 kudos
                   .filter((k) => k.kind === 'thanks')
-                  .map((k) => h('li', {}, h('strong', {}, k.from), k.message ? `: “${k.message}”` : ' đã gửi lời cảm ơn')),
+                  .map((k) => h('li', {}, k.card ? '🌸 ' : '', h('strong', {}, k.from), k.message ? `: “${k.message}”` : ' đã gửi lời cảm ơn')),
               )
             : h('p', { class: 'muted' }, 'Chưa có lời cảm ơn nào. Hãy là người gửi trước nhé — Nhân Ái là biết nghĩ cho người khác!'),
           h('p', { class: 'muted' }, `❤️ ${formatNumber(data.stats.heartsReceived ?? 0)} tim · 💌 ${formatNumber(data.stats.thanksReceived ?? 0)} lời cảm ơn đã nhận`),

@@ -74,10 +74,14 @@ $$;
 -- ── Phát câu hỏi (vé) ─────────────────────────────────────────────────────
 create or replace function public._pick_question(p_uid uuid, p_station text, p_exclude bigint[] default '{}')
 returns public.questions language plpgsql security definer set search_path = public as $$
-declare v_q questions;
+declare
+  v_q questions;
+  v_event text := public._active_event();
 begin
+  -- Câu hỏi sự kiện chỉ dùng khi sự kiện đang diễn ra; khi đó được ưu tiên (khoá sắp xếp nhỏ hơn).
   select * into v_q from questions q
   where q.status = 'approved'
+    and (q.event is null or q.event = v_event)
     and (p_station is null or q.value = p_station or (p_station = 'triThuc' and q.topic = 'general'))
     and not (q.id = any (p_exclude))
     and q.id not in (
@@ -85,10 +89,12 @@ begin
       where t.user_id = p_uid and t.question_id is not null
       order by t.created_at desc limit 25
     )
-  order by random() limit 1;
+  order by case when v_event is not null and q.event = v_event then random() * 0.45 else random() end
+  limit 1;
   if not found then
     select * into v_q from questions q
     where q.status = 'approved'
+      and (q.event is null or q.event = v_event)
       and (p_station is null or q.value = p_station or (p_station = 'triThuc' and q.topic = 'general'))
       and not (q.id = any (p_exclude))
     order by random() limit 1;
@@ -354,6 +360,7 @@ begin
   elsif v_roll >= v_coin + v_xpc then
     select i.id, i.name into v_item from items i, player_state s
     where s.user_id = v_uid and i.price > 0 and i.rank_id is null and not (i.id = any (s.owned))
+      and (i.event is null or i.event = public._active_event())
     order by random() limit 1;
     if found then
       update player_state set owned = array_append(owned, v_item.id) where user_id = v_uid;
@@ -390,6 +397,7 @@ declare
 begin
   select * into i from items where id = p_item;
   if not found or i.rank_id is not null then raise exception 'item_not_buyable'; end if;
+  if i.event is not null and i.event is distinct from public._active_event() then raise exception 'event_item_unavailable'; end if;
   select * into s from player_state where user_id = v_uid for update;
   if p_item = any (s.owned) then raise exception 'already_owned'; end if;
   if s.coins < i.price then raise exception 'not_enough_coins'; end if;

@@ -1,7 +1,60 @@
 import { h } from '../../ui/dom.js';
 import { showToast } from '../../ui/feedback.js';
 import { api, getSetting } from '../api.js';
-import { field } from '../widgets.js';
+import { EVENTS } from '../../data/events.js';
+import { badge, field, select } from '../widgets.js';
+
+/** Sự kiện theo mùa: tự động theo lịch, bật ngay (để thử / mở sớm) hoặc tắt. */
+function eventCard() {
+  const status = h('p', { class: 'muted' }, 'Đang tải…');
+  const options = [['auto', 'Tự động theo lịch'], ...EVENTS.map((e) => [`on:${e.id}`, `Bật ngay: ${e.icon} ${e.name}`]), ['off', 'Tắt mọi sự kiện']];
+  const sel = select(options, 'auto');
+  const save = h('button', { class: 'btn', type: 'button' }, 'Áp dụng');
+
+  async function load() {
+    try {
+      const r = await api.eventStatus();
+      const o = r.override ?? {};
+      sel.value = o.mode === 'on' ? `on:${o.id}` : o.mode === 'off' ? 'off' : 'auto';
+      const active = EVENTS.find((e) => e.id === r.active);
+      status.replaceChildren(
+        active ? badge(`Đang diễn ra: ${active.icon} ${active.name}`, 'success') : badge('Không có sự kiện nào đang diễn ra', 'neutral'),
+        ` · Thiệp đã gửi (60 ngày): ${r.cardsSent}`,
+      );
+    } catch (err) {
+      status.textContent = err.message;
+    }
+  }
+
+  save.addEventListener('click', async () => {
+    const [mode, id] = sel.value.split(':');
+    save.disabled = true;
+    try {
+      await api.setEvent(mode, id ?? null);
+      showToast('Đã cập nhật sự kiện — người chơi thấy sau khi tải lại trang', { type: 'success', icon: '🌸' });
+      await load();
+    } catch (err) {
+      showToast(err.message, { type: 'warn' });
+    }
+    save.disabled = false;
+  });
+  load();
+
+  return h(
+    'section',
+    { class: 'card' },
+    h('header', { class: 'card-head' }, h('h3', {}, '🌸 Sự kiện theo mùa')),
+    h(
+      'p',
+      { class: 'muted' },
+      `Lịch tự động: ${EVENTS.map((e) => `${e.name} (${e.start.split('-').reverse().join('/')} – ${e.end.split('-').reverse().join('/')})`).join('; ')}. `,
+      'Chọn "Bật ngay" để mở sớm hoặc xem thử trang trí, trang phục, thiệp tri ân.',
+    ),
+    field('Chế độ', sel),
+    h('div', { class: 'page-actions' }, save),
+    status,
+  );
+}
 
 /**
  * Cài đặt & phân quyền: tên miền email được phép (chỉ Quản trị), hướng dẫn phân quyền.
@@ -30,6 +83,7 @@ export async function renderSettings(el, { role }) {
   });
 
   el.replaceChildren(
+    eventCard(),
     h(
       'section',
       { class: 'card' },

@@ -48,6 +48,11 @@ create table if not exists public.questions (
   updated_at timestamptz not null default now()
 );
 create unique index if not exists questions_q_unique on public.questions (md5(q));
+-- Sự kiện theo mùa (thêm sau): câu hỏi / trang phục chỉ dùng khi sự kiện đang diễn ra.
+alter table public.questions add column if not exists event text;
+alter table public.questions drop constraint if exists questions_topic_check;
+alter table public.questions add constraint questions_topic_check check (topic in ('values', 'va', 'general', 'event'));
+alter table public.items add column if not exists event text;
 create index if not exists questions_status_idx on public.questions (status);
 
 create table if not exists public.profiles (
@@ -160,6 +165,7 @@ create table if not exists public.kudos (
 );
 create index if not exists kudos_to_idx on public.kudos (to_user, created_at desc);
 create unique index if not exists kudos_once_per_day on public.kudos (from_user, to_user, kind, day);
+alter table public.kudos add column if not exists card text; -- mẫu thiệp sự kiện (vd thiệp 20/11)
 
 create table if not exists public.vouchers (
   id bigint generated always as identity primary key,

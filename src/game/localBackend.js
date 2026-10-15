@@ -9,6 +9,7 @@ import {
   VALUES,
 } from '../config.js';
 import { DEFAULT_EQUIPPED, ITEMS, STARTER_ITEMS, getItem } from '../data/items.js';
+import { EVENT_QUESTIONS, activeEventId } from '../data/events.js';
 import { PETS } from '../data/pets.js';
 import { QUESTIONS } from '../data/questions.js';
 import { getRankInfo, rankIndexOf } from '../data/ranks.js';
@@ -24,6 +25,23 @@ import { dayKey, isGoldenHour, yesterdayKey } from './time.js';
  */
 
 const RECENT_LIMIT = 20;
+/** Xác suất ưu tiên câu hỏi sự kiện khi sự kiện đang diễn ra. */
+const EVENT_QUESTION_CHANCE = 0.4;
+
+/**
+ * Sự kiện đang diễn ra ở chế độ ngoại tuyến. Xem thử sự kiện trước ngày: thêm `?event=<id>` vào
+ * địa chỉ (hoặc `?event=off` để tắt).
+ */
+function localActiveEvent() {
+  let param = null;
+  try {
+    param = new URLSearchParams(window.location.search).get('event');
+  } catch {
+    /* không có window (kiểm thử) */
+  }
+  if (param === 'off') return null;
+  return activeEventId(new Date(), param ? { mode: 'on', id: param } : null);
+}
 const HOUSES = VALUES.map((v) => v.id);
 
 function createDaily() {
@@ -100,7 +118,7 @@ export function createLocalBackend() {
     rollDaily();
     saveJSON(SAVE_KEY, state);
     const { rewardLog: _log, ...rest } = state;
-    return structuredClone({ ...rest, daily: { ...rest.daily, missions: missionStatus(rest.daily) } });
+    return structuredClone({ ...rest, event: localActiveEvent(), daily: { ...rest.daily, missions: missionStatus(rest.daily) } });
   }
 
   function grantRankItems() {
@@ -156,6 +174,16 @@ export function createLocalBackend() {
   }
 
   function pickQuestion(station, exclude = []) {
+    const event = localActiveEvent();
+    if (!station && event && Math.random() < EVENT_QUESTION_CHANCE) {
+      const eventPool = EVENT_QUESTIONS.filter((q) => q.event === event && !exclude.includes(q) && !recentlyAsked.includes(q));
+      if (eventPool.length) {
+        const q = eventPool[Math.floor(Math.random() * eventPool.length)];
+        recentlyAsked.push(q);
+        if (recentlyAsked.length > RECENT_LIMIT) recentlyAsked.shift();
+        return q;
+      }
+    }
     let pool = QUESTIONS.filter(
       (q) => !station || q.value === station || (station === 'triThuc' && q.topic === 'general'),
     ).filter((q) => !exclude.includes(q));
@@ -323,7 +351,8 @@ export function createLocalBackend() {
       const roll = Math.random();
       let result = null;
       if (roll >= EXPLORE.GIFT_COIN_CHANCE + EXPLORE.GIFT_XP_CHANCE) {
-        const candidates = ITEMS.filter((it) => it.price > 0 && !it.rank && !state.owned.includes(it.id));
+        const event = localActiveEvent();
+        const candidates = ITEMS.filter((it) => it.price > 0 && !it.rank && !state.owned.includes(it.id) && (!it.event || it.event === event));
         if (candidates.length) {
           const item = candidates[Math.floor(Math.random() * candidates.length)];
           state.owned.push(item.id);
@@ -343,6 +372,7 @@ export function createLocalBackend() {
     async buyItem(itemId) {
       const item = getItem(itemId);
       if (!item || item.rank) throw new Error('item_not_buyable');
+      if (item.event && item.event !== localActiveEvent()) throw new Error('event_item_unavailable');
       if (state.owned.includes(itemId)) throw new Error('already_owned');
       if (state.coins < item.price) throw new Error('not_enough_coins');
       state.coins -= item.price;

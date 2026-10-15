@@ -18,6 +18,7 @@ const MESSAGES = {
   email_domain_not_allowed: 'Tài khoản không thuộc tên miền của trường.',
   questions_q_unique: 'Câu hỏi này đã có trong ngân hàng.',
   invalid_name: 'Tên quá ngắn.',
+  event_not_found: 'Không tìm thấy sự kiện.',
   invalid_cost: 'Giá Xu phải lớn hơn 0.',
   invalid_stock: 'Số lượng không hợp lệ.',
 };
@@ -95,6 +96,8 @@ export const api = {
       p_active: g.active,
       p_sort: g.sort ?? 0,
     }),
+  eventStatus: () => rpc('admin_event_status'),
+  setEvent: (mode, id = null) => rpc('admin_set_event', { p_mode: mode, p_id: id }),
   setAllowedDomains: (domains) => rpc('admin_set_allowed_domains', { p_domains: domains }),
 };
 
