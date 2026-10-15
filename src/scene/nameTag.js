@@ -2,10 +2,22 @@ import * as THREE from 'three';
 import { VALUES } from '../config.js';
 import { getRankInfo } from '../data/ranks.js';
 
-/** Chiều cao bảng tên (tỉ lệ chiều cao màn hình) — giữ cố định khi đứng gần/xa. */
+/** Chiều cao bảng tên (đơn vị sprite không co giãn) — giữ cố định khi đứng gần/xa. */
 const SCREEN_HEIGHT = 0.05;
 /** Độ cao bảng tên phía trên chân Kỳ lân (m). */
 export const NAME_TAG_Y = 2.95;
+
+/**
+ * Chiều cao bảng tên trên màn hình (px). Sprite `sizeAttenuation: false` có kích thước cố định:
+ * chiều cao NDC = scale.y × projectionMatrix[5].
+ *
+ * @param {THREE.PerspectiveCamera} camera
+ * @param {number} viewportHeight chiều cao vùng vẽ (px)
+ * @returns {number}
+ */
+export function nameTagPixelHeight(camera, viewportHeight) {
+  return SCREEN_HEIGHT * camera.projectionMatrix.elements[5] * 0.5 * viewportHeight;
+}
 const CANVAS_H = 128;
 const HOUSE_COLOR = Object.fromEntries(VALUES.map((v) => [v.id, v.color]));
 /** Từ hạng này trở lên (chỉ số trong RANKS) bảng tên có viền lấp lánh. */

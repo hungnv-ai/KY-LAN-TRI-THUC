@@ -81,6 +81,7 @@ export function columnChart({ data, color, unit, valueLabel }) {
   const slot = plotW / data.length;
   const gap = 2;
   const barW = Math.max(4, Math.min(28, slot - gap * 2));
+  const labelStep = Math.ceil(data.length / 7);
 
   const root = svg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': `${valueLabel} theo ngày`, class: 'chart-svg' });
   // Số vạch chia: luôn ra số nguyên (giá trị nhỏ thì mỗi vạch = 1).
@@ -115,7 +116,8 @@ export function columnChart({ data, color, unit, valueLabel }) {
     hit.addEventListener('pointerleave', () => (tip.hidden = true));
     hit.addEventListener('blur', () => (tip.hidden = true));
     root.append(hit);
-    if (i % Math.ceil(data.length / 7) === 0 || i === data.length - 1) {
+    // Nhãn cách đều tính từ ngày cuối (luôn có hôm nay, không bị chồng chữ).
+    if ((data.length - 1 - i) % labelStep === 0) {
       const t = svg('text', { x: pad.l + slot * i + slot / 2, y: H - 8, 'text-anchor': 'middle', 'font-size': 11, fill: INK_MUTED });
       t.textContent = d.label;
       root.append(t);
