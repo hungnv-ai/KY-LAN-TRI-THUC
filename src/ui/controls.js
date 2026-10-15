@@ -67,6 +67,8 @@ export function initControls({ onFirstMove } = {}) {
   if (!touch) setTimeout(() => (keyHint.hidden = true), KEY_HINT_MS);
 
   joystick.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); // iPhone: giữ lâu không bôi đen chữ / không hiện kính lúp
+    if (!enabled) return;
     stick.active = true;
     stick.pointerId = e.pointerId;
     joystick.setPointerCapture(e.pointerId);
@@ -74,14 +76,22 @@ export function initControls({ onFirstMove } = {}) {
     notifyMove();
   });
   joystick.addEventListener('pointermove', (e) => stick.active && e.pointerId === stick.pointerId && moveStick(e));
-  const release = () => {
-    stick.active = false;
-    stick.x = 0;
-    stick.y = 0;
-    knob.style.transform = 'translate(-50%, -50%)';
-  };
-  joystick.addEventListener('pointerup', release);
-  joystick.addEventListener('pointercancel', release);
+  joystick.addEventListener('pointerup', releaseStick);
+  joystick.addEventListener('pointercancel', releaseStick);
+  joystick.addEventListener('lostpointercapture', releaseStick);
+  joystick.addEventListener('contextmenu', (e) => e.preventDefault());
+}
+
+/** Thả cần điều khiển về giữa, dừng di chuyển. */
+function releaseStick() {
+  if (stick.pointerId !== null && joystick.hasPointerCapture?.(stick.pointerId)) {
+    joystick.releasePointerCapture(stick.pointerId);
+  }
+  stick.active = false;
+  stick.pointerId = null;
+  stick.x = 0;
+  stick.y = 0;
+  knob.style.transform = 'translate(-50%, -50%)';
 }
 
 function moveStick(e) {
@@ -105,8 +115,15 @@ function moveStick(e) {
  * @param {boolean} value
  */
 export function setControlsEnabled(value) {
+  if (value === enabled) return; // gọi mỗi frame — chỉ xử lý lúc đổi trạng thái
   enabled = value;
   joystick.classList.toggle('is-disabled', !value);
+  if (!value) {
+    // Bảng câu hỏi bật lên khi đang giữ cần: thả cần ngay để khỏi chạy tiếp/kẹt sau khi đóng bảng.
+    releaseStick();
+    pressed.clear();
+    window.getSelection?.()?.removeAllRanges();
+  }
 }
 
 /** @returns {{ x: number, y: number, run: boolean }} */

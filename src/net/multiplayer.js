@@ -158,6 +158,10 @@ export function createMultiplayer(opts) {
       this._wasMoving = moving;
       transport.send('motion', { id: opts.myId, ...motion });
     },
+    /** Gửi vị trí ngay (vd vừa quay lại tab — trình duyệt đã làm chậm nhịp tim khi tab ẩn). */
+    pingNow() {
+      if (lastMotion) transport.send('motion', { id: opts.myId, ...lastMotion });
+    },
     sendEmote(name) {
       transport.send('emote', { id: opts.myId, name });
     },

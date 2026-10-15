@@ -18,7 +18,9 @@ import { getEvent } from '../data/events.js';
 import { showCard } from '../ui/cardView.js';
 import { createRemotePlayers } from '../scene/remotePlayers.js';
 import { say, showToast } from '../ui/feedback.js';
-import { renderOnline } from '../ui/hud.js';
+import { onOnlineClick, renderOnline } from '../ui/hud.js';
+import { openPeople } from '../ui/peopleView.js';
+import { closeSheet } from '../ui/sheet.js';
 import { openProfileCard } from '../ui/profileCard.js';
 
 /**
@@ -26,12 +28,13 @@ import { openProfileCard } from '../ui/profileCard.js';
  * hạng, cảm xúc), thẻ hồ sơ khi chạm vào, thả tim / gửi lời cảm ơn.
  *
  * @param {{ world: object, island: object, mascot: object, supabase: object | null, userId: string,
- *   isMoving: () => boolean }} deps
+ *   isMoving: () => boolean, onGoTo?: (x: number, z: number) => void }} deps
  * @returns {{ update: (delta: number, elapsed: number) => void, notifyProfileChanged: () => void,
  *   sendSticker: (stickerId: string) => void }}
  */
-export function setupSocial({ world, island, mascot, supabase, userId, isMoving }) {
+export function setupSocial({ world, island, mascot, supabase, userId, isMoving, onGoTo }) {
   // ── Bảng tên của mình ───────────────────────────────────────────────
+  let currentRoom = '';
   const myTag = createNameTag();
   mascot.object.add(myTag.sprite);
   const mySticker = createStickerBubble(mascot.object);
@@ -74,9 +77,41 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving 
       say(kind === 'thanks' ? `${fromName ?? 'Một người bạn'} vừa gửi lời cảm ơn bạn! 💌` : `${fromName ?? 'Một người bạn'} thả tim cho bạn! ❤️`);
       if (kind === 'thanks') openReceivedCard(from);
     },
-    onRoomChange: ({ room, count }) => renderOnline(count, room),
+    onRoomChange: ({ room, count }) => {
+      currentRoom = room;
+      renderOnline(count, room);
+    },
   });
   mp.start().catch((err) => console.warn('[social] Không vào được đảo nhiều người:', err));
+
+  // Quay lại tab: báo vị trí ngay (trình duyệt làm chậm nhịp tim khi tab bị ẩn).
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') mp.pingNow();
+  });
+
+  // Bấm 👥: danh sách người cùng đảo + chạy tới chỗ bạn.
+  onOnlineClick(() => {
+    const me = mascot.object.position;
+    openPeople({
+      room: !currentRoom || currentRoom === 'island-local' ? 'đảo' : currentRoom.replace('island-', 'Đảo '),
+      people: remote.list().map((p) => ({
+        id: p.id,
+        name: p.profile?.displayName,
+        unit: p.profile?.unit,
+        xp: p.profile?.xp ?? 0,
+        house: p.profile?.house,
+        distance: Math.hypot(p.position.x - me.x, p.position.z - me.z),
+      })),
+      onGo: (id) => {
+        const p = remote.get(id);
+        if (!p) return;
+        closeSheet();
+        onGoTo?.(p.root.position.x, p.root.position.z);
+        say(`Tới chỗ ${p.profile?.displayName ?? 'bạn'} rồi! Chạm vào bạn ấy để thả tim nhé ❤️`);
+      },
+      onView: (id) => openPeer(id),
+    });
+  });
 
   // Cảm xúc của mình → người khác thấy.
   mascot.onEmote((name) => mp.sendEmote(name));
@@ -149,7 +184,7 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving 
       { x: round2(pos.x), z: round2(pos.z), ry: round2(mascot.object.rotation.y), s: isMoving() ? 1 : 0 },
       isMoving(),
     );
-    remote.update(delta, elapsed, world.camera);
+    remote.update(delta, elapsed, world.controls.target);
     myTag.update(elapsed);
     mySticker.update(delta);
     const xp = getState().xp;
