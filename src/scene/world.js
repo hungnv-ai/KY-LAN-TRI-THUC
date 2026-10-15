@@ -2,12 +2,14 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 /** Điểm camera nhìn vào (ngực/đầu Kỳ lân trên bục). */
-const LOOK_AT = new THREE.Vector3(0, 1.75, 0);
-/** Hướng đặt camera (hơi chếch phải, nhìn hơi từ trên xuống). */
-const VIEW_DIR = new THREE.Vector3(0.22, 0.34, 1).normalize();
-/** Khoảng cách camera mặc định (xa hơn một chút để thấy nhiều cảnh vật xung quanh). */
-const DIST_LANDSCAPE = 10.6;
-const DIST_PORTRAIT = 12.4;
+const LOOK_AT = new THREE.Vector3(0, 1.4, 0);
+/** Hướng đặt camera (hơi chếch phải, nhìn từ trên xuống — thấy nhiều mặt đảo & bạn bè hơn). */
+const VIEW_DIR = new THREE.Vector3(0.22, 0.46, 1).normalize();
+/** Khoảng cách camera mặc định (đủ xa để thấy nhiều cảnh vật và người chơi xung quanh). */
+const DIST_LANDSCAPE = 15;
+const DIST_PORTRAIT = 23;
+/** Xa nhất người chơi tự kéo/zoom được khi đi theo Kỳ lân. */
+const FOLLOW_MAX_DIST = 32;
 /** Chế độ Toàn cảnh: camera bay lên cao nhìn cả hòn đảo. */
 const OVERVIEW_TARGET = new THREE.Vector3(0, 0, 0);
 const OVERVIEW_DIR = new THREE.Vector3(0.18, 1.05, 0.75).normalize();
@@ -66,7 +68,7 @@ export function createWorld(container) {
   controls.dampingFactor = 0.08;
   controls.enablePan = false;
   controls.minDistance = 3.5;
-  controls.maxDistance = 22;
+  controls.maxDistance = FOLLOW_MAX_DIST;
   controls.minPolarAngle = 0.5;
   controls.maxPolarAngle = Math.PI / 2 - 0.05; // không cho camera chui xuống dưới mặt đất
 
@@ -287,7 +289,7 @@ export function createWorld(container) {
       controls.minPolarAngle = 0.05;
       startFly(OVERVIEW_TARGET, OVERVIEW_TARGET.clone().addScaledVector(OVERVIEW_DIR, dist));
     } else {
-      controls.maxDistance = 22;
+      controls.maxDistance = FOLLOW_MAX_DIST;
       controls.minPolarAngle = 0.5;
       targetFov = DEFAULT_FOV;
       // Bay về chỗ Kỳ lân đang đứng (có thể đã chạy đi trong lúc xem toàn cảnh), giữ góc nhìn cũ.
