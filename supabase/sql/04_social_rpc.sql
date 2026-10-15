@@ -17,6 +17,7 @@ begin
       'role', p.role,
       'xp', s.xp,
       'equipped', s.equipped,
+      'pet', s.active_pet,
       'streak', case when s.streak_last >= public._today() - 1 then s.streak_count else 0 end
     ))
     from profiles p join player_state s on s.user_id = p.id
@@ -41,6 +42,8 @@ begin
     'xp', s.xp,
     'equipped', s.equipped,
     'owned', to_jsonb(s.owned),
+    'pet', s.active_pet,
+    'petCount', coalesce(array_length(s.pets, 1), 0),
     'streak', case when s.streak_last >= public._today() - 1 then s.streak_count else 0 end,
     'distance', floor(s.distance),
     'quizRounds', s.quiz_rounds,

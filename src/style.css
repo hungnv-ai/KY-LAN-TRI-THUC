@@ -1609,3 +1609,64 @@ body.is-photo .speech {
   cursor: not-allowed;
   opacity: 0.6;
 }
+
+/* ── Thú cưng ───────────────────────────────────────────────────────────── */
+.pets {
+  display: grid;
+  gap: 12px;
+}
+
+.egg-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #fff7e6, #fdeef2);
+}
+
+.egg-icon {
+  font-size: 44px;
+  line-height: 1;
+}
+
+.egg-icon.is-wobble {
+  animation: egg-wobble 1.6s ease-in-out infinite;
+}
+
+@keyframes egg-wobble {
+  0%,
+  60%,
+  100% {
+    transform: rotate(0);
+  }
+  70% {
+    transform: rotate(-12deg);
+  }
+  80% {
+    transform: rotate(10deg);
+  }
+  90% {
+    transform: rotate(-6deg);
+  }
+}
+
+.egg-body {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+}
+
+.pet-emoji {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.pet-emoji.is-hidden {
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+
+.pet-card:disabled {
+  cursor: default;
+}

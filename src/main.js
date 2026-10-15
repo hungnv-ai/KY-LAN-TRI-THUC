@@ -5,6 +5,7 @@ import { getRankInfo } from './data/ranks.js';
 import { createExplore } from './features/explore.js';
 import { setupExpressions } from './features/expressions.js';
 import { setupGiftShop } from './features/giftShop.js';
+import { setupPets } from './features/pets.js';
 import { setupMenu } from './features/menu.js';
 import { createRewards } from './features/rewards.js';
 import { startSession } from './features/session.js';
@@ -45,6 +46,7 @@ const quality = createQualityManager(world.renderer, world.scene);
 /** Các hệ thống chỉ chạy sau khi đã đăng nhập & nạp tiến trình. */
 let explore = null;
 let social = null;
+let pets = null;
 
 // ── Vòng lặp duy nhất ───────────────────────────────────────────────────
 const timer = new THREE.Timer();
@@ -61,6 +63,7 @@ world.renderer.setAnimationLoop((timestamp) => {
   quality.update(delta);
   explore?.update(delta, elapsed);
   social?.update(delta, elapsed);
+  pets?.update(delta, elapsed);
   mascot.update(delta, elapsed);
   fx.update(delta);
   wardrobe.update(delta, elapsed);
@@ -143,6 +146,7 @@ async function boot() {
 
   setupExpressions({ world, mascot, social });
   setupGiftShop({ mascot, fx });
+  pets = setupPets({ world, island, mascot, fx, onPetChanged: () => social.notifyProfileChanged() });
 
   setupMenu({
     world,
@@ -151,6 +155,7 @@ async function boot() {
     fx,
     rewards,
     onOutfitChanged: () => social.notifyProfileChanged(),
+    onCheckedIn: (result) => pets.handleEgg(result.egg),
   });
 
   // Chạm vào Kỳ lân của mình: cảm xúc ngẫu nhiên + câu nói về 5 giá trị.

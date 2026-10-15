@@ -89,6 +89,10 @@ create table if not exists public.player_state (
   updated_at timestamptz not null default now()
 );
 create index if not exists player_state_xp_idx on public.player_state (xp desc);
+-- Thú cưng (thêm sau → dùng add column để bảng cũ cũng có cột mới).
+alter table public.player_state add column if not exists pets text[] not null default '{}';
+alter table public.player_state add column if not exists active_pet text;
+alter table public.player_state add column if not exists egg_progress int not null default 0;
 
 create table if not exists public.daily_counters (
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -469,6 +473,12 @@ begin
     'owned', to_jsonb(s.owned),
     'equipped', s.equipped,
     'streak', jsonb_build_object('count', s.streak_count, 'lastDay', s.streak_last),
+    'pets', jsonb_build_object(
+      'owned', to_jsonb(s.pets),
+      'active', s.active_pet,
+      'egg', s.egg_progress,
+      'eggNeed', public._cfgn('PETS', 'EGG_DAYS', 3)
+    ),
     'daily', jsonb_build_object(
       'day', d.day,
       'checkedIn', d.checked_in,
@@ -660,7 +670,8 @@ begin
     'checkin',
     jsonb_build_object('streak', v_streak)
   );
-  return jsonb_build_object('result', r || jsonb_build_object('streak', v_streak), 'state', public._state_json(v_uid));
+  r := r || jsonb_build_object('streak', v_streak, 'egg', public._egg_tick(v_uid));
+  return jsonb_build_object('result', r, 'state', public._state_json(v_uid));
 end;
 $$;
 
@@ -1048,6 +1059,7 @@ begin
       'role', p.role,
       'xp', s.xp,
       'equipped', s.equipped,
+      'pet', s.active_pet,
       'streak', case when s.streak_last >= public._today() - 1 then s.streak_count else 0 end
     ))
     from profiles p join player_state s on s.user_id = p.id
@@ -1072,6 +1084,8 @@ begin
     'xp', s.xp,
     'equipped', s.equipped,
     'owned', to_jsonb(s.owned),
+    'pet', s.active_pet,
+    'petCount', coalesce(array_length(s.pets, 1), 0),
     'streak', case when s.streak_last >= public._today() - 1 then s.streak_count else 0 end,
     'distance', floor(s.distance),
     'quizRounds', s.quiz_rounds,
@@ -1606,6 +1620,63 @@ end;
 $$;
 
 
+-- >>> 08_pets.sql
+-- ════════════════════════════════════════════════════════════════════════
+-- Thú cưng: mỗi lần điểm danh ấp trứng thêm 1 ngày; đủ PETS.EGG_DAYS → nở một bạn chưa có
+-- (chọn ngẫu nhiên theo trọng số độ hiếm trong PET_CATALOG). Có đủ rồi → nở ra Xu.
+-- ════════════════════════════════════════════════════════════════════════
+
+create or replace function public._egg_tick(p_uid uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  s player_state;
+  v_need int := public._cfgn('PETS', 'EGG_DAYS', 3)::int;
+  v_pick jsonb;
+  v_coins int;
+begin
+  select * into s from player_state where user_id = p_uid for update;
+  if s.egg_progress + 1 < v_need then
+    update player_state set egg_progress = egg_progress + 1 where user_id = p_uid;
+    return jsonb_build_object('progress', s.egg_progress + 1, 'need', v_need, 'hatched', null);
+  end if;
+
+  -- Bốc thăm có trọng số (khoá -ln(u)/w nhỏ nhất thắng).
+  select p into v_pick
+  from jsonb_array_elements(public._cfg('PET_CATALOG')) p
+  where not ((p ->> 'id') = any (s.pets))
+  order by -ln(greatest(random(), 1e-9)) / greatest((p ->> 'weight')::numeric, 0.0001)
+  limit 1;
+
+  update player_state set egg_progress = 0 where user_id = p_uid;
+  if v_pick is null then
+    v_coins := public._cfgn('PETS', 'DUPLICATE_COINS', 40)::int;
+    perform public._apply_reward(p_uid, 0, v_coins, 'egg', null);
+    return jsonb_build_object('progress', 0, 'need', v_need, 'hatched', null, 'coins', v_coins);
+  end if;
+  update player_state
+    set pets = array_append(pets, v_pick ->> 'id'), active_pet = coalesce(active_pet, v_pick ->> 'id')
+    where user_id = p_uid;
+  return jsonb_build_object('progress', 0, 'need', v_need,
+    'hatched', jsonb_build_object('id', v_pick ->> 'id', 'name', v_pick ->> 'name', 'rarity', v_pick ->> 'rarity'));
+end;
+$$;
+
+-- Dắt thú cưng đi cùng (p_pet = null → cho thú cưng nghỉ).
+create or replace function public.equip_pet(p_pet text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_uid uuid := public._require_player();
+begin
+  if nullif(p_pet, '') is not null and not exists (
+    select 1 from player_state where user_id = v_uid and p_pet = any (pets)
+  ) then
+    raise exception 'pet_not_owned';
+  end if;
+  update player_state set active_pet = nullif(p_pet, '') where user_id = v_uid;
+  return jsonb_build_object('ok', true, 'state', public._state_json(v_uid));
+end;
+$$;
+
+
 -- ── Dữ liệu ban đầu (sinh tự động từ src/ — đừng sửa tay) ──
 insert into public.game_settings (key, value) values ('QUIZ', '{"QUESTIONS_PER_ROUND":5,"TIME_LIMIT_SEC":180,"XP_PER_CORRECT":10,"COINS_PER_CORRECT":5,"XP_PER_TRY":2,"PERFECT_BONUS_XP":20,"PERFECT_BONUS_COINS":10,"REWARDED_ROUNDS_PER_DAY":3}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('CHECK_IN', '{"XP":20,"COINS":15,"STREAK_BONUS_COINS_PER_DAY":2,"STREAK_BONUS_MAX_DAYS":7}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
@@ -1615,6 +1686,8 @@ insert into public.game_settings (key, value) values ('MISSIONS', '{"PER_DAY":3,
 insert into public.game_settings (key, value) values ('KUDOS', '{"THANKS_PER_DAY":3,"THANKS_COINS_SENDER":5,"THANKS_COINS_RECEIVER":5,"HEARTS_PER_DAY":20,"MESSAGE_MAX":120}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('VOUCHER', '{"GIFT_CHANCE":0.01,"GIFT_TITLE":"Phiếu quà may mắn"}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('GIFT_SHOP', '{"MAX_PENDING":2,"MONTHLY_LIMIT":3}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
+insert into public.game_settings (key, value) values ('PETS', '{"EGG_DAYS":3,"DUPLICATE_COINS":40}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
+insert into public.game_settings (key, value) values ('PET_CATALOG', '[{"id":"ga","name":"Gà Con Tò Mò","rarity":"common","weight":30},{"id":"meo","name":"Mèo Mướp","rarity":"common","weight":25},{"id":"cun","name":"Cún Vàng","rarity":"common","weight":25},{"id":"tho","name":"Thỏ Bông","rarity":"rare","weight":15},{"id":"rua","name":"Rùa Thông Thái","rarity":"rare","weight":15},{"id":"gautruc","name":"Gấu Trúc Mũm Mĩm","rarity":"epic","weight":8},{"id":"cao","name":"Cáo Lửa","rarity":"epic","weight":8},{"id":"rong","name":"Rồng Con Vàng","rarity":"legendary","weight":3}]'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('VALUES', '[{"id":"nhanAi","name":"Nhân Ái","color":"#009082","motto":"Biết nghĩ cho người khác"},{"id":"banLinh","name":"Bản Lĩnh","color":"#725139","motto":"Dám đặt đòi hỏi của bản thân ở phía sau"},{"id":"triThuc","name":"Tri Thức","color":"#9A0036","motto":"Học hỏi liên tục để mở rộng dung lượng trái tim"},{"id":"trachNhiem","name":"Trách Nhiệm","color":"#C49C57","motto":"Thử sai và chấp nhận các hệ quả"},{"id":"khaiPhong","name":"Khai Phóng","color":"#1750B5","motto":"Nung nấu hoài bão và nguyện ước lớn"}]'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('ALLOWED_EMAIL_DOMAINS', '["vaschools.edu.vn"]'::jsonb) on conflict (key) do nothing;
 insert into public.game_settings (key, value) values ('DEFAULT_EQUIPPED', '{"jacket":"jacket-va","hat":"hat-none","glasses":"glasses-none","shoes":"shoes-red","backpack":"backpack-none","aura":"aura-none"}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();

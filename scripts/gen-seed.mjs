@@ -14,6 +14,7 @@ import { RANKS } from '../src/data/ranks.js';
 import { ITEMS, STARTER_ITEMS, DEFAULT_EQUIPPED } from '../src/data/items.js';
 import { QUESTIONS } from '../src/data/questions.js';
 import { GIFTS } from '../src/data/gifts.js';
+import { PETS } from '../src/data/pets.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const sqlDir = join(root, 'supabase', 'sql');
@@ -31,6 +32,8 @@ const settings = {
   KUDOS: config.KUDOS,
   VOUCHER: config.VOUCHER,
   GIFT_SHOP: config.GIFT_SHOP,
+  PETS: config.PETS_CONFIG,
+  PET_CATALOG: PETS.map(({ id, name, rarity, weight }) => ({ id, name, rarity, weight })),
   VALUES: config.VALUES,
   ALLOWED_EMAIL_DOMAINS: config.ALLOWED_EMAIL_DOMAINS,
   DEFAULT_EQUIPPED,

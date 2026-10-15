@@ -81,6 +81,10 @@ create table if not exists public.player_state (
   updated_at timestamptz not null default now()
 );
 create index if not exists player_state_xp_idx on public.player_state (xp desc);
+-- Thú cưng (thêm sau → dùng add column để bảng cũ cũng có cột mới).
+alter table public.player_state add column if not exists pets text[] not null default '{}';
+alter table public.player_state add column if not exists active_pet text;
+alter table public.player_state add column if not exists egg_progress int not null default 0;
 
 create table if not exists public.daily_counters (
   user_id uuid not null references public.profiles (id) on delete cascade,

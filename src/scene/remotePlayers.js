@@ -4,6 +4,7 @@ import { createMascot } from './mascot.js';
 import { createNameTag } from './nameTag.js';
 import { createWardrobe } from './outfits.js';
 import { createStickerBubble } from './stickerBubble.js';
+import { createPetFollower } from './pets.js';
 
 /** Tốc độ bám theo vị trí nhận được (càng lớn càng sát, càng nhỏ càng mượt). */
 const FOLLOW_SPEED = 10;
@@ -51,6 +52,7 @@ export function createRemotePlayers({ scene, island, onTap, onSelect }) {
       hit,
       offTap,
       sticker,
+      pet: null,
       mascot: null,
       wardrobe: null,
       profile: null,
@@ -70,10 +72,25 @@ export function createRemotePlayers({ scene, island, onTap, onSelect }) {
     if (p.profile?.equipped) p.wardrobe.equipAll(p.profile.equipped);
     p.root.add(p.mascot.object);
     if (p.pendingEmote) p.mascot.emote(p.pendingEmote);
+    syncPet(p);
+  }
+
+  /** Thú cưng chỉ vẽ cho Kỳ lân ở gần (đang vẽ chi tiết). */
+  function syncPet(p) {
+    const want = p.mascot ? (p.profile?.pet ?? null) : null;
+    if (!want) {
+      p.pet?.dispose();
+      p.pet = null;
+      return;
+    }
+    p.pet ??= createPetFollower(scene, island);
+    p.pet.setPet(want);
   }
 
   function dropDetail(p) {
     if (!p.mascot) return;
+    p.pet?.dispose();
+    p.pet = null;
     p.root.remove(p.mascot.object);
     disposeTree(p.mascot.object);
     p.mascot = null;
@@ -87,6 +104,7 @@ export function createRemotePlayers({ scene, island, onTap, onSelect }) {
     p.profile = profile;
     p.tag.set({ name: profile.displayName, unit: profile.unit, xp: profile.xp ?? 0, house: profile.house });
     if (changedOutfit && p.wardrobe && profile.equipped) p.wardrobe.equipAll(profile.equipped);
+    syncPet(p);
   }
 
   /** Nhận vị trí mới. */
@@ -160,6 +178,7 @@ export function createRemotePlayers({ scene, island, onTap, onSelect }) {
         p.mascot.setLocomotion(s > 0.1 || lagging ? Math.max(s, 0.8) : 0);
         p.mascot.update(delta, elapsed);
         p.wardrobe.update(delta, elapsed);
+        p.pet?.update(delta, elapsed, p.root);
       }
       p.tag.update(elapsed);
       p.sticker.update(delta);

@@ -66,7 +66,8 @@ begin
     'checkin',
     jsonb_build_object('streak', v_streak)
   );
-  return jsonb_build_object('result', r || jsonb_build_object('streak', v_streak), 'state', public._state_json(v_uid));
+  r := r || jsonb_build_object('streak', v_streak, 'egg', public._egg_tick(v_uid));
+  return jsonb_build_object('result', r, 'state', public._state_json(v_uid));
 end;
 $$;
 

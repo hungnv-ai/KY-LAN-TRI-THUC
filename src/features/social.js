@@ -48,7 +48,7 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving 
   function localProfile() {
     const p = getProfile();
     const s = getState();
-    return { displayName: p.displayName, unit: p.unit, house: p.house, role: p.role, xp: s.xp, equipped: s.equipped, streak: s.streak.count };
+    return { displayName: p.displayName, unit: p.unit, house: p.house, role: p.role, xp: s.xp, equipped: s.equipped, streak: s.streak.count, pet: s.pets?.active ?? null };
   }
 
   const mp = createMultiplayer({

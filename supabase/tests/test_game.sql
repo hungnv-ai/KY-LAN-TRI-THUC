@@ -383,4 +383,39 @@ begin
   assert jsonb_array_length(admin_list_gifts()) >= 9, 'thêm quà mới';
 end $$;
 
+\echo '17. Thú cưng: ấp trứng khi điểm danh, nở thú chưa có, dắt đi cùng'
+do $$
+declare r jsonb; v_pet text; v_all text[];
+begin
+  perform test_admin();
+  update player_state set egg_progress = 0, pets = '{}', active_pet = null where user_id = '00000000-0000-0000-0000-00000000000b';
+  update daily_counters set checked_in = false where user_id = '00000000-0000-0000-0000-00000000000b';
+  perform test_as('00000000-0000-0000-0000-00000000000b');
+  r := claim_checkin() -> 'result' -> 'egg';
+  assert (r ->> 'progress')::int = 1 and r -> 'hatched' = 'null'::jsonb, 'trứng ấp được 1 ngày';
+  -- Ngày thứ 3 → nở.
+  perform test_admin();
+  update player_state set egg_progress = 2 where user_id = '00000000-0000-0000-0000-00000000000b';
+  update daily_counters set checked_in = false where user_id = '00000000-0000-0000-0000-00000000000b';
+  perform test_as('00000000-0000-0000-0000-00000000000b');
+  r := claim_checkin();
+  v_pet := r -> 'result' -> 'egg' -> 'hatched' ->> 'id';
+  assert v_pet is not null, 'trứng nở';
+  assert r -> 'state' -> 'pets' ->> 'active' = v_pet, 'tự dắt thú cưng đầu tiên';
+  assert (r -> 'state' -> 'pets' ->> 'egg')::int = 0, 'trứng mới bắt đầu lại';
+  perform test_expect_error($q$select equip_pet('khong-co')$q$, 'pet_not_owned');
+  r := equip_pet(null);
+  assert r -> 'state' -> 'pets' ->> 'active' is null, 'cho thú cưng nghỉ';
+  perform equip_pet(v_pet);
+  assert (public_profiles(array['00000000-0000-0000-0000-00000000000b'::uuid]) -> 0 ->> 'pet') = v_pet, 'người khác thấy thú cưng';
+  -- Có đủ thú cưng → trứng nở ra Xu.
+  perform test_admin();
+  select array_agg(p ->> 'id') into v_all from jsonb_array_elements(_cfg('PET_CATALOG')) p;
+  update player_state set pets = v_all, egg_progress = 2 where user_id = '00000000-0000-0000-0000-00000000000b';
+  update daily_counters set checked_in = false where user_id = '00000000-0000-0000-0000-00000000000b';
+  perform test_as('00000000-0000-0000-0000-00000000000b');
+  r := claim_checkin() -> 'result' -> 'egg';
+  assert (r ->> 'coins')::int = 40 and r -> 'hatched' = 'null'::jsonb, 'đủ bộ → nở ra 40 Xu';
+end $$;
+
 select '✔ Tất cả kiểm thử máy chủ đều đạt' as ket_qua;

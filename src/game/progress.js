@@ -36,6 +36,7 @@ const ERROR_MESSAGES = {
   gift_not_found: 'Món quà này không còn trong cửa hàng.',
   too_many_pending: 'Bạn đang có phiếu chờ duyệt — đợi BGH duyệt rồi đổi tiếp nhé.',
   monthly_limit: 'Tháng này bạn đã đổi đủ số lần. Hẹn tháng sau!',
+  pet_not_owned: 'Bạn chưa có thú cưng này.',
 };
 
 /**
@@ -200,7 +201,8 @@ export async function updateProfile(displayName, unit) {
   return call('updateProfile', displayName, unit);
 }
 
-/** @returns {Promise<null | { xp: number, coins: number, golden: boolean, rankUp: object | null, streak: number }>} */
+/** @returns {Promise<null | { xp: number, coins: number, golden: boolean, rankUp: object | null, streak: number,
+ *   egg: { progress: number, need: number, hatched: { id: string, name: string, rarity: string } | null, coins?: number } }>} */
 export async function checkIn() {
   return (await call('claimCheckin')).result;
 }
@@ -259,6 +261,20 @@ export async function buyItem(itemId) {
 /** @returns {Promise<void>} */
 export async function equipItem(itemId) {
   await call('equipItem', itemId);
+}
+
+/** @returns {{ owned: string[], active: string | null, egg: number, eggNeed: number }} */
+export function getPets() {
+  return state.pets ?? { owned: [], active: null, egg: 0, eggNeed: 3 };
+}
+
+/**
+ * Dắt thú cưng đi cùng (null = cho nghỉ).
+ *
+ * @param {string | null} petId
+ */
+export async function equipPet(petId) {
+  await call('equipPet', petId);
 }
 
 /** @returns {Promise<null | object>} phần thưởng rương nhiệm vụ */

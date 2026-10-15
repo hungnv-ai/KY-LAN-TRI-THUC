@@ -3,11 +3,13 @@ import {
   EXPLORE,
   GOLDEN_HOURS,
   MISSIONS,
+  PETS_CONFIG,
   QUIZ,
   SAVE_KEY,
   VALUES,
 } from '../config.js';
 import { DEFAULT_EQUIPPED, ITEMS, STARTER_ITEMS, getItem } from '../data/items.js';
+import { PETS } from '../data/pets.js';
 import { QUESTIONS } from '../data/questions.js';
 import { getRankInfo, rankIndexOf } from '../data/ranks.js';
 import { missionStatus } from './missions.js';
@@ -50,6 +52,7 @@ function createInitialState() {
     owned: [...STARTER_ITEMS],
     equipped: { ...DEFAULT_EQUIPPED },
     streak: { count: 0, lastDay: null },
+    pets: { owned: [], active: null, egg: 0, eggNeed: PETS_CONFIG.EGG_DAYS },
     daily: createDaily(),
     stats: { answered: 0, correct: 0, rounds: 0, distance: 0, heartsReceived: 0, thanksReceived: 0 },
     profile: {
@@ -80,6 +83,7 @@ export function createLocalBackend() {
       ...saved,
       equipped: { ...base.equipped, ...saved.equipped },
       streak: { ...base.streak, ...saved.streak },
+      pets: { ...base.pets, ...saved.pets, eggNeed: PETS_CONFIG.EGG_DAYS },
       daily: { ...base.daily, ...saved.daily },
       stats: { ...base.stats, ...saved.stats },
       profile: { ...base.profile, ...saved.profile },
@@ -130,6 +134,27 @@ export function createLocalBackend() {
 
   const noReward = () => ({ xp: 0, coins: 0, golden: false, rankUp: null });
 
+  /** Ấp trứng thêm 1 ngày; đủ ngày → nở thú cưng chưa có (giống _egg_tick trên máy chủ). */
+  function eggTick() {
+    const pets = state.pets;
+    const need = PETS_CONFIG.EGG_DAYS;
+    if (pets.egg + 1 < need) {
+      pets.egg += 1;
+      return { progress: pets.egg, need, hatched: null };
+    }
+    pets.egg = 0;
+    const pool = PETS.filter((p) => !pets.owned.includes(p.id));
+    if (!pool.length) {
+      applyReward(0, PETS_CONFIG.DUPLICATE_COINS, 'egg');
+      return { progress: 0, need, hatched: null, coins: PETS_CONFIG.DUPLICATE_COINS };
+    }
+    let roll = Math.random() * pool.reduce((sum, p) => sum + p.weight, 0);
+    const pick = pool.find((p) => (roll -= p.weight) < 0) ?? pool[pool.length - 1];
+    pets.owned.push(pick.id);
+    pets.active ??= pick.id;
+    return { progress: 0, need, hatched: { id: pick.id, name: pick.name, rarity: pick.rarity } };
+  }
+
   function pickQuestion(station, exclude = []) {
     let pool = QUESTIONS.filter(
       (q) => !station || q.value === station || (station === 'triThuc' && q.topic === 'general'),
@@ -175,7 +200,7 @@ export function createLocalBackend() {
       state.daily.checkedIn = true;
       const bonus = Math.min(streak, CHECK_IN.STREAK_BONUS_MAX_DAYS) * CHECK_IN.STREAK_BONUS_COINS_PER_DAY;
       const r = applyReward(CHECK_IN.XP, CHECK_IN.COINS + bonus, 'checkin');
-      return { result: { ...r, streak }, state: snapshot() };
+      return { result: { ...r, streak, egg: eggTick() }, state: snapshot() };
     },
 
     async startQuizRound() {
@@ -330,6 +355,12 @@ export function createLocalBackend() {
       if (!item) throw new Error('item_not_found');
       if (!state.owned.includes(itemId)) throw new Error('not_owned');
       state.equipped[item.slot] = itemId;
+      return { ok: true, state: snapshot() };
+    },
+
+    async equipPet(petId) {
+      if (petId && !state.pets.owned.includes(petId)) throw new Error('pet_not_owned');
+      state.pets.active = petId || null;
       return { ok: true, state: snapshot() };
     },
 

@@ -133,6 +133,13 @@ export const MULTIPLAYER = {
 export const ALLOWED_EMAIL_DOMAINS = ['vaschools.edu.vn'];
 
 /** Phiếu quà hiện vật: tỉ lệ hộp quà ra phiếu (chờ BGH duyệt). 0 = tắt. */
+/** Thú cưng: điểm danh đủ EGG_DAYS ngày (không cần liên tục) → trứng nở. Danh mục: src/data/pets.js. */
+export const PETS_CONFIG = {
+  EGG_DAYS: 3,
+  /** Đã có đủ mọi thú cưng: trứng nở ra Xu. */
+  DUPLICATE_COINS: 40,
+};
+
 /** Cửa hàng đổi Xu lấy quà hiện vật (danh mục: src/data/gifts.js, sửa trong trang quản trị). */
 export const GIFT_SHOP = {
   /** Số phiếu đang chờ BGH duyệt tối đa cùng lúc. */

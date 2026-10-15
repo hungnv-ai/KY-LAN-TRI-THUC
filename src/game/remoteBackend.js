@@ -31,6 +31,7 @@ export function createRemoteBackend(supabase) {
     buyItem: (itemId) => rpc('buy_item', { p_item: itemId }),
     equipItem: (itemId) => rpc('equip_item', { p_item: itemId }),
     claimMissionChest: () => rpc('claim_mission_chest'),
+    equipPet: (petId) => rpc('equip_pet', { p_pet: petId }),
     sendKudos: (to, kind, message = null) => rpc('send_kudos', { p_to: to, p_kind: kind, p_message: message }),
     publicProfiles: (ids) => rpc('public_profiles', { p_ids: ids }),
     publicProfile: (id) => rpc('public_profile', { p_id: id }),
