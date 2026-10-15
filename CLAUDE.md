@@ -39,7 +39,8 @@ admin.html            # trang quản trị (/admin) cho giáo viên, BGH, quản
 vercel.json           # cache, header bảo mật, cleanUrls
 public/               # icon, manifest.webmanifest + sw.js (PWA), og-image
 supabase/
-  sql/01..06_*.sql    # máy chủ: bảng, hàm phụ, RPC người chơi, RPC xã hội, RPC nhân viên, quyền
+  sql/01..10_*.sql    # máy chủ: 01 bảng, 02 hàm phụ, 03 RPC người chơi, 04 xã hội, 05 nhân viên,
+                      #   06 quyền (luôn chạy cuối), 07 đổi quà, 08 thú cưng, 09 sự kiện, 10 Rung Chuông Vàng
   setup.sql           # SINH TỰ ĐỘNG (npm run gen:sql) — file người dùng dán vào SQL Editor
   tests/              # auth_stub.sql + test_game.sql (npm run test:sql)
 scripts/              # gen-seed.mjs (sinh setup.sql), test-sql.sh
@@ -53,6 +54,10 @@ src/
     items.js          # danh mục trang phục, slot, độ hiếm
     questions.js      # ngân hàng câu hỏi (a[0] luôn là đáp án đúng)
     lines.js          # câu thoại của Kỳ lân
+    stickers.js       # 12 sticker gửi nhanh (bộ cố định)
+    gifts.js          # quà hiện vật ban đầu (đổi bằng Xu; BGH sửa trong trang quản trị)
+    pets.js           # 8 thú cưng + thông số dựng hình (look) + tỉ lệ nở
+    events.js         # sự kiện theo mùa (lịch MM-DD, thiệp, câu hỏi sự kiện) + activeEventId()
   game/               # logic thuần, KHÔNG đụng DOM/Three.js
     progress.js       # mặt tiền duy nhất UI gọi: đọc đồng bộ, ghi bất đồng bộ (trả {state})
     localBackend.js   # luật thưởng chạy trên máy (ngoại tuyến) — giữ khớp với supabase/sql
@@ -60,6 +65,8 @@ src/
     missions.js       # nhiệm vụ ngày (chọn theo ngày) + tiến độ
     storage.js        # localStorage an toàn
     time.js           # ngày (giờ VN), Giờ Vàng
+    bellClock.js      # đồng hồ trận Rung Chuông Vàng (cùng công thức với _bell_phase)
+    localBell.js      # Rung Chuông Vàng luyện tập ngoại tuyến (bạn ảo, cùng luật máy chủ)
   net/
     supabase.js       # client (tải lười), đăng nhập Google, kiểm tra tên miền email
     multiplayer.js    # cùng đảo: Realtime presence/broadcast (hoặc BroadcastChannel khi ngoại tuyến)
@@ -78,6 +85,10 @@ src/
     nameTag.js        # bảng tên trên đầu: tên, hạng, Nhà
     remotePlayers.js  # Kỳ lân người khác: nội suy, LOD theo khoảng cách
     quality.js        # tự giảm/tăng chất lượng theo FPS
+    stickerBubble.js  # bong bóng sticker cạnh đầu Kỳ lân
+    pets.js           # thú cưng chibi dựng bằng code + đi theo chủ
+    eventDecor.js     # trang trí đảo theo sự kiện (cổng hoa, cánh hoa rơi)
+    goldenBell.js     # chuông vàng 3D trên quảng trường
     loader.js         # tải .glb (để dành cho model 3D thật)
   ui/                 # DOM
     dom.js            # h() tạo phần tử, formatNumber
@@ -88,17 +99,26 @@ src/
     accountView.js    # màn hình đăng nhập + đặt bảng tên
     profileCard.js    # thẻ người chơi khác: thả tim, gửi lời cảm ơn
     flyFx.js          # xu/XP "bay" lên HUD
+    quickActions.js   # cột nút tròn bên phải (sticker, ảnh, quà, thú cưng, sự kiện, 🔔) + bảng chọn sticker
+    photoView.js      # đếm ngược, khung ảnh VA, tải về/chia sẻ
+    giftShopView.js / petView.js / cardView.js / eventView.js / bellView.js
     quizView.js / wardrobeView.js / ranksView.js / todayView.js / quickQuestionView.js
   features/           # điều phối 1 tính năng lớn: nối scene + game + ui (không chứa luật thưởng)
     session.js        # khởi động: ngoại tuyến hay đăng nhập + hồ sơ
     rewards.js        # hiệu ứng nhận thưởng, lên hạng
     menu.js           # các nút điều hướng → mở bảng tương ứng
     explore.js        # Khám phá Vùng Đất: chạy, câu hỏi mỗi 100 m, cột Vùng Đất, xu, hộp quà
-    social.js         # nhiều người chơi trên đảo + chạm vào Kỳ lân người khác
+    social.js         # nhiều người chơi trên đảo + chạm vào Kỳ lân người khác + thiệp sự kiện
+    expressions.js    # sticker + chụp ảnh nhóm
+    giftShop.js       # đổi Xu lấy quà hiện vật
+    pets.js           # thú cưng của mình + trứng nở khi điểm danh
+    events.js         # sự kiện theo mùa: trang trí + nút sự kiện
+    goldenBell.js     # Rung Chuông Vàng: lịch trận, điều khiển bảng thi theo đồng hồ máy chủ
   admin/              # trang quản trị (chỉ chạy trực tuyến)
     main.js           # đăng nhập, khung sidebar, điều hướng theo #hash, nhận quyền admin đầu tiên
     api.js / widgets.js / charts.js / admin.css
-    pages/            # dashboard, questions (CSV), players (vai trò), vouchers, settings
+    pages/            # dashboard, questions (CSV), players (vai trò), bell (Rung Chuông Vàng),
+                      #   vouchers (+ danh mục quà), settings (+ bật/tắt sự kiện)
 ```
 
 ## Quy tắc viết code mô-đun hoá
@@ -162,6 +182,9 @@ src/
   `drop policy if exists`. Cột mới cho bảng đã có → `alter table … add column if not exists`
   (vì `create table if not exists` không thêm cột). Hàm tên bắt đầu bằng `_` là nội bộ (bị thu
   quyền ở `06_realtime_grants.sql`), không gọi từ RLS policy.
+- Câu hỏi sự kiện (`EVENT_QUESTIONS`) không được trùng chữ với câu hỏi thường (gen-seed báo lỗi).
+- Rung Chuông Vàng chạy theo đồng hồ: đổi công thức thời gian thì sửa cả `_bell_phase` (SQL) và
+  `game/bellClock.js`; luật chốt vòng sửa cả `_bell_settle` và `game/localBell.js`.
 - Sau khi sửa `supabase/sql/` hoặc dữ liệu trong `src/data/`, `src/config.js`: chạy
   `npm run gen:sql` + `npm run test:sql`, commit cả `setup.sql`, và nhắc người dùng chạy lại
   Bước 2 trong `docs/HUONG_DAN_TRIEN_KHAI.md`.

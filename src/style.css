@@ -1984,3 +1984,15 @@ body.is-photo .speech {
   background: #fdecef;
   color: #9a0036;
 }
+
+@media (max-width: 480px) {
+  .quick-actions {
+    gap: 8px;
+  }
+
+  .qa-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 21px;
+  }
+}
