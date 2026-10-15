@@ -23,12 +23,12 @@ export function dataTable({ columns, rows, empty = 'Không có dữ liệu.' }) 
       h(
         'tbody',
         {},
-        rows.map((row) =>
+        rows.map((row, i) =>
           h(
             'tr',
             {},
             columns.map((c) =>
-              h('td', { 'data-label': c.label, class: c.className ?? '' }, c.render ? c.render(row) : row[c.key] ?? '—'),
+              h('td', { 'data-label': c.label, class: c.className ?? '' }, c.render ? c.render(row, i) : row[c.key] ?? '—'),
             ),
           ),
         ),

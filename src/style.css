@@ -1792,3 +1792,195 @@ body.is-photo .speech {
 .event-hero-icon {
   font-size: 40px;
 }
+
+/* ── Rung Chuông Vàng ───────────────────────────────────────────────────── */
+.bell {
+  display: grid;
+  gap: 12px;
+}
+
+.bell-hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #f7d27a, #e8b54e);
+  color: #4a2a00;
+  font-size: 20px;
+}
+
+.bell-hero span {
+  font-size: 36px;
+}
+
+.bell-head {
+  display: grid;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #fff7e6;
+}
+
+.bell-lobby {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 10px;
+}
+
+.bell-countdown {
+  font-size: 44px;
+  font-weight: 800;
+  color: #b07a12;
+  font-variant-numeric: tabular-nums;
+}
+
+.bell-rules {
+  display: grid;
+  gap: 4px;
+  padding-left: 20px;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.bell-status {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+}
+
+.bell-timer {
+  position: relative;
+  height: 26px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #f1e8dc;
+}
+
+.bell-timer span:first-child {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #e8b54e, #f7d27a);
+  transition: width 0.1s linear;
+}
+
+.bell-timer.is-reveal span:first-child {
+  background: #c9d8f5;
+}
+
+.bell-timer-text {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.bell-question {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.bell-options {
+  display: grid;
+  gap: 8px;
+}
+
+.bell-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 10px 12px;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bell-option:disabled {
+  cursor: default;
+}
+
+.bell-option:not(:disabled):hover {
+  border-color: #e8b54e;
+}
+
+.bell-letter {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #f6efe6;
+  font-weight: 800;
+}
+
+.bell-option.is-chosen {
+  border-color: #e8b54e;
+  background: #fff7e6;
+}
+
+.bell-option.is-correct {
+  border-color: var(--success);
+  background: #e7f6ef;
+}
+
+.bell-option.is-wrong {
+  border-color: var(--danger, #b4002f);
+  background: #fdecef;
+}
+
+.bell-spectator {
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: #eef2fb;
+  color: #1750b5;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.bell-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #f6efe6;
+}
+
+.bell-result.is-win {
+  background: linear-gradient(135deg, #fff1c2, #f7d27a);
+}
+
+.bell-result-icon {
+  font-size: 40px;
+}
+
+.bell-winners {
+  display: grid;
+  gap: 4px;
+  padding-left: 24px;
+}
+
+.bell-winners li.is-me {
+  color: var(--tri-thuc);
+}
+
+.notice-success {
+  background: #e7f6ef;
+  color: #00664f;
+}
+
+.notice-danger {
+  background: #fdecef;
+  color: #9a0036;
+}

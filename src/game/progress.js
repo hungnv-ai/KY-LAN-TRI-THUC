@@ -39,6 +39,11 @@ const ERROR_MESSAGES = {
   monthly_limit: 'Tháng này bạn đã đổi đủ số lần. Hẹn tháng sau!',
   pet_not_owned: 'Bạn chưa có thú cưng này.',
   event_item_unavailable: 'Món này chỉ bán trong thời gian sự kiện.',
+  bell_join_closed: 'Trận đã bắt đầu — bạn có thể xem và cổ vũ nhé!',
+  bell_not_open: 'Phòng chờ chưa mở. Quay lại gần giờ bắt đầu nhé!',
+  bell_round_closed: 'Hết giờ trả lời câu này rồi!',
+  bell_eliminated: 'Bạn đã dừng chân — tiếp tục cổ vũ mọi người nhé!',
+  bell_not_joined: 'Bạn chưa tham gia trận này.',
 };
 
 /**
@@ -313,6 +318,13 @@ export async function redeemGift(giftId) {
 
 /** @returns {Promise<{ gifts: object[], pending: number, thisMonth: number, maxPending: number, monthlyLimit: number }>} */
 export const getGiftShop = () => backend.giftShop();
+// ── Rung Chuông Vàng (ghi nhận thưởng do máy chủ tự trao khi kết thúc → tải lại trạng thái) ──
+export const bellUpcoming = () => backend.bellUpcoming();
+export const bellPractice = () => backend.bellPractice();
+export const bellJoin = (gameId) => backend.bellJoin(gameId);
+export const bellState = (gameId) => backend.bellState(gameId);
+export const bellAnswer = (gameId, round, choice) => backend.bellAnswer(gameId, round, choice);
+
 export const getPublicProfiles = (ids) => backend.publicProfiles(ids);
 export const getPublicProfile = (id) => backend.publicProfile(id);
 export const getMyKudos = () => backend.myKudos();

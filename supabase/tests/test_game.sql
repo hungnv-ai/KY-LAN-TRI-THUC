@@ -461,4 +461,88 @@ begin
   perform admin_set_event('auto');
 end $$;
 
+\echo '19. Rung Chuông Vàng: tham gia, trả lời, loại người sai, cứu trợ, trao thưởng'
+do $$
+declare
+  r jsonb; v_game bigint; v_cycle int; v_c1 int; v_c2 int;
+  v_coins_a int; v_xp_b int;
+  A uuid := '00000000-0000-0000-0000-00000000000a';
+  B uuid := '00000000-0000-0000-0000-00000000000b';
+begin
+  perform test_as(A);
+  perform admin_set_event('off'); -- tránh phụ thuộc lịch sự kiện
+  perform test_as(B);
+  perform test_expect_error($q$select admin_bell_create('Trận thử', now() + interval '10 minutes', 3, 10, 50, 100)$q$, 'forbidden');
+  perform test_as(A);
+  r := admin_bell_create('Rung Chuông Vàng thử', now() + interval '10 minutes', 3, 10, 50, 100, 'Sổ tay VA');
+  v_game := (r ->> 'id')::bigint;
+  perform bell_join(v_game);
+  perform test_as(B);
+  r := bell_upcoming();
+  assert (r -> 'game' ->> 'id')::bigint = v_game and not (r ->> 'joined')::boolean, 'thấy trận sắp diễn ra';
+  perform bell_join(v_game);
+  r := bell_state(v_game);
+  assert r ->> 'phase' = 'lobby' and (r ->> 'players')::int = 2, 'phòng chờ 2 người';
+  assert r -> 'question' is null, 'chưa lộ câu hỏi trong phòng chờ';
+
+  -- Vòng 1 bắt đầu.
+  perform test_admin();
+  select answer_sec + reveal_sec into v_cycle from bell_games where id = v_game;
+  update bell_games set starts_at = now() - interval '6 seconds' where id = v_game;
+  select correct_index into v_c1 from bell_rounds where game_id = v_game and round = 1;
+  select correct_index into v_c2 from bell_rounds where game_id = v_game and round = 2;
+  perform test_as(B);
+  r := bell_state(v_game);
+  assert r ->> 'phase' = 'answer' and (r ->> 'round')::int = 1 and r -> 'question' ->> 'q' is not null, 'vòng 1 đang nhận đáp án';
+  assert r -> 'reveal' is null, 'chưa lộ đáp án';
+  perform test_expect_error($q$select bell_join($q$ || v_game || $q$)$q$, 'bell_join_closed');
+  perform bell_answer(v_game, 1, (v_c1 + 1) % 4); -- B sai
+  r := bell_answer(v_game, 1, v_c1);
+  assert not (r ->> 'ok')::boolean, 'chỉ được trả lời 1 lần';
+  perform test_as(A);
+  perform bell_answer(v_game, 1, v_c1); -- A đúng
+
+  -- Công bố vòng 1 (đã qua thời gian bù trễ).
+  perform test_admin();
+  update bell_games set starts_at = now() - make_interval(secs => 10 + 2) where id = v_game;
+  perform test_as(B);
+  r := bell_state(v_game);
+  assert r ->> 'phase' = 'reveal' and (r -> 'reveal' ->> 'correctIndex')::int = v_c1, 'công bố đáp án vòng 1';
+  assert not (r -> 'reveal' ->> 'myCorrect')::boolean and (r -> 'me' ->> 'outRound')::int = 1, 'B bị loại ở câu 1';
+  assert (r ->> 'alive')::int = 1, 'còn 1 người';
+
+  -- Vòng 2: B không trả lời được nữa; A trả lời sai nhưng là người duy nhất → cứu trợ.
+  perform test_admin();
+  update bell_games set starts_at = now() - make_interval(secs => v_cycle + 1) where id = v_game;
+  perform test_as(B);
+  perform test_expect_error(format('select bell_answer(%s, 2, 0)', v_game), 'bell_eliminated');
+  perform test_as(A);
+  perform test_expect_error(format('select bell_answer(%s, 1, 0)', v_game), 'bell_round_closed');
+  perform bell_answer(v_game, 2, (v_c2 + 1) % 4);
+  perform test_admin();
+  update bell_games set starts_at = now() - make_interval(secs => v_cycle + 10 + 2) where id = v_game;
+  perform test_as(A);
+  r := bell_state(v_game);
+  assert (r -> 'me' ->> 'outRound') is null and (r ->> 'alive')::int = 1, 'cứu trợ: không ai đúng thì không ai bị loại';
+
+  -- Kết thúc: trao thưởng.
+  perform test_admin();
+  select coins into v_coins_a from player_state where user_id = A;
+  select xp into v_xp_b from player_state where user_id = B;
+  update bell_games set starts_at = now() - make_interval(secs => 3 * v_cycle + 1) where id = v_game;
+  perform test_as(A);
+  r := bell_state(v_game);
+  assert r ->> 'phase' = 'ended' and (r -> 'results' ->> 'survivors')::int = 1, 'kết thúc: 1 người thắng';
+  assert (r -> 'results' -> 'winners' -> 0 ->> 'me')::boolean, 'A trong danh sách thắng';
+  r := bell_state(v_game); -- gọi lại không trao thưởng 2 lần
+  perform test_admin();
+  assert (select coins from player_state where user_id = A) = v_coins_a + 100, 'A nhận 100 Xu đúng 1 lần';
+  assert (select xp from player_state where user_id = B) > v_xp_b, 'B nhận XP tham gia';
+  assert exists (select 1 from vouchers where user_id = A and source = 'bell'), 'A nhận phiếu quà (≤ 3 người thắng)';
+  perform test_as(A);
+  assert jsonb_array_length(admin_bell_results(v_game)) = 2, 'kết quả cho BGH';
+  assert (admin_bell_list() -> 0 ->> 'status') = 'finished', 'danh sách trận';
+  perform admin_set_event('auto');
+end $$;
+
 select '✔ Tất cả kiểm thử máy chủ đều đạt' as ket_qua;

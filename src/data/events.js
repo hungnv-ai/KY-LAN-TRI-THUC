@@ -31,7 +31,7 @@ export const EVENTS = [
 
 /** Câu hỏi chỉ xuất hiện khi sự kiện đang diễn ra (a[0] là đáp án đúng). */
 export const EVENT_QUESTIONS = [
-  { event: 'tri-an-2011', topic: 'event', q: 'Ngày Nhà giáo Việt Nam là ngày nào?', a: ['20/11', '5/10', '15/10', '20/10'] },
+  { event: 'tri-an-2011', topic: 'event', q: 'Ngày 20/11 hằng năm là ngày gì?', a: ['Ngày Nhà giáo Việt Nam', 'Ngày Phụ nữ Việt Nam', 'Ngày Sách và Văn hoá đọc', 'Ngày Khoa học và Công nghệ'] },
   { event: 'tri-an-2011', topic: 'event', q: 'Ngày 20/11 chính thức mang tên "Ngày Nhà giáo Việt Nam" từ năm nào?', a: ['1982', '1958', '1975', '1990'], explain: 'Quyết định 167-HĐBT ngày 28/9/1982 lấy ngày 20/11 làm Ngày Nhà giáo Việt Nam.' },
   { event: 'tri-an-2011', topic: 'event', q: 'Trước năm 1982, ngày 20/11 ở Việt Nam được kỷ niệm với tên gọi nào?', a: ['Ngày Quốc tế Hiến chương các nhà giáo', 'Ngày Khuyến học', 'Ngày Sách Việt Nam', 'Ngày Tựu trường'], explain: 'Từ năm 1958, Việt Nam kỷ niệm "Ngày Quốc tế Hiến chương các nhà giáo" vào 20/11.' },
   { event: 'tri-an-2011', topic: 'event', q: 'Ngày Nhà giáo Thế giới (do UNESCO khởi xướng) là ngày nào?', a: ['5/10', '20/11', '1/6', '8/9'] },

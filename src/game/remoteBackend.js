@@ -40,6 +40,13 @@ export function createRemoteBackend(supabase) {
     leaderboard: (scope, unit = null) => rpc('leaderboard', { p_scope: scope, p_unit: unit }),
     houseStandings: () => rpc('house_standings'),
     giftShop: () => rpc('gift_shop'),
+    bellUpcoming: () => rpc('bell_upcoming'),
+    bellPractice: async () => {
+      throw new Error('offline_only');
+    },
+    bellJoin: (gameId) => rpc('bell_join', { p_game: gameId }),
+    bellState: (gameId) => rpc('bell_state', { p_game: gameId }),
+    bellAnswer: (gameId, round, choice) => rpc('bell_answer', { p_game: gameId, p_round: round, p_choice: choice }),
     redeemGift: (giftId) => rpc('redeem_gift', { p_gift: giftId }),
   };
 }

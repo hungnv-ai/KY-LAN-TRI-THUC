@@ -200,6 +200,56 @@ alter table public.vouchers add column if not exists gift_id text references pub
 alter table public.vouchers add column if not exists coins_spent int not null default 0;
 alter table public.vouchers add column if not exists refunded boolean not null default false;
 
+-- Rung Chuông Vàng: trận đấu loại trực tiếp theo giờ hẹn (máy chủ chạy theo đồng hồ).
+create table if not exists public.bell_games (
+  id bigint generated always as identity primary key,
+  title text not null,
+  starts_at timestamptz not null,
+  question_count int not null check (question_count between 3 and 30),
+  answer_sec int not null default 15 check (answer_sec between 8 and 60),
+  reveal_sec int not null default 6 check (reveal_sec between 3 and 20),
+  prize_xp int not null default 50 check (prize_xp >= 0),
+  prize_coins int not null default 100 check (prize_coins >= 0),
+  join_xp int not null default 5 check (join_xp >= 0),
+  winner_voucher text,
+  status text not null default 'scheduled' check (status in ('scheduled', 'finished', 'cancelled')),
+  settled_round int not null default 0,
+  created_by uuid references auth.users (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists bell_games_starts_idx on public.bell_games (starts_at);
+
+create table if not exists public.bell_rounds (
+  game_id bigint not null references public.bell_games (id) on delete cascade,
+  round int not null,
+  question_id bigint references public.questions (id) on delete set null,
+  q text not null,
+  options text[] not null,          -- đã xáo trộn
+  correct_index int not null,       -- 0-based theo options đã xáo
+  explain text,
+  primary key (game_id, round)
+);
+
+create table if not exists public.bell_players (
+  game_id bigint not null references public.bell_games (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  joined_at timestamptz not null default now(),
+  out_round int,                    -- null = còn trụ lại
+  correct int not null default 0,
+  primary key (game_id, user_id)
+);
+
+create table if not exists public.bell_answers (
+  game_id bigint not null,
+  round int not null,
+  user_id uuid not null,
+  choice int not null,
+  correct boolean not null,
+  answered_at timestamptz not null default now(),
+  primary key (game_id, round, user_id),
+  foreign key (game_id, user_id) references public.bell_players (game_id, user_id) on delete cascade
+);
+
 -- Cúp Kỳ Lân hằng tháng (GĐ3): lưu Nhà thắng của mỗi tháng đã kết thúc.
 create table if not exists public.house_cups (
   month date primary key,
@@ -224,3 +274,7 @@ alter table public.kudos enable row level security;
 alter table public.vouchers enable row level security;
 alter table public.house_cups enable row level security;
 alter table public.gift_catalog enable row level security;
+alter table public.bell_games enable row level security;
+alter table public.bell_rounds enable row level security;
+alter table public.bell_players enable row level security;
+alter table public.bell_answers enable row level security;

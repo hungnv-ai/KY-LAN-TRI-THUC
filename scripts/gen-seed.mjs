@@ -34,6 +34,7 @@ const settings = {
   VOUCHER: config.VOUCHER,
   GIFT_SHOP: config.GIFT_SHOP,
   PETS: config.PETS_CONFIG,
+  BELL: config.BELL,
   PET_CATALOG: PETS.map(({ id, name, rarity, weight }) => ({ id, name, rarity, weight })),
   EVENTS: EVENTS.map(({ id, name, start, end, cards, cardBonusCoins }) => ({ id, name, start, end, cards: cards.map((c) => c.id), cardBonusCoins })),
   VALUES: config.VALUES,
@@ -87,6 +88,10 @@ for (const q of QUESTIONS) {
 }
 
 // Câu hỏi sự kiện: gắn mã sự kiện (chỉ xuất hiện khi sự kiện đang diễn ra).
+// Không được trùng chữ với câu hỏi thường (nếu trùng, câu thường sẽ bị biến thành câu sự kiện).
+const baseTexts = new Set(QUESTIONS.map((q) => q.q));
+const dup = EVENT_QUESTIONS.filter((q) => baseTexts.has(q.q));
+if (dup.length) throw new Error(`Câu hỏi sự kiện trùng câu thường: ${dup.map((q) => q.q).join(' | ')}`);
 for (const q of EVENT_QUESTIONS) {
   seed.push(
     `insert into public.questions (topic, value, q, options, explain, event) values (${[

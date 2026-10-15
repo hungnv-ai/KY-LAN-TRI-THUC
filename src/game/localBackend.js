@@ -13,6 +13,7 @@ import { EVENT_QUESTIONS, activeEventId } from '../data/events.js';
 import { PETS } from '../data/pets.js';
 import { QUESTIONS } from '../data/questions.js';
 import { getRankInfo, rankIndexOf } from '../data/ranks.js';
+import { createLocalBell } from './localBell.js';
 import { missionStatus } from './missions.js';
 import { loadJSON, saveJSON } from './storage.js';
 import { dayKey, isGoldenHour, yesterdayKey } from './time.js';
@@ -202,8 +203,29 @@ export function createLocalBackend() {
     return { ticketId, topic: q.topic, q: q.q, options: order.map((i) => q.a[i]) };
   }
 
+  const bell = createLocalBell({
+    pickQuestions: (n) => {
+      const used = [];
+      for (let i = 0; i < n; i++) used.push(pickQuestion(null, used));
+      return used;
+    },
+    applyReward: (xp, coins, kind) => {
+      const r = applyReward(xp, coins, kind);
+      saveJSON(SAVE_KEY, state);
+      return r;
+    },
+    myName: () => state.profile.displayName ?? 'Bạn',
+  });
+
   const api = {
     mode: 'local',
+
+    // ── Rung Chuông Vàng: ngoại tuyến chỉ có trận luyện tập với bạn ảo ──
+    bellUpcoming: () => bell.upcoming(),
+    bellPractice: () => bell.practice(),
+    bellJoin: (gameId) => bell.join(gameId),
+    bellState: (gameId) => bell.state(gameId),
+    bellAnswer: (gameId, round, choice) => bell.answer(gameId, round, choice),
 
     async getState() {
       return snapshot();

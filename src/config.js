@@ -140,6 +140,25 @@ export const PETS_CONFIG = {
   DUPLICATE_COINS: 40,
 };
 
+/** Rung Chuông Vàng: trận loại trực tiếp theo giờ hẹn (BGH tạo trận trong trang quản trị). */
+export const BELL = {
+  /** Mở phòng chờ trước giờ bắt đầu (phút). */
+  LOBBY_MIN: 30,
+  /** Còn cho vào sau giờ bắt đầu (giây) — bù trễ mạng. */
+  JOIN_GRACE_SEC: 5,
+  /** Nhận đáp án trễ tối đa (giây) sau khi hết giờ — bù trễ mạng. */
+  ANSWER_GRACE_SEC: 1,
+  DEFAULT_ANSWER_SEC: 15,
+  REVEAL_SEC: 6,
+  /** Chỉ trao phiếu quà khi số người trụ lại không quá bấy nhiêu. */
+  MAX_VOUCHER_WINNERS: 3,
+  /** Chế độ luyện tập (ngoại tuyến): số "bạn ảo", số câu, đếm ngược trước khi bắt đầu. */
+  PRACTICE_BOTS: 24,
+  PRACTICE_QUESTIONS: 8,
+  PRACTICE_DELAY_SEC: 12,
+  PRACTICE_BOT_ACCURACY: 0.78,
+};
+
 /** Cửa hàng đổi Xu lấy quà hiện vật (danh mục: src/data/gifts.js, sửa trong trang quản trị). */
 export const GIFT_SHOP = {
   /** Số phiếu đang chờ BGH duyệt tối đa cùng lúc. */
