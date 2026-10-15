@@ -5,8 +5,20 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const LOOK_AT = new THREE.Vector3(0, 1.75, 0);
 /** Hướng đặt camera (hơi chếch phải, nhìn hơi từ trên xuống). */
 const VIEW_DIR = new THREE.Vector3(0.22, 0.34, 1).normalize();
-const DIST_LANDSCAPE = 7.6;
-const DIST_PORTRAIT = 9.8;
+/** Khoảng cách camera mặc định (xa hơn một chút để thấy nhiều cảnh vật xung quanh). */
+const DIST_LANDSCAPE = 10.6;
+const DIST_PORTRAIT = 12.4;
+/** Chế độ Toàn cảnh: camera bay lên cao nhìn cả hòn đảo. */
+const OVERVIEW_TARGET = new THREE.Vector3(0, 0, 0);
+const OVERVIEW_DIR = new THREE.Vector3(0.18, 1.05, 0.75).normalize();
+/** Bán kính cần lọt khung khi xem toàn cảnh (đảo + bờ cát, m). */
+const OVERVIEW_FIT_RADIUS = 34;
+const OVERVIEW_FOV = 48;
+const DEFAULT_FOV = 35;
+const CAMERA_FLY_SPEED = 2.6;
+/** Sương mù tối thiểu khi ở gần (m). */
+const FOG_NEAR = 36;
+const FOG_FAR = 110;
 /** Khi mở bảng bên (Tủ đồ, Quiz): desktop dịch nhân vật sang trái nửa bề rộng bảng; mobile dịch lên trên. */
 const SIDE_PANEL_PX = 416;
 const MOBILE_PANEL_SHIFT_Y = 0.22;
@@ -27,12 +39,12 @@ const FOLLOW_GROUND_Y = 0.18;
  *   controls: OrbitControls, onTap: (object: THREE.Object3D, handler: () => void) => () => void,
  *   toScreen: (world: THREE.Vector3) => { x: number, y: number },
  *   setPanelFocus: (open: boolean) => void, update: (delta: number) => void,
- *   follow: (position: THREE.Vector3) => void }}
+ *   follow: (position: THREE.Vector3) => void, setOverview: (on: boolean) => void, isOverview: () => boolean }}
  */
 export function createWorld(container) {
   const scene = new THREE.Scene();
 
-  const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 100);
+  const camera = new THREE.PerspectiveCamera(DEFAULT_FOV, window.innerWidth / window.innerHeight, 0.1, 260);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -49,7 +61,7 @@ export function createWorld(container) {
   controls.dampingFactor = 0.08;
   controls.enablePan = false;
   controls.minDistance = 3.5;
-  controls.maxDistance = 16;
+  controls.maxDistance = 22;
   controls.minPolarAngle = 0.5;
   controls.maxPolarAngle = Math.PI / 2 - 0.05; // không cho camera chui xuống dưới mặt đất
 
@@ -122,7 +134,17 @@ export function createWorld(container) {
     panelOpen = open;
   }
 
+  /** Sương mù lùi xa theo khoảng cách camera (toàn cảnh vẫn rõ, cận cảnh vẫn có chiều sâu). */
+  function updateFog() {
+    if (!scene.fog) return;
+    const d = camera.position.distanceTo(controls.target);
+    scene.fog.near = Math.max(FOG_NEAR, d + 18);
+    scene.fog.far = Math.max(FOG_FAR, d + 95);
+  }
+
   function update(delta) {
+    updateFly(delta);
+    updateFog();
     const w = window.innerWidth;
     const hgt = window.innerHeight;
     const desktop = w >= DESKTOP_MIN_WIDTH;
@@ -149,12 +171,75 @@ export function createWorld(container) {
   // ── Camera bám theo Kỳ lân (giữ nguyên góc xoay người chơi đã chọn) ──
   const followTarget = new THREE.Vector3();
   const followDelta = new THREE.Vector3();
+  let hasFollow = false;
   function follow(position) {
     followTarget.set(position.x, position.y + LOOK_AT.y - FOLLOW_GROUND_Y, position.z);
+    hasFollow = true;
+    if (overview || flying) return; // đang xem toàn cảnh → không kéo camera theo
     followDelta.subVectors(followTarget, controls.target);
     controls.target.add(followDelta);
     camera.position.add(followDelta);
   }
 
-  return { scene, camera, renderer, controls, onTap, toScreen, setPanelFocus, update, follow };
+  // ── Toàn cảnh đảo: bay lên cao rồi bay về đúng chỗ cũ ─────────────────
+  let overview = false;
+  let flying = false;
+  const saved = { target: new THREE.Vector3(), position: new THREE.Vector3() };
+  const fly = { fromT: new THREE.Vector3(), fromP: new THREE.Vector3(), toT: new THREE.Vector3(), toP: new THREE.Vector3(), t: 1 };
+
+  function startFly(toTarget, toPosition) {
+    fly.fromT.copy(controls.target);
+    fly.fromP.copy(camera.position);
+    fly.toT.copy(toTarget);
+    fly.toP.copy(toPosition);
+    fly.t = 0;
+    flying = true;
+    controls.enabled = false;
+  }
+
+  let targetFov = DEFAULT_FOV;
+  function updateFly(delta) {
+    if (Math.abs(camera.fov - targetFov) > 0.01) {
+      camera.fov += (targetFov - camera.fov) * Math.min(1, delta * CAMERA_FLY_SPEED);
+      camera.updateProjectionMatrix();
+    }
+    if (!flying) return;
+    fly.t = Math.min(1, fly.t + delta * CAMERA_FLY_SPEED * 0.5);
+    const e = fly.t < 0.5 ? 4 * fly.t ** 3 : 1 - (-2 * fly.t + 2) ** 3 / 2; // easeInOutCubic
+    controls.target.lerpVectors(fly.fromT, fly.toT, e);
+    camera.position.lerpVectors(fly.fromP, fly.toP, e);
+    if (fly.t >= 1) {
+      flying = false;
+      controls.enabled = true;
+    }
+  }
+
+  function setOverview(on) {
+    if (on === overview) return;
+    overview = on;
+    if (on) {
+      saved.target.copy(controls.target);
+      saved.position.copy(camera.position);
+      // Khoảng cách vừa đủ để cả đảo lọt khung theo chiều hẹp hơn của màn hình (điện thoại dựng đứng).
+      targetFov = OVERVIEW_FOV;
+      const halfV = THREE.MathUtils.degToRad(OVERVIEW_FOV / 2);
+      const halfH = Math.atan(Math.tan(halfV) * camera.aspect);
+      const dist = THREE.MathUtils.clamp(OVERVIEW_FIT_RADIUS / Math.tan(Math.min(halfV, halfH)), 50, 160);
+      controls.maxDistance = dist * 1.3;
+      controls.minPolarAngle = 0.05;
+      startFly(OVERVIEW_TARGET, OVERVIEW_TARGET.clone().addScaledVector(OVERVIEW_DIR, dist));
+    } else {
+      controls.maxDistance = 22;
+      controls.minPolarAngle = 0.5;
+      targetFov = DEFAULT_FOV;
+      // Bay về chỗ Kỳ lân đang đứng (có thể đã chạy đi trong lúc xem toàn cảnh), giữ góc nhìn cũ.
+      const target = hasFollow ? followTarget.clone() : saved.target.clone();
+      startFly(target, target.clone().add(saved.position.sub(saved.target)));
+    }
+  }
+
+  return {
+    scene, camera, renderer, controls, onTap, toScreen, setPanelFocus, update, follow, setOverview,
+    isOverview: () => overview,
+  };
 }

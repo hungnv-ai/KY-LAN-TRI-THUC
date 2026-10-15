@@ -8,6 +8,7 @@ import { setupGiftShop } from './features/giftShop.js';
 import { setupPets } from './features/pets.js';
 import { setupEvents } from './features/events.js';
 import { setupGoldenBell } from './features/goldenBell.js';
+import { setupOverview } from './features/overview.js';
 import { setupMenu } from './features/menu.js';
 import { createRewards } from './features/rewards.js';
 import { startSession } from './features/session.js';
@@ -22,6 +23,8 @@ import {
 import { isGoldenHour } from './game/time.js';
 import { createFx } from './scene/fx.js';
 import { createQualityManager } from './scene/quality.js';
+import { createLabelFader } from './scene/labelFader.js';
+import { createScenery } from './scene/scenery.js';
 import { setupIsland } from './scene/island.js';
 import { setupLights } from './scene/lights.js';
 import { createMascot } from './scene/mascot.js';
@@ -39,6 +42,8 @@ import { hideLoading, renderHud, setupSoundButton, showAdminLink } from './ui/hu
 const world = createWorld(document.getElementById('canvas-container'));
 const { sun } = setupLights(world.scene, world.renderer);
 const island = setupIsland(world.scene);
+const scenery = createScenery(world.scene);
+const labelFader = createLabelFader(world.scene, world.camera);
 const fx = createFx(world.scene);
 const mascot = createMascot();
 world.scene.add(mascot.object);
@@ -51,6 +56,7 @@ let social = null;
 let pets = null;
 let events = null;
 let goldenBell = null;
+let overview = null;
 
 // ── Vòng lặp duy nhất ───────────────────────────────────────────────────
 const timer = new THREE.Timer();
@@ -74,6 +80,9 @@ world.renderer.setAnimationLoop((timestamp) => {
   fx.update(delta);
   wardrobe.update(delta, elapsed);
   island.update(delta, elapsed);
+  scenery.update(delta, elapsed);
+  overview?.update(delta);
+  labelFader.update(delta, world.isOverview());
   world.controls.update();
   world.update(delta);
 
@@ -165,6 +174,7 @@ async function boot() {
   });
   events = setupEvents({ world, island, mascot, openWardrobe: () => menu.wardrobe() });
   goldenBell = setupGoldenBell({ world, island, mascot, fx, rewards });
+  overview = setupOverview({ world, isMoving: () => explore.isMoving() });
 
   // Chạm vào Kỳ lân của mình: cảm xúc ngẫu nhiên + câu nói về 5 giá trị.
   const TAP_EMOTES = ['wave', 'happy', 'cool', 'think', 'cheer'];

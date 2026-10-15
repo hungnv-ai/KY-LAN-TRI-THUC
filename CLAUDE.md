@@ -89,6 +89,8 @@ src/
     pets.js           # thú cưng chibi dựng bằng code + đi theo chủ
     eventDecor.js     # trang trí đảo theo sự kiện (cổng hoa, cánh hoa rơi)
     goldenBell.js     # chuông vàng 3D trên quảng trường
+    scenery.js        # cảnh trang trí: mây, nước nông, đảo xa, hoa trên cỏ, chim
+    labelFader.js     # biển chữ mờ dần khi ở xa (sprite.userData.fade = { near, far, overview })
     loader.js         # tải .glb (để dành cho model 3D thật)
   ui/                 # DOM
     dom.js            # h() tạo phần tử, formatNumber
@@ -114,6 +116,7 @@ src/
     pets.js           # thú cưng của mình + trứng nở khi điểm danh
     events.js         # sự kiện theo mùa: trang trí + nút sự kiện
     goldenBell.js     # Rung Chuông Vàng: lịch trận, điều khiển bảng thi theo đồng hồ máy chủ
+    overview.js       # 🔭 Toàn cảnh đảo (camera bay lên cao / bay về)
   admin/              # trang quản trị (chỉ chạy trực tuyến)
     main.js           # đăng nhập, khung sidebar, điều hướng theo #hash, nhận quyền admin đầu tiên
     api.js / widgets.js / charts.js / admin.css

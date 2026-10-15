@@ -8,7 +8,9 @@ import { getEvent } from '../data/events.js';
 
 const ARCH_DISTANCE = 8.5;
 /** Biển trên cổng giữ cỡ cố định trên màn hình (không to khổng lồ khi đứng gần). */
-const SIGN_SCREEN_HEIGHT = 0.032;
+const SIGN_SCREEN_HEIGHT = 0.026;
+/** Biển trên cổng chỉ hiện khi Kỳ lân lại gần (đỡ rối màn hình). */
+const SIGN_FADE = { near: 9, far: 15, overview: 'hide' };
 const ARCH_RADIUS = 1.35;
 const PETAL_COUNT = 180;
 const PETAL_AREA = 15;
@@ -79,6 +81,7 @@ function buildArch(color, label) {
   }
   const sign = bannerSprite(label, color);
   sign.position.y = 1.6 + ARCH_RADIUS + 0.35;
+  sign.userData.fade = SIGN_FADE;
   arch.add(sign);
   arch.traverse((o) => {
     if (o.isMesh) o.castShadow = true;
