@@ -1996,3 +1996,137 @@ body.is-photo .speech {
     font-size: 21px;
   }
 }
+
+/* ── Tối ưu điện thoại (phần lớn người chơi dùng điện thoại) ─────────────── */
+.pill-btn.is-active {
+  background: var(--tri-thuc);
+  color: #fff;
+}
+
+/* Đang xem toàn cảnh: ẩn bớt nút để thấy trọn hòn đảo. */
+body.is-overview .quick-actions,
+body.is-overview .joystick,
+body.is-overview .key-hint {
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.is-overview .nav {
+  transform: translate(-50%, 140%);
+}
+
+.nav,
+.quick-actions,
+.joystick {
+  transition: opacity 0.25s, transform 0.3s ease;
+}
+
+@media (max-width: 480px) {
+  .hud {
+    top: max(8px, env(safe-area-inset-top));
+    left: 8px;
+    right: 8px;
+    gap: 6px;
+  }
+
+  .rank-card {
+    gap: 7px;
+    padding: 5px 10px 5px 5px;
+  }
+
+  .rank-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    font-size: 18px;
+  }
+
+  .rank-info {
+    min-width: 92px;
+    gap: 2px;
+  }
+
+  .rank-label {
+    font-size: 13px;
+  }
+
+  .xp-bar {
+    height: 6px;
+  }
+
+  .xp-text {
+    font-size: 10.5px;
+  }
+
+  .pill {
+    padding: 5px 9px;
+    gap: 4px;
+    font-size: 13px;
+  }
+
+  .pills {
+    gap: 4px;
+  }
+
+  .explore-bar {
+    top: calc(max(8px, env(safe-area-inset-top)) + 56px);
+    left: 8px;
+    gap: 4px;
+  }
+
+  .explore-pill {
+    font-size: 12px;
+  }
+
+  .nav {
+    bottom: calc(8px + var(--safe-bottom));
+    width: calc(100% - 16px);
+    padding: 6px;
+    gap: 4px;
+    border-radius: 20px;
+  }
+
+  .nav-btn {
+    padding: 6px 2px;
+    font-size: 11px;
+  }
+
+  .nav-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 19px;
+  }
+
+  .nav-btn-main .nav-icon {
+    width: 44px;
+    height: 44px;
+    font-size: 23px;
+  }
+
+  .joystick {
+    left: 14px;
+    bottom: calc(96px + var(--safe-bottom));
+    width: 104px;
+    height: 104px;
+  }
+
+  .joystick-knob {
+    width: 46px;
+    height: 46px;
+  }
+
+  .quick-actions {
+    right: 8px;
+    bottom: calc(96px + var(--safe-bottom));
+  }
+
+  .speech {
+    max-width: min(240px, 72vw);
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .toasts {
+    top: calc(max(8px, env(safe-area-inset-top)) + 96px);
+  }
+}

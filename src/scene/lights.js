@@ -19,13 +19,13 @@ export function setupLights(scene, renderer) {
   scene.environmentIntensity = 0.35;
   pmrem.dispose();
 
-  const hemi = new THREE.HemisphereLight(0xdff1ff, 0xffe2c2, 0.8);
+  const hemi = new THREE.HemisphereLight(0xcfe8ff, 0xffe6c4, 0.95);
   scene.add(hemi);
 
   const ambient = new THREE.AmbientLight(0xffffff, 0.35);
   scene.add(ambient);
 
-  const sun = new THREE.DirectionalLight(0xfff4e0, 2.2);
+  const sun = new THREE.DirectionalLight(0xffefd2, 2.4);
   sun.position.set(5, 10, 6);
   sun.castShadow = true;
 

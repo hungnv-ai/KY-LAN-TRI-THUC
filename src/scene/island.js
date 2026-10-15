@@ -18,7 +18,9 @@ const PLATFORM_H = 0.18;
 const PLATFORM_RAMP = 0.3;
 
 /** Chiều cao nhãn tên Vùng Đất (tỉ lệ so với chiều cao màn hình). */
-const LABEL_SCREEN_HEIGHT = 0.045;
+const LABEL_SCREEN_HEIGHT = 0.036;
+/** Biển tên Vùng Đất mờ dần khi ở xa (m) — xem scene/labelFader.js. */
+const STATION_LABEL_FADE = { near: 20, far: 34, overview: 'show' };
 const BEAM_OPACITY = 0.22;
 const BEAM_OPACITY_DONE = 0.05;
 
@@ -35,7 +37,7 @@ const BEAM_OPACITY_DONE = 0.05;
  */
 export function setupIsland(scene) {
   scene.background = createSkyTexture();
-  scene.fog = new THREE.Fog(0xf3e9dc, 32, 85);
+  scene.fog = new THREE.Fog(0xe9f3fb, 36, 110); // trùng màu chân trời → biển hoà vào trời
 
   const rng = mulberry32(2026);
   const colliders = []; // { x, z, r }
@@ -123,8 +125,8 @@ export function setupIsland(scene) {
 
 function buildGround(scene) {
   const water = new THREE.Mesh(
-    new THREE.CircleGeometry(140, 48),
-    new THREE.MeshStandardMaterial({ color: 0x8ec3ea, roughness: 0.35, metalness: 0.1 }),
+    new THREE.CircleGeometry(220, 64),
+    new THREE.MeshStandardMaterial({ color: 0x4fb6e3, roughness: 0.25, metalness: 0.15 }),
   );
   water.rotation.x = -Math.PI / 2;
   water.position.y = -0.25;
@@ -132,7 +134,7 @@ function buildGround(scene) {
 
   const sand = new THREE.Mesh(
     new THREE.CylinderGeometry(ISLAND_RADIUS + 1.6, ISLAND_RADIUS + 2.4, 0.5, 96),
-    new THREE.MeshStandardMaterial({ color: 0xf1dfb8, roughness: 1 }),
+    new THREE.MeshStandardMaterial({ color: 0xf5e2b8, roughness: 1 }),
   );
   sand.position.y = -0.27;
   sand.receiveShadow = true;
@@ -140,7 +142,7 @@ function buildGround(scene) {
 
   const grass = new THREE.Mesh(
     new THREE.CircleGeometry(ISLAND_RADIUS, 96),
-    new THREE.MeshStandardMaterial({ color: 0xc9e4b8, roughness: 1 }),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, map: createGrassTexture(), roughness: 1 }),
   );
   grass.rotation.x = -Math.PI / 2;
   grass.position.y = 0;
@@ -242,11 +244,13 @@ function buildStation(scene, value, position, animated) {
 
   const label = createLabelSprite(value.name.toUpperCase(), value.color);
   label.position.y = 4.3;
+  label.userData.fade = STATION_LABEL_FADE;
   group.add(label);
 
   const check = createLabelSprite('✓ Đã ghé hôm nay', '#00796f', 0.5);
   check.position.y = 3.75;
   check.visible = false;
+  check.userData.fade = { near: 12, far: 20, overview: 'hide' };
   group.add(check);
 
   group.traverse((o) => {
@@ -597,15 +601,52 @@ function createLabelSprite(text, color, height = 0.7) {
   return sprite;
 }
 
+/** Cỏ có mảng xanh đậm nhạt tự nhiên (vẽ một lần bằng canvas). */
+function createGrassTexture() {
+  const size = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#b3db93';
+  ctx.fillRect(0, 0, size, size);
+  const rng = mulberry32(7);
+  const tones = ['rgba(160, 210, 128, 0.35)', 'rgba(200, 232, 165, 0.4)', 'rgba(145, 198, 118, 0.22)', 'rgba(214, 238, 180, 0.32)'];
+  for (let i = 0; i < 220; i++) {
+    const x = rng() * size;
+    const y = rng() * size;
+    const r = 14 + rng() * 54;
+    // Vẽ lặp ở 9 ô kề nhau → mép ảnh khớp nhau, không lộ đường kẻ ô khi lát lặp lại.
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const cx = x + dx * size;
+        const cy = y + dy * size;
+        if (cx + r < 0 || cx - r > size || cy + r < 0 || cy - r > size) continue;
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+        g.addColorStop(0, tones[i % tones.length]);
+        g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+      }
+    }
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(4, 4);
+  texture.anisotropy = 4;
+  return texture;
+}
+
 function createSkyTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 2;
   canvas.height = 256;
   const ctx = canvas.getContext('2d');
   const g = ctx.createLinearGradient(0, 0, 0, 256);
-  g.addColorStop(0, '#b9cef1');
-  g.addColorStop(0.55, '#e6eefb');
-  g.addColorStop(1, '#f6efe3');
+  g.addColorStop(0, '#6fb1ee');
+  g.addColorStop(0.45, '#a9d3f7');
+  g.addColorStop(0.8, '#dcedfb');
+  g.addColorStop(1, '#e9f3fb');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 2, 256);
   const texture = new THREE.CanvasTexture(canvas);

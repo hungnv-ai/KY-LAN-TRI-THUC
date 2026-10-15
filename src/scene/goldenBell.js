@@ -6,10 +6,10 @@ import * as THREE from 'three';
  */
 
 /** Đặt chuông giữa hai con đường đầu tiên, cách tâm đảo bấy nhiêu mét. */
-const BELL_DISTANCE = 5.2;
+const BELL_DISTANCE = 7.5;
 const BEAM_Y = 2.9;
 const SWING_DECAY = 1.6;
-const SIGN_SCREEN_HEIGHT = 0.034;
+const SIGN_SCREEN_HEIGHT = 0.028;
 
 function signSprite(text) {
   const canvas = document.createElement('canvas');
@@ -95,6 +95,7 @@ export function createGoldenBell(scene, island) {
 
   const sign = signSprite('🔔 Rung Chuông Vàng');
   sign.position.y = BEAM_Y + 0.55;
+  sign.userData.fade = { near: 12, far: 20, overview: 'show' };
   root.add(sign);
 
   root.traverse((o) => {

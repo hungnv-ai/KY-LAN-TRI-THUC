@@ -19,6 +19,7 @@ const els = {
   nextQuestion: document.getElementById('next-question'),
   stations: document.getElementById('stations-value'),
   homeBtn: document.getElementById('home-btn'),
+  overviewBtn: document.getElementById('overview-btn'),
   soundBtn: document.getElementById('sound-btn'),
   onlinePill: document.getElementById('online-pill'),
   onlineValue: document.getElementById('online-value'),
@@ -82,6 +83,29 @@ export function renderExploreHud({ distance, toNextQuestion, stationsDone, stati
 }
 
 /** @param {() => void} handler */
+/**
+ * Nút 🔭 Toàn cảnh: bấm để bật/tắt, nút đổi thành ✕ khi đang xem toàn cảnh.
+ *
+ * @param {(on: boolean) => void} onToggle
+ * @returns {{ set: (on: boolean) => void }}
+ */
+export function setupOverviewButton(onToggle) {
+  let on = false;
+  const set = (value) => {
+    on = value;
+    els.overviewBtn.textContent = on ? '✕' : '🔭';
+    els.overviewBtn.setAttribute('aria-pressed', String(on));
+    els.overviewBtn.title = on ? 'Quay lại Kỳ lân' : 'Xem toàn cảnh đảo';
+    els.overviewBtn.classList.toggle('is-active', on);
+    document.body.classList.toggle('is-overview', on);
+  };
+  els.overviewBtn.addEventListener('click', () => {
+    set(!on);
+    onToggle(on);
+  });
+  return { set };
+}
+
 export function onHomeClick(handler) {
   els.homeBtn.addEventListener('click', handler);
 }
