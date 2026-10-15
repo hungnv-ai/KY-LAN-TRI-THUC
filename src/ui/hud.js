@@ -146,6 +146,15 @@ export function setupSoundButton(muted, onChange) {
  * @param {number} count tính cả mình
  * @param {string} [room]
  */
+/**
+ * Bấm vào ô 👥 (số người online).
+ *
+ * @param {() => void} handler
+ */
+export function onOnlineClick(handler) {
+  els.onlinePill.addEventListener('click', handler);
+}
+
 export function renderOnline(count, room) {
   els.onlinePill.hidden = false;
   els.onlineValue.textContent = String(count);

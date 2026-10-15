@@ -123,8 +123,8 @@ export const MULTIPLAYER = {
   HEARTBEAT_SEC: 4,
   /** Không nhận tin quá lâu (giây) thì coi như đã rời đảo. */
   TIMEOUT_SEC: 15,
-  /** Kỳ lân người khác xa hơn bấy nhiêu mét thì vẽ đơn giản (chỉ bảng tên). */
-  DETAIL_DISTANCE: 22,
+  /** Kỳ lân người khác cách điểm camera nhìn vào xa hơn bấy nhiêu mét thì vẽ đơn giản (chỉ bảng tên). */
+  DETAIL_DISTANCE: 42,
   /** Số Kỳ lân người khác vẽ đầy đủ tối đa (gần nhất trước). */
   MAX_DETAILED: 10,
 };

@@ -8,8 +8,6 @@ import { createPetFollower } from './pets.js';
 
 /** Tốc độ bám theo vị trí nhận được (càng lớn càng sát, càng nhỏ càng mượt). */
 const FOLLOW_SPEED = 10;
-/** Xa hơn khoảng này thì ẩn luôn bảng tên. */
-const NAME_HIDE_DISTANCE = 45;
 /** Bao lâu sắp xếp lại ai được vẽ đầy đủ (giây). */
 const LOD_INTERVAL = 0.5;
 
@@ -145,24 +143,32 @@ export function createRemotePlayers({ scene, island, onTap, onSelect }) {
     players.delete(id);
   }
 
-  /** Chọn những Kỳ lân gần nhất để vẽ đầy đủ; còn lại chỉ hiện bảng tên. */
-  function updateLod(camera) {
+  /**
+   * Chọn những Kỳ lân gần điểm đang nhìn nhất để vẽ đầy đủ; còn lại chỉ hiện bảng tên.
+   * Đo từ điểm camera nhìn vào (không phải từ camera) → xem toàn đảo / camera lùi xa trên điện thoại
+   * vẫn thấy bạn bè. Đảo nhỏ nên bảng tên luôn hiện.
+   */
+  function updateLod(focus) {
     const list = [...players.values()].filter((p) => p.hasMotion);
-    for (const p of list) p.dist = p.root.position.distanceTo(camera.position);
+    for (const p of list) p.dist = p.root.position.distanceTo(focus);
     list.sort((a, b) => a.dist - b.dist);
     list.forEach((p, i) => {
       const detailed = i < MULTIPLAYER.MAX_DETAILED && p.dist < MULTIPLAYER.DETAIL_DISTANCE;
       if (detailed) buildDetail(p);
       else dropDetail(p);
-      p.tag.sprite.visible = p.dist < NAME_HIDE_DISTANCE;
     });
   }
 
-  function update(delta, elapsed, camera) {
+  /**
+   * @param {number} delta
+   * @param {number} elapsed
+   * @param {THREE.Vector3} focus  điểm camera đang nhìn vào (controls.target)
+   */
+  function update(delta, elapsed, focus) {
     lodTimer -= delta;
     if (lodTimer <= 0) {
       lodTimer = LOD_INTERVAL;
-      updateLod(camera);
+      updateLod(focus);
     }
     const k = 1 - Math.exp(-delta * FOLLOW_SPEED);
     for (const p of players.values()) {
@@ -193,6 +199,9 @@ export function createRemotePlayers({ scene, island, onTap, onSelect }) {
     remove,
     update,
     get: (id) => players.get(id),
+    /** Danh sách người chơi đang thấy trên đảo (cho bảng "Ai đang online"). */
+    list: () =>
+      [...players.values()].filter((p) => p.hasMotion).map((p) => ({ id: p.id, profile: p.profile, position: p.root.position })),
     count: () => players.size,
   };
 }

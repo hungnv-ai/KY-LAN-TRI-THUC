@@ -168,6 +168,7 @@ async function boot() {
     supabase: session.supabase,
     userId: session.userId,
     isMoving: () => explore.isMoving(),
+    onGoTo: (x, z) => explore.teleportNear(x, z),
   });
 
   setupExpressions({ world, mascot, social });

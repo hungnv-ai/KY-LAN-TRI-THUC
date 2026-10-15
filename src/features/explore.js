@@ -313,5 +313,11 @@ export function createExplore({ world, island, mascot, sun, fx, onRankUp }) {
   // Chỉ khi chạy `npm run dev`: hỗ trợ kiểm thử tự động (không có trong bản build).
   if (import.meta.env.DEV) window.__klt = { player, island, pickups, world, fx, teleport: movement.teleport };
   window.addEventListener('pagehide', () => flushDistance());
-  return { update, isMoving: () => moving };
+  /** Dịch chuyển Kỳ lân tới cạnh một vị trí (vd tới chỗ bạn bè). */
+  function teleportNear(x, z) {
+    movement.teleport(x + 1.6, z + 1.2);
+    mascot.emote('wave');
+  }
+
+  return { update, isMoving: () => moving, teleportNear };
 }

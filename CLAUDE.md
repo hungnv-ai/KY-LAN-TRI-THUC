@@ -107,6 +107,7 @@ src/
     quickActions.js   # cột nút tròn bên phải (sticker, ảnh, quà, thú cưng, sự kiện, 🔔) + bảng chọn sticker
     photoView.js      # đếm ngược, khung ảnh VA, tải về/chia sẻ
     giftShopView.js / petView.js / cardView.js / eventView.js / bellView.js
+    peopleView.js     # danh sách người cùng đảo (bấm 👥) + nút "Tới chỗ bạn"
     quizView.js / wardrobeView.js / ranksView.js / todayView.js / quickQuestionView.js
   features/           # điều phối 1 tính năng lớn: nối scene + game + ui (không chứa luật thưởng)
     session.js        # khởi động: ngoại tuyến hay đăng nhập + hồ sơ
