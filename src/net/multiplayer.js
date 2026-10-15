@@ -38,9 +38,12 @@ export function createMultiplayer(opts) {
   let lastMotion = null;
   let timeoutTimer = 0;
 
+  // Cùng tài khoản mở ở tab/máy khác cũng gửi tin với id của mình → bỏ qua, không vẽ "bản sao".
+  const isMe = (id) => !id || id === opts.myId;
+
   const handlers = {
     join(id) {
-      if (id === opts.myId) return;
+      if (isMe(id)) return;
       ensurePeer(id);
     },
     leave(id) {
@@ -50,20 +53,24 @@ export function createMultiplayer(opts) {
     },
     profile(id, profile) {
       // Chỉ dùng ở chế độ BroadcastChannel (ngoại tuyến).
+      if (isMe(id)) return;
       const peer = ensurePeer(id);
       peer.profile = profile;
       opts.onPeerUpdate({ id, ...profile });
     },
     motion(id, motion) {
+      if (isMe(id)) return;
       const peer = ensurePeer(id);
       peer.lastSeen = performance.now();
       opts.onMotion(id, motion);
     },
     emote(id, name) {
+      if (isMe(id)) return;
       ensurePeer(id).lastSeen = performance.now();
       opts.onEmote(id, name);
     },
     profileChanged(id) {
+      if (isMe(id) || !peers.has(id)) return;
       refreshProfiles([id]);
     },
     kudos(msg) {
