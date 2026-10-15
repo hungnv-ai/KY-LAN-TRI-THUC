@@ -90,6 +90,7 @@ const IDLE_BORED_SEC = 28;
  *   emote: (name: keyof typeof EMOTES) => void,
  *   setMood: (name: keyof typeof EMOTES | null) => void,
  *   setLocomotion: (speed: number) => void,
+ *   onEmote: (fn: (name: string) => void) => () => void,
  *   headWorldPosition: (target?: THREE.Vector3) => THREE.Vector3,
  * }}
  */
@@ -143,9 +144,12 @@ export function createMascot() {
   let stepPhase = 0;
   const props = createPropLayer(head);
 
+  const emoteListeners = new Set();
+
   function play(name) {
     const def = EMOTES[name];
     if (!def) return;
+    emoteListeners.forEach((fn) => fn(name));
     current = { name, def, time: 0 };
     face.set(def.face);
     props.show(def.prop);
@@ -229,6 +233,11 @@ export function createMascot() {
     anchors,
     update,
     emote: play,
+    /** @param {(name: string) => void} fn được gọi mỗi khi Kỳ lân thể hiện cảm xúc */
+    onEmote(fn) {
+      emoteListeners.add(fn);
+      return () => emoteListeners.delete(fn);
+    },
     /** @param {number} speed 0 = đứng, 1 = đi bộ, >1 = chạy */
     setLocomotion(speed) {
       locomotion = speed;

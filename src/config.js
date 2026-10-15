@@ -84,3 +84,56 @@ export const EXPLORE = {
   GIFT_COIN_CHANCE: 0.6,
   GIFT_XP_CHANCE: 0.3,
 };
+
+/**
+ * Nhiệm vụ hằng ngày: mỗi ngày chọn 3 nhiệm vụ (giống nhau cho mọi người) từ danh mục này.
+ * `counter` là bộ đếm trong ngày (xem daily trong game/progress.js và bảng daily_counters).
+ */
+export const MISSIONS = {
+  PER_DAY: 3,
+  CATALOG: [
+    { id: 'checkin', label: 'Điểm danh hôm nay', counter: 'checkedIn', target: 1 },
+    { id: 'quiz', label: 'Hoàn thành 1 lượt Tri Thức', counter: 'quizRounds', target: 1 },
+    { id: 'stations', label: 'Chinh phục 2 Vùng Đất', counter: 'stationCount', target: 2 },
+    { id: 'coins', label: 'Nhặt 10 xu vàng', counter: 'coinPickups', target: 10 },
+    { id: 'distance', label: 'Chạy 300 m', counter: 'distance', target: 300 },
+    { id: 'runq', label: 'Trả lời 2 câu hỏi dọc đường', counter: 'runQuestions', target: 2 },
+    { id: 'gift', label: 'Mở 1 hộp quà bất ngờ', counter: 'gifts', target: 1 },
+    { id: 'thanks', label: 'Gửi 1 lời cảm ơn', counter: 'thanksSent', target: 1 },
+  ],
+  CHEST_XP: 30,
+  CHEST_COINS: 30,
+};
+
+/** Nhân Ái: thả tim & gửi lời cảm ơn cho người chơi khác. */
+export const KUDOS = {
+  THANKS_PER_DAY: 3,
+  THANKS_COINS_SENDER: 5,
+  THANKS_COINS_RECEIVER: 5,
+  HEARTS_PER_DAY: 20,
+  MESSAGE_MAX: 120,
+};
+
+/** Nhiều người chơi trên cùng đảo. */
+export const MULTIPLAYER = {
+  MAX_PER_ROOM: 20,
+  /** Gửi vị trí tối đa bấy nhiêu lần/giây khi đang di chuyển. */
+  SEND_RATE_HZ: 8,
+  /** Gửi "nhịp tim" khi đứng yên (giây). */
+  HEARTBEAT_SEC: 4,
+  /** Không nhận tin quá lâu (giây) thì coi như đã rời đảo. */
+  TIMEOUT_SEC: 15,
+  /** Kỳ lân người khác xa hơn bấy nhiêu mét thì vẽ đơn giản (chỉ bảng tên). */
+  DETAIL_DISTANCE: 22,
+  /** Số Kỳ lân người khác vẽ đầy đủ tối đa (gần nhất trước). */
+  MAX_DETAILED: 10,
+};
+
+/** Tên miền email được phép đăng nhập (GĐ2). Máy chủ kiểm tra lại danh sách này. */
+export const ALLOWED_EMAIL_DOMAINS = ['vaschools.edu.vn'];
+
+/** Phiếu quà hiện vật: tỉ lệ hộp quà ra phiếu (chờ BGH duyệt). 0 = tắt. */
+export const VOUCHER = {
+  GIFT_CHANCE: 0.01,
+  GIFT_TITLE: 'Phiếu quà may mắn',
+};

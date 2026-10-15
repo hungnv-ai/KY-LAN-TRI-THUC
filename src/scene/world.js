@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 /** Điểm camera nhìn vào (ngực/đầu Kỳ lân trên bục). */
-const LOOK_AT = new THREE.Vector3(0, 1.45, 0);
+const LOOK_AT = new THREE.Vector3(0, 1.75, 0);
 /** Hướng đặt camera (hơi chếch phải, nhìn hơi từ trên xuống). */
 const VIEW_DIR = new THREE.Vector3(0.22, 0.34, 1).normalize();
 const DIST_LANDSCAPE = 7.6;
@@ -24,7 +24,7 @@ const FOLLOW_GROUND_Y = 0.18;
  *
  * @param {HTMLElement} container
  * @returns {{ scene: THREE.Scene, camera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer,
- *   controls: OrbitControls, onTap: (object: THREE.Object3D, handler: () => void) => void,
+ *   controls: OrbitControls, onTap: (object: THREE.Object3D, handler: () => void) => () => void,
  *   toScreen: (world: THREE.Vector3) => { x: number, y: number },
  *   setPanelFocus: (open: boolean) => void, update: (delta: number) => void,
  *   follow: (position: THREE.Vector3) => void }}
@@ -85,16 +85,24 @@ export function createWorld(container) {
 
     pointer.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
     raycaster.setFromCamera(pointer, camera);
-    for (const { object, handler } of tapTargets) {
-      if (raycaster.intersectObject(object, true).length > 0) {
-        handler();
-        break;
-      }
+    // Chọn vật gần camera nhất (khi nhiều Kỳ lân đứng chồng nhau).
+    let best = null;
+    for (const entry of tapTargets) {
+      if (!entry.object.parent?.visible && entry.object.parent) continue;
+      const hit = raycaster.intersectObject(entry.object, true)[0];
+      if (hit && (!best || hit.distance < best.distance)) best = { distance: hit.distance, entry };
     }
+    best?.entry.handler();
   });
 
+  /** @returns {() => void} huỷ đăng ký */
   function onTap(object, handler) {
-    tapTargets.push({ object, handler });
+    const entry = { object, handler };
+    tapTargets.push(entry);
+    return () => {
+      const i = tapTargets.indexOf(entry);
+      if (i >= 0) tapTargets.splice(i, 1);
+    };
   }
 
   const projected = new THREE.Vector3();

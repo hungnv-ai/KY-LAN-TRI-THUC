@@ -6,6 +6,16 @@
     <meta name="theme-color" content="#9A0036" />
     <meta name="description" content="Kỳ Lân Tri Thức – game học tập theo 5 giá trị cốt lõi của VA Schools." />
     <title>Kỳ Lân Tri Thức – VA Schools</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" href="/icons/favicon-64.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Kỳ Lân" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Kỳ Lân Tri Thức – VA Schools" />
+    <meta property="og:description" content="Học mà chơi cùng Kỳ lân VA: 5 giá trị Nhân Ái · Bản Lĩnh · Tri Thức · Trách Nhiệm · Khai Phóng." />
+    <meta property="og:image" content="/og-image.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -34,6 +44,7 @@
         <span id="golden-pill" class="pill pill-golden" hidden>⏰ Giờ Vàng x2</span>
         <span class="pill" title="Chuỗi ngày điểm danh"><span aria-hidden="true">🔥</span><span id="streak-value">0</span></span>
         <span class="pill pill-coins" title="Xu"><span aria-hidden="true">🪙</span><span id="coins-value">0</span></span>
+        <button id="sound-btn" class="pill pill-btn" type="button" aria-label="Tắt âm thanh">🔊</button>
       </div>
     </header>
 
@@ -45,6 +56,8 @@
       </span>
       <span class="pill" title="Vùng Đất đã ghé hôm nay"><span aria-hidden="true">🗺️</span><span id="stations-value">0/5</span></span>
       <button id="home-btn" class="pill pill-btn" type="button" aria-label="Về quảng trường" title="Về quảng trường">🏠</button>
+      <a id="admin-link" class="pill pill-btn" href="/admin" title="Trang quản trị" aria-label="Trang quản trị" hidden>⚙️</a>
+      <span id="online-pill" class="pill pill-online" title="Số người đang ở cùng đảo" hidden><span aria-hidden="true">👥</span><span id="online-value">1</span></span>
     </div>
 
     <!-- Gợi ý phím (máy tính) & cần điều khiển (điện thoại) -->
@@ -60,7 +73,7 @@
     <nav class="nav" aria-label="Hoạt động">
       <button class="nav-btn" type="button" data-action="checkin" style="--accent: var(--trach-nhiem)">
         <span class="nav-icon" aria-hidden="true">📅</span>
-        <span class="nav-label">Điểm danh</span>
+        <span class="nav-label">Hôm nay</span>
         <span id="checkin-dot" class="nav-dot" hidden></span>
       </button>
       <button class="nav-btn nav-btn-main" type="button" data-action="quiz" style="--accent: var(--tri-thuc)">

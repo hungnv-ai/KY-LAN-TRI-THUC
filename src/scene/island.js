@@ -17,6 +17,8 @@ const PLATFORM_R = 1.5;
 const PLATFORM_H = 0.18;
 const PLATFORM_RAMP = 0.3;
 
+/** Chiều cao nhãn tên Vùng Đất (tỉ lệ so với chiều cao màn hình). */
+const LABEL_SCREEN_HEIGHT = 0.045;
 const BEAM_OPACITY = 0.22;
 const BEAM_OPACITY_DONE = 0.05;
 
@@ -378,7 +380,7 @@ const ZONE_DECOR = {
       const boulder = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), std(i % 2 ? '#AD9A8C' : '#8F7562', 0.95));
       boulder.position.y = s * 0.6;
       boulder.rotation.set(zone.rng(), zone.rng(), zone.rng());
-      const across = (i % 2 ? -1 : 1) * (2.8 + zone.rng() * 3);
+      const across = (i % 2 ? -1 : 1) * (3.6 + zone.rng() * 2.6);
       zone.add(boulder, (zone.rng() - 0.4) * 5, across, s);
     }
   },
@@ -586,8 +588,12 @@ function createLabelSprite(text, color, height = 0.7) {
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false }));
-  sprite.scale.set((height * width) / 112, height, 1);
+  // Giữ cỡ chữ cố định trên màn hình (không phóng to khổng lồ khi đứng gần).
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false, sizeAttenuation: false }),
+  );
+  const screenH = LABEL_SCREEN_HEIGHT * (height / 0.7);
+  sprite.scale.set((screenH * width) / 112, screenH, 1);
   return sprite;
 }
 

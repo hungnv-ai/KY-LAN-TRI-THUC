@@ -1,0 +1,17 @@
+{
+  "name": "Kỳ Lân Tri Thức – VA Schools",
+  "short_name": "Kỳ Lân",
+  "description": "Game học tập 3D theo 5 giá trị cốt lõi của VA Schools.",
+  "lang": "vi",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#F6EFE3",
+  "theme_color": "#9A0036",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

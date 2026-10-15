@@ -18,33 +18,54 @@ có thể làm theo bằng cách bấm chuột; Claude viết toàn bộ code.
 
 ```bash
 npm install       # cài dependency
-npm run dev       # chạy dev server
+npm run dev       # chạy dev server (không có .env.local → chế độ ngoại tuyến, lưu trên máy)
 npm run build     # build production vào dist/ — chạy lệnh này để kiểm tra trước khi commit
 npm run preview   # xem bản build
+npm run gen:sql   # sinh lại supabase/setup.sql từ supabase/sql/*.sql + dữ liệu trong src/
+npm run test:sql  # chạy kiểm thử máy chủ trên PostgreSQL 16 tạm (cần initdb/pg_ctl)
 ```
+
+Chế độ trực tuyến bật khi có `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (Vercel env hoặc
+`.env.local`). Hướng dẫn cài đặt cho người dùng: `docs/HUONG_DAN_TRIEN_KHAI.md`.
 
 ## Cấu trúc thư mục
 
 ```
 docs/GAME_DESIGN.md   # thiết kế game đã chốt — nguồn sự thật cho tính năng
+docs/HUONG_DAN_TRIEN_KHAI.md # hướng dẫn bấm chuột: Supabase, Google, Vercel, tên miền
 docs/mascot-reference/ # ẢNH MẪU mascot chuẩn + bảng sticker → cảm xúc — đối chiếu khi chỉnh hình 3D
-index.html            # canvas + HUD + thanh điều hướng + bảng trượt + toast + loading
+index.html            # game: canvas + HUD + thanh điều hướng + bảng trượt + toast + loading
+admin.html            # trang quản trị (/admin) cho giáo viên, BGH, quản trị
+vercel.json           # cache, header bảo mật, cleanUrls
+public/               # icon, manifest.webmanifest + sw.js (PWA), og-image
+supabase/
+  sql/01..06_*.sql    # máy chủ: bảng, hàm phụ, RPC người chơi, RPC xã hội, RPC nhân viên, quyền
+  setup.sql           # SINH TỰ ĐỘNG (npm run gen:sql) — file người dùng dán vào SQL Editor
+  tests/              # auth_stub.sql + test_game.sql (npm run test:sql)
+scripts/              # gen-seed.mjs (sinh setup.sql), test-sql.sh
 src/
   main.js             # entry: lắp ráp module + animation loop duy nhất
-  config.js           # hằng số cân bằng game (điểm thưởng, Giờ Vàng, giới hạn ngày), màu 5 giá trị
-  style.css           # giao diện (màu & font Be Vietnam Pro theo Design System VA)
-  data/               # dữ liệu tĩnh, không logic
+  config.js           # hằng số cân bằng game (điểm thưởng, Giờ Vàng, giới hạn ngày…) — cũng được
+                      #   gen-seed.mjs đẩy vào bảng game_settings, nên máy chủ dùng cùng con số
+  tokens.css / components.css / style.css  # màu-font VA, nút/hộp thoại dùng chung, giao diện game
+  data/               # dữ liệu tĩnh, không logic (cũng được sinh vào setup.sql)
     ranks.js          # 7 hạng + getRankInfo(xp)
     items.js          # danh mục trang phục, slot, độ hiếm
     questions.js      # ngân hàng câu hỏi (a[0] luôn là đáp án đúng)
     lines.js          # câu thoại của Kỳ lân
   game/               # logic thuần, KHÔNG đụng DOM/Three.js
-    progress.js       # XP, Xu, hạng, tủ đồ, điểm danh, chuỗi ngày, lưu trữ
-    quiz.js           # tạo lượt quiz, xáo đáp án
-    storage.js        # localStorage an toàn (GĐ2 thay bằng Supabase)
-    time.js           # ngày, Giờ Vàng
+    progress.js       # mặt tiền duy nhất UI gọi: đọc đồng bộ, ghi bất đồng bộ (trả {state})
+    localBackend.js   # luật thưởng chạy trên máy (ngoại tuyến) — giữ khớp với supabase/sql
+    remoteBackend.js  # gọi RPC Supabase cùng tên hàm
+    missions.js       # nhiệm vụ ngày (chọn theo ngày) + tiến độ
+    storage.js        # localStorage an toàn
+    time.js           # ngày (giờ VN), Giờ Vàng
+  net/
+    supabase.js       # client (tải lười), đăng nhập Google, kiểm tra tên miền email
+    multiplayer.js    # cùng đảo: Realtime presence/broadcast (hoặc BroadcastChannel khi ngoại tuyến)
+  audio/sfx.js        # âm thanh tổng hợp bằng Web Audio (không file âm thanh), nút tắt tiếng
   scene/              # Three.js
-    world.js          # renderer, camera, OrbitControls, chạm vào object
+    world.js          # renderer, camera, OrbitControls, chạm vào object, lệch khung khi mở bảng
     lights.js         # ánh sáng + environment map
     island.js         # hòn đảo: quảng trường, 5 đường đi, 5 Vùng Đất (cột + cảnh), va chạm, độ cao
     movement.js       # điều khiển nhân vật theo hướng camera, va chạm, quay mặt
@@ -53,16 +74,31 @@ src/
     mascotParts.js    # dựng chi tiết: bờm lửa cánh hoa, sừng, mắt/miệng nhiều kiểu, tay, huy hiệu
     emotes.js         # bộ cảm xúc theo sticker (wave, happy, cheer, oops, think, cry, faint, cool, bored)
     outfits.js        # dựng & gắn trang phục 3D theo item.model
-    loader.js         # tải .glb (để dành cho model 3D thật ở GĐ4)
+    fx.js             # hạt hiệu ứng (xu, sao, vòng sáng) dùng pool
+    nameTag.js        # bảng tên trên đầu: tên, hạng, Nhà
+    remotePlayers.js  # Kỳ lân người khác: nội suy, LOD theo khoảng cách
+    quality.js        # tự giảm/tăng chất lượng theo FPS
+    loader.js         # tải .glb (để dành cho model 3D thật)
   ui/                 # DOM
     dom.js            # h() tạo phần tử, formatNumber
-    hud.js            # thanh hạng/XP/Xu/chuỗi + loading
+    hud.js            # thanh hạng/XP/Xu/chuỗi, thanh Khám phá, số người online, nút âm thanh
     feedback.js       # toast, hộp thoại xác nhận/chúc mừng, bong bóng thoại
     sheet.js          # bảng trượt dùng chung (variant 'side' = không che Kỳ lân)
     controls.js       # bàn phím (mũi tên/WASD/Shift) + cần điều khiển ảo trên điện thoại
-    quizView.js / wardrobeView.js / ranksView.js / quickQuestionView.js
+    accountView.js    # màn hình đăng nhập + đặt bảng tên
+    profileCard.js    # thẻ người chơi khác: thả tim, gửi lời cảm ơn
+    flyFx.js          # xu/XP "bay" lên HUD
+    quizView.js / wardrobeView.js / ranksView.js / todayView.js / quickQuestionView.js
   features/           # điều phối 1 tính năng lớn: nối scene + game + ui (không chứa luật thưởng)
+    session.js        # khởi động: ngoại tuyến hay đăng nhập + hồ sơ
+    rewards.js        # hiệu ứng nhận thưởng, lên hạng
+    menu.js           # các nút điều hướng → mở bảng tương ứng
     explore.js        # Khám phá Vùng Đất: chạy, câu hỏi mỗi 100 m, cột Vùng Đất, xu, hộp quà
+    social.js         # nhiều người chơi trên đảo + chạm vào Kỳ lân người khác
+  admin/              # trang quản trị (chỉ chạy trực tuyến)
+    main.js           # đăng nhập, khung sidebar, điều hướng theo #hash, nhận quyền admin đầu tiên
+    api.js / widgets.js / charts.js / admin.css
+    pages/            # dashboard, questions (CSV), players (vai trò), vouchers, settings
 ```
 
 ## Quy tắc viết code mô-đun hoá
@@ -113,3 +149,19 @@ src/
 - Thay đổi nhỏ, tập trung; chạy `npm run build` (và `npm run dev` để kiểm tra trực quan
   nếu có thể) trước khi commit.
 - Cập nhật mục **Cấu trúc thư mục** ở trên khi thêm/xoá module.
+
+## Máy chủ (Supabase) — quy tắc riêng
+
+- **Máy chủ là trọng tài**: mọi phần thưởng tính trong hàm RPC `security definer`
+  (`supabase/sql/`). Bảng bật RLS; trình duyệt không ghi bảng trực tiếp. Đáp án câu hỏi không
+  bao giờ gửi xuống trình duyệt (dùng "vé câu hỏi").
+- Đổi luật thưởng ở **cả hai** nơi: `game/localBackend.js` và hàm SQL tương ứng; con số lấy từ
+  `src/config.js` (máy chủ đọc qua `game_settings` / `_cfg`). Thêm hàm RPC mới → thêm wrapper
+  cùng tên trong `game/remoteBackend.js` (hoặc `admin/api.js`).
+- SQL phải **chạy lại được nhiều lần**: `create … if not exists`, `create or replace function`,
+  `drop policy if exists`. Cột mới cho bảng đã có → `alter table … add column if not exists`
+  (vì `create table if not exists` không thêm cột). Hàm tên bắt đầu bằng `_` là nội bộ (bị thu
+  quyền ở `06_realtime_grants.sql`), không gọi từ RLS policy.
+- Sau khi sửa `supabase/sql/` hoặc dữ liệu trong `src/data/`, `src/config.js`: chạy
+  `npm run gen:sql` + `npm run test:sql`, commit cả `setup.sql`, và nhắc người dùng chạy lại
+  Bước 2 trong `docs/HUONG_DAN_TRIEN_KHAI.md`.

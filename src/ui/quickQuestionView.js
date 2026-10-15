@@ -2,22 +2,25 @@ import { TOPICS } from '../data/questions.js';
 import { h, formatNumber } from './dom.js';
 import { openSheet, closeSheet } from './sheet.js';
 
-const LETTERS = ['A', 'B', 'C', 'D'];
+const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
 /**
  * Câu hỏi đơn (khi chạy đủ quãng đường, hoặc thử thách ở cột Vùng Đất).
- * Dạng bảng bên để vẫn thấy Kỳ lân phản ứng.
+ * Dạng bảng bên để vẫn thấy Kỳ lân phản ứng. Đáp án do bộ xử lý (máy chủ) chấm.
  *
  * @param {{
  *   title: string,
  *   intro?: string,
  *   accent?: string,
- *   question: { topic: string, q: string, options: string[], correctIndex: number, explain?: string },
- *   onAnswer: (correct: boolean) => { xp: number, coins: number, golden?: boolean, rewarded?: boolean, extra?: string },
+ *   question: { ticketId: string, topic: string, q: string, options: string[] },
+ *   answer: (ticketId: string, choice: number) => Promise<{ correct: boolean, correctIndex: number, explain: string | null,
+ *     reward: { xp: number, coins: number, golden?: boolean, rewarded?: boolean } | null }>,
+ *   onResult: (res: object) => string | void  trả về dòng thông báo thêm (nếu có),
+ *   onError: (err: unknown) => void,
  *   onClose?: () => void,
  * }} options
  */
-export function openQuickQuestion({ title, intro, accent, question, onAnswer, onClose }) {
+export function openQuickQuestion({ title, intro, accent, question, answer, onResult, onError, onClose }) {
   const feedback = h('div', { class: 'quiz-feedback', hidden: true, 'aria-live': 'polite' });
   const actions = h('div', { class: 'quiz-actions' });
 
@@ -30,26 +33,37 @@ export function openQuickQuestion({ title, intro, accent, question, onAnswer, on
     ),
   );
 
-  function choose(i) {
-    const correct = i === question.correctIndex;
+  async function choose(i) {
+    buttons.forEach((btn) => (btn.disabled = true));
+    buttons[i].classList.add('is-pending');
+    let res;
+    try {
+      res = await answer(question.ticketId, i);
+    } catch (err) {
+      onError(err);
+      buttons.forEach((btn) => (btn.disabled = false));
+      buttons[i].classList.remove('is-pending');
+      return;
+    }
+    buttons[i].classList.remove('is-pending');
     buttons.forEach((btn, j) => {
-      btn.disabled = true;
-      if (j === question.correctIndex) btn.classList.add('is-correct');
+      if (j === res.correctIndex) btn.classList.add('is-correct');
       else if (j === i) btn.classList.add('is-wrong');
     });
-    const reward = onAnswer(correct);
+    const extra = onResult(res);
+    const reward = res.reward ?? { xp: 0, coins: 0, rewarded: false };
     const rewardText =
       reward.rewarded === false
         ? 'Đã hết lượt thưởng hôm nay — vẫn là một lần luyện tập tốt!'
         : `+${formatNumber(reward.xp)} XP${reward.golden ? ' (x2 Giờ Vàng)' : ''}${reward.coins ? `, +${formatNumber(reward.coins)} Xu` : ''}`;
     feedback.hidden = false;
     feedback.replaceChildren(
-      h('strong', {}, correct ? '🎉 Chính xác!' : '🌱 Chưa đúng — không sao, mình cùng học nhé!'),
-      !correct ? `Đáp án đúng: ${question.options[question.correctIndex]}. ` : '',
-      question.explain ? `${question.explain} ` : '',
+      h('strong', {}, res.correct ? '🎉 Chính xác!' : '🌱 Chưa đúng — không sao, mình cùng học nhé!'),
+      !res.correct ? `Đáp án đúng: ${question.options[res.correctIndex]}. ` : '',
+      res.explain ? `${res.explain} ` : '',
       h('br'),
       `🎁 ${rewardText}`,
-      reward.extra ? h('div', { style: { marginTop: '6px', fontWeight: '700' } }, reward.extra) : '',
+      extra ? h('div', { style: { marginTop: '6px', fontWeight: '700' } }, extra) : '',
     );
     const done = h('button', { class: 'btn btn-block', type: 'button', onclick: closeSheet }, 'Chạy tiếp 🏃');
     actions.replaceChildren(done);

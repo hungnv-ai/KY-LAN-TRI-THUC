@@ -1,64 +1,66 @@
-import { CHECK_IN, EXPLORE, GOLDEN_HOURS, QUIZ, SAVE_KEY, VALUES } from '../config.js';
-import { DEFAULT_EQUIPPED, ITEMS, STARTER_ITEMS, getItem } from '../data/items.js';
-import { getRankInfo, rankIndexOf } from '../data/ranks.js';
-import { loadJSON, saveJSON } from './storage.js';
-import { dayKey, isGoldenHour, yesterdayKey } from './time.js';
+import { EXPLORE, QUIZ, VALUES } from '../config.js';
+import { dayKey, yesterdayKey } from './time.js';
 
 /**
- * Tiến trình người chơi: XP, Xu, hạng, tủ đồ, chuỗi ngày, giới hạn hằng ngày.
+ * Tiến trình người chơi — lớp trung gian duy nhất mà phần còn lại của game dùng.
  *
- * GĐ1 lưu trên trình duyệt nên người rành kỹ thuật có thể sửa điểm. GĐ2 chuyển việc
- * tính điểm sang server (Supabase) — giữ nguyên API của module này để UI không phải sửa.
+ * - Bộ xử lý (backend): ngoại tuyến (localBackend.js) hoặc trực tuyến (remoteBackend.js, Supabase).
+ * - Đọc (getState, hasCheckedInToday, …) là đồng bộ, lấy từ bản sao trạng thái gần nhất.
+ * - Ghi (checkIn, buyItem, …) là bất đồng bộ (Promise): gửi tới bộ xử lý, nhận trạng thái mới,
+ *   cập nhật bản sao và báo cho các nơi đăng ký (HUD…).
  */
 
-/** @typedef {ReturnType<typeof createInitialState>} PlayerState */
+/** @typedef {object} PlayerState xem _state_json trong supabase/sql/02_helpers.sql */
 
-function createInitialState() {
-  return {
-    xp: 0,
-    coins: 50,
-    owned: [...STARTER_ITEMS],
-    equipped: { ...DEFAULT_EQUIPPED },
-    streak: { count: 0, lastDay: null },
-    daily: createDaily(),
-    stats: { answered: 0, correct: 0, rounds: 0, distance: 0 },
-  };
-}
-
-/** Giới hạn & tiến độ trong ngày (reset mỗi ngày). */
-function createDaily() {
-  return {
-    day: dayKey(),
-    checkedIn: false,
-    rewardedRounds: 0,
-    runQuestions: 0,
-    stations: [],
-    allStationsBonus: false,
-    coinPickups: 0,
-    gifts: 0,
-  };
-}
-
-let state = createInitialState();
+let backend = null;
+/** @type {PlayerState | null} */
+let state = null;
 const listeners = new Set();
 
-/** Nạp dữ liệu đã lưu (gọi một lần lúc khởi động). */
-export function initProgress() {
-  const saved = loadJSON(SAVE_KEY);
-  if (saved) {
-    const base = createInitialState();
-    state = {
-      ...base,
-      ...saved,
-      equipped: { ...base.equipped, ...saved.equipped },
-      streak: { ...base.streak, ...saved.streak },
-      daily: { ...base.daily, ...saved.daily },
-      stats: { ...base.stats, ...saved.stats },
-    };
-  }
-  rollDailyIfNeeded();
-  grantRankRewards();
-  persist();
+/** Thông báo lỗi thân thiện theo mã lỗi máy chủ. */
+const ERROR_MESSAGES = {
+  not_enough_coins: 'Bạn chưa đủ Xu.',
+  already_owned: 'Bạn đã có món này rồi.',
+  item_not_buyable: 'Món này chỉ mở khoá khi lên hạng.',
+  not_owned: 'Bạn chưa sở hữu món này.',
+  email_domain_not_allowed: 'Chỉ tài khoản @vaschools.edu.vn được chơi.',
+  not_authenticated: 'Phiên đăng nhập đã hết, vui lòng đăng nhập lại.',
+  invalid_display_name: 'Tên hiển thị cần từ 2 đến 24 ký tự.',
+  invalid_unit: 'Vui lòng nhập bộ phận / lớp (tối đa 24 ký tự).',
+  cannot_kudos_self: 'Không thể gửi cho chính mình.',
+  online_only: 'Tính năng này cần đăng nhập (chế độ trực tuyến).',
+  ticket_expired: 'Câu hỏi đã hết hạn.',
+  not_enough_distance: 'Chạy thêm một chút nữa nhé!',
+  no_questions: 'Ngân hàng câu hỏi đang trống.',
+};
+
+/**
+ * @param {unknown} err
+ * @returns {string} thông báo tiếng Việt cho người chơi
+ */
+export function friendlyError(err) {
+  const msg = String(err?.message ?? err ?? '');
+  const key = Object.keys(ERROR_MESSAGES).find((k) => msg.includes(k));
+  if (key) return ERROR_MESSAGES[key];
+  if (/fetch|network|Failed to/i.test(msg)) return 'Mất kết nối mạng — thử lại sau giây lát nhé.';
+  return 'Có lỗi xảy ra, vui lòng thử lại.';
+}
+
+/**
+ * Khởi tạo với một bộ xử lý và nạp trạng thái.
+ *
+ * @param {object} chosenBackend createLocalBackend() | createRemoteBackend()
+ * @returns {Promise<PlayerState>}
+ */
+export async function initProgress(chosenBackend) {
+  backend = chosenBackend;
+  setState(await backend.getState());
+  return state;
+}
+
+/** @returns {'local' | 'remote'} */
+export function backendMode() {
+  return backend?.mode ?? 'local';
 }
 
 /** @returns {Readonly<PlayerState>} */
@@ -67,138 +69,116 @@ export function getState() {
 }
 
 /**
- * Đăng ký nhận thông báo khi dữ liệu thay đổi.
- *
  * @param {(state: PlayerState) => void} fn
- * @returns {() => void} hàm huỷ đăng ký
+ * @returns {() => void} huỷ đăng ký
  */
 export function onProgressChange(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
 }
 
-function persist() {
-  saveJSON(SAVE_KEY, state);
+function setState(next) {
+  if (!next) return;
+  state = next;
   listeners.forEach((fn) => fn(state));
 }
 
-/** Sang ngày mới thì reset giới hạn hằng ngày. */
-function rollDailyIfNeeded() {
-  const today = dayKey();
-  if (state.daily.day !== today) {
-    state.daily = createDaily();
-  }
+/** Gọi bộ xử lý; nếu kết quả có `state` thì cập nhật bản sao. */
+async function call(method, ...args) {
+  const res = await backend[method](...args);
+  if (res && typeof res === 'object' && 'state' in res) setState(res.state);
+  return res;
 }
 
-/** Tự trao các món đồ phần thưởng hạng mà người chơi đã đủ điều kiện. */
-function grantRankRewards() {
-  const { index } = getRankInfo(state.xp);
-  const unlocked = [];
-  for (const item of ITEMS) {
-    if (item.rank && rankIndexOf(item.rank) <= index && !state.owned.includes(item.id)) {
-      state.owned.push(item.id);
-      unlocked.push(item);
-    }
-  }
-  return unlocked;
+/** Tải lại trạng thái từ bộ xử lý (sang ngày mới, quay lại tab…). */
+export async function refreshState() {
+  setState(await backend.getState());
 }
+
+// ── Đọc nhanh từ bản sao ─────────────────────────────────────────────────
 
 /**
- * Cộng thưởng. XP được nhân Giờ Vàng.
- *
- * @param {{ xp?: number, coins?: number }} reward
- * @returns {{ xp: number, coins: number, golden: boolean, rankUp: null | { from: object, to: object, items: object[] } }}
+ * Bộ đếm hôm nay. Trực tuyến: máy chủ luôn trả về đúng "hôm nay" theo giờ Việt Nam →
+ * tin máy chủ (máy người chơi có thể để sai múi giờ). Ngoại tuyến: so với ngày của máy.
  */
-export function grantReward({ xp = 0, coins = 0 }) {
-  rollDailyIfNeeded();
-  const golden = isGoldenHour();
-  const xpGained = golden ? xp * GOLDEN_HOURS.XP_MULTIPLIER : xp;
-
-  const before = getRankInfo(state.xp);
-  state.xp += xpGained;
-  state.coins += coins;
-  const after = getRankInfo(state.xp);
-
-  let rankUp = null;
-  if (after.index > before.index) {
-    rankUp = { from: before.rank, to: after.rank, items: grantRankRewards() };
-  }
-  persist();
-  return { xp: xpGained, coins, golden, rankUp };
+function today() {
+  if (backend?.mode === 'remote') return state.daily;
+  return state.daily.day === dayKey() ? state.daily : null;
 }
 
-/** @returns {boolean} hôm nay đã điểm danh chưa */
+/** Ngày tham chiếu "hôm nay" và "hôm qua" dạng YYYY-MM-DD. */
+function referenceDays() {
+  if (backend?.mode === 'remote' && state.daily?.day) {
+    const d = new Date(`${state.daily.day}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 1);
+    return { today: state.daily.day, yesterday: d.toISOString().slice(0, 10) };
+  }
+  return { today: dayKey(), yesterday: yesterdayKey() };
+}
+
+/** @returns {boolean} */
 export function hasCheckedInToday() {
-  rollDailyIfNeeded();
-  return state.daily.checkedIn;
+  return Boolean(today()?.checkedIn);
 }
 
-/**
- * Chuỗi ngày hiển thị: nếu bỏ lỡ hơn 1 ngày thì chuỗi coi như đã đứt (0).
- *
- * @returns {number}
- */
+/** @returns {number} chuỗi ngày còn hiệu lực (đứt nếu bỏ lỡ hơn 1 ngày) */
 export function getActiveStreak() {
   const { count, lastDay } = state.streak;
-  return lastDay === dayKey() || lastDay === yesterdayKey() ? count : 0;
+  const ref = referenceDays();
+  return lastDay === ref.today || lastDay === ref.yesterday ? count : 0;
 }
 
-/**
- * Điểm danh hằng ngày (Trách Nhiệm).
- *
- * @returns {null | (ReturnType<typeof grantReward> & { streak: number })} null nếu đã điểm danh hôm nay
- */
-export function checkIn() {
-  if (hasCheckedInToday()) return null;
-
-  const streak = getActiveStreak() + 1;
-  state.streak = { count: streak, lastDay: dayKey() };
-  state.daily.checkedIn = true;
-
-  const bonusDays = Math.min(streak, CHECK_IN.STREAK_BONUS_MAX_DAYS);
-  const result = grantReward({
-    xp: CHECK_IN.XP,
-    coins: CHECK_IN.COINS + bonusDays * CHECK_IN.STREAK_BONUS_COINS_PER_DAY,
-  });
-  return { ...result, streak };
-}
-
-/** @returns {number} số lượt quiz có thưởng còn lại hôm nay */
+/** @returns {number} */
 export function rewardedRoundsLeft() {
-  rollDailyIfNeeded();
-  return Math.max(0, QUIZ.REWARDED_ROUNDS_PER_DAY - state.daily.rewardedRounds);
+  return Math.max(0, QUIZ.REWARDED_ROUNDS_PER_DAY - (today()?.rewardedRounds ?? 0));
+}
+
+/** @returns {number} */
+export function runQuestionsLeft() {
+  return Math.max(0, EXPLORE.RUN_QUESTIONS_REWARDED_PER_DAY - (today()?.runQuestions ?? 0));
+}
+
+/** @param {string} valueId */
+export function isStationDone(valueId) {
+  return Boolean(today()?.stations.includes(valueId));
+}
+
+/** @returns {number} */
+export function stationsDoneCount() {
+  return today()?.stations.length ?? 0;
+}
+
+/** @returns {number} */
+export function coinPickupsLeft() {
+  return Math.max(0, EXPLORE.COIN_PICKUPS_PER_DAY - (today()?.coinPickups ?? 0));
+}
+
+/** @returns {number} */
+export function giftsLeft() {
+  return Math.max(0, EXPLORE.GIFTS_PER_DAY - (today()?.gifts ?? 0));
+}
+
+/** @returns {{ id: string, label: string, target: number, progress: number, done: boolean }[]} */
+export function getMissions() {
+  return today()?.missions ?? [];
+}
+
+/** @returns {boolean} */
+export function isChestClaimed() {
+  return Boolean(today()?.chestClaimed);
+}
+
+/** @returns {{ id: string, displayName: string | null, unit: string | null, role: string, house: string }} */
+export function getProfile() {
+  return state.profile;
+}
+
+/** @returns {{ id: string, name: string, color: string } | null} Nhà của người chơi */
+export function getHouse() {
+  return VALUES.find((v) => v.id === state.profile.house) ?? null;
 }
 
 /**
- * Ghi nhận kết thúc một lượt quiz và trao thưởng (nếu còn lượt có thưởng).
- *
- * @param {{ correct: number, total: number }} result
- * @returns {ReturnType<typeof grantReward> & { rewarded: boolean, perfect: boolean }}
- */
-export function completeQuizRound({ correct, total }) {
-  rollDailyIfNeeded();
-  state.stats.answered += total;
-  state.stats.correct += correct;
-  state.stats.rounds += 1;
-
-  const perfect = correct === total;
-  if (rewardedRoundsLeft() <= 0) {
-    persist();
-    return { xp: 0, coins: 0, golden: false, rankUp: null, rewarded: false, perfect };
-  }
-
-  state.daily.rewardedRounds += 1;
-  const wrong = total - correct;
-  const reward = grantReward({
-    xp: correct * QUIZ.XP_PER_CORRECT + wrong * QUIZ.XP_PER_TRY + (perfect ? QUIZ.PERFECT_BONUS_XP : 0),
-    coins: correct * QUIZ.COINS_PER_CORRECT + (perfect ? QUIZ.PERFECT_BONUS_COINS : 0),
-  });
-  return { ...reward, rewarded: true, perfect };
-}
-
-/**
- * Trạng thái một món đồ với người chơi hiện tại.
- *
  * @param {object} item
  * @returns {'equipped' | 'owned' | 'buyable' | 'tooPoor' | 'locked'}
  */
@@ -209,166 +189,87 @@ export function itemStatus(item) {
   return state.coins >= item.price ? 'buyable' : 'tooPoor';
 }
 
+// ── Hành động (bất đồng bộ) ──────────────────────────────────────────────
+
+/** @returns {Promise<object>} */
+export async function updateProfile(displayName, unit) {
+  return call('updateProfile', displayName, unit);
+}
+
+/** @returns {Promise<null | { xp: number, coins: number, golden: boolean, rankUp: object | null, streak: number }>} */
+export async function checkIn() {
+  return (await call('claimCheckin')).result;
+}
+
 /**
- * Mua một món đồ bằng Xu.
+ * Bắt đầu lượt quiz: câu hỏi KHÔNG kèm đáp án.
  *
- * @param {string} itemId
- * @returns {boolean} thành công hay không
+ * @returns {Promise<{ roundId: string, rewarded: boolean, timeLimit: number,
+ *   questions: { ticketId: string, topic: string, q: string, options: string[] }[] }>}
  */
-export function buyItem(itemId) {
-  const item = getItem(itemId);
-  if (!item || itemStatus(item) !== 'buyable') return false;
-  state.coins -= item.price;
-  state.owned.push(item.id);
-  persist();
-  return true;
+export async function startQuizRound() {
+  return call('startQuizRound');
 }
 
 /**
- * Mặc một món đồ đã sở hữu.
+ * @returns {Promise<{ correct: boolean, correctIndex: number, explain: string | null, reward: object | null }>}
+ */
+export async function answerQuestion(ticketId, choice) {
+  return call('answerTicket', ticketId, choice);
+}
+
+/** @returns {Promise<object>} kết quả thưởng của lượt quiz */
+export async function finishQuizRound(roundId) {
+  return (await call('finishQuizRound', roundId)).result;
+}
+
+/**
+ * Câu hỏi dọc đường ('run') hoặc thử thách cột Vùng Đất ('station').
  *
- * @param {string} itemId
- * @returns {boolean}
+ * @returns {Promise<{ ticketId: string, topic: string, q: string, options: string[] } | { done: true }>}
  */
-export function equipItem(itemId) {
-  const item = getItem(itemId);
-  if (!item || !state.owned.includes(itemId)) return false;
-  state.equipped[item.slot] = itemId;
-  persist();
-  return true;
+export async function askQuestion(kind, station = null) {
+  return call('issueQuestion', kind, station);
 }
 
-// ── Chế độ Khám phá Vùng Đất ──────────────────────────────────────────────
-
-/**
- * Cộng quãng đường đã chạy (gọi theo từng chặng ngắn, không gọi mỗi frame).
- *
- * @param {number} meters
- */
-export function addDistance(meters) {
-  state.stats.distance += meters;
-  persist();
+/** @param {number} meters */
+export async function addDistance(meters) {
+  return call('addDistance', meters);
 }
 
-/** @returns {number} số câu hỏi nhanh (khi chạy) còn được thưởng hôm nay */
-export function runQuestionsLeft() {
-  rollDailyIfNeeded();
-  return Math.max(0, EXPLORE.RUN_QUESTIONS_REWARDED_PER_DAY - state.daily.runQuestions);
+/** @returns {Promise<boolean>} */
+export async function collectCoin() {
+  return (await call('collectCoin')).ok;
 }
 
-/**
- * Trả lời câu hỏi nhanh xuất hiện mỗi chặng đường.
- *
- * @param {boolean} correct
- * @returns {ReturnType<typeof grantReward> & { rewarded: boolean }}
- */
-export function completeRunQuestion(correct) {
-  recordAnswer(correct);
-  if (runQuestionsLeft() <= 0) {
-    persist();
-    return { xp: 0, coins: 0, golden: false, rankUp: null, rewarded: false };
-  }
-  state.daily.runQuestions += 1;
-  const reward = correct
-    ? grantReward({ xp: EXPLORE.RUN_QUESTION_XP, coins: EXPLORE.RUN_QUESTION_COINS })
-    : grantReward({ xp: EXPLORE.RUN_QUESTION_TRY_XP });
-  return { ...reward, rewarded: true };
+/** @returns {Promise<null | { kind: string, amount: number, item: object | null, voucher: object | null, reward: object }>} */
+export async function openGift() {
+  return (await call('openGift')).result;
 }
 
-/**
- * @param {string} valueId
- * @returns {boolean} hôm nay đã làm thử thách ở cột Vùng Đất này chưa
- */
-export function isStationDone(valueId) {
-  rollDailyIfNeeded();
-  return state.daily.stations.includes(valueId);
+/** @returns {Promise<void>} */
+export async function buyItem(itemId) {
+  await call('buyItem', itemId);
 }
 
-/** @returns {number} số Vùng Đất đã ghé hôm nay */
-export function stationsDoneCount() {
-  rollDailyIfNeeded();
-  return state.daily.stations.length;
+/** @returns {Promise<void>} */
+export async function equipItem(itemId) {
+  await call('equipItem', itemId);
 }
 
-/**
- * Hoàn thành thử thách ở cột Vùng Đất (mỗi cột 1 lần có thưởng / ngày).
- * Ghé đủ 5 Vùng Đất trong ngày được thưởng thêm "Nhà thám hiểm".
- *
- * @param {string} valueId
- * @param {boolean} correct
- * @returns {null | (ReturnType<typeof grantReward> & { allStations: null | ReturnType<typeof grantReward> })}
- *   null nếu hôm nay đã làm cột này
- */
-export function completeStation(valueId, correct) {
-  if (isStationDone(valueId)) return null;
-  recordAnswer(correct);
-  state.daily.stations.push(valueId);
-  const reward = correct
-    ? grantReward({ xp: EXPLORE.STATION_XP, coins: EXPLORE.STATION_COINS })
-    : grantReward({ xp: EXPLORE.STATION_TRY_XP });
-
-  let allStations = null;
-  if (state.daily.stations.length >= VALUES.length && !state.daily.allStationsBonus) {
-    state.daily.allStationsBonus = true;
-    allStations = grantReward({ xp: EXPLORE.ALL_STATIONS_XP, coins: EXPLORE.ALL_STATIONS_COINS });
-  }
-  return { ...reward, allStations };
+/** @returns {Promise<null | object>} phần thưởng rương nhiệm vụ */
+export async function claimMissionChest() {
+  return (await call('claimMissionChest')).result;
 }
 
-/** @returns {number} số xu vàng còn nhặt được hôm nay */
-export function coinPickupsLeft() {
-  rollDailyIfNeeded();
-  return Math.max(0, EXPLORE.COIN_PICKUPS_PER_DAY - state.daily.coinPickups);
+/** @returns {Promise<{ ok: boolean, reason?: string, reward?: object }>} */
+export async function sendKudos(toUserId, kind, message) {
+  return call('sendKudos', toUserId, kind, message);
 }
 
-/**
- * Nhặt 1 xu vàng trên đường.
- *
- * @returns {boolean} có được cộng xu không (hết giới hạn ngày thì không)
- */
-export function collectCoin() {
-  if (coinPickupsLeft() <= 0) return false;
-  state.daily.coinPickups += 1;
-  state.coins += 1;
-  persist();
-  return true;
-}
-
-/** @returns {number} số hộp quà còn mở được hôm nay */
-export function giftsLeft() {
-  rollDailyIfNeeded();
-  return Math.max(0, EXPLORE.GIFTS_PER_DAY - state.daily.gifts);
-}
-
-/**
- * Mở hộp quà bất ngờ: Xu, XP, hoặc (hiếm) một món trang phục chưa có — miễn phí.
- *
- * @returns {null | { kind: 'coins' | 'xp' | 'item', amount: number, item: object | null,
- *   reward: ReturnType<typeof grantReward> }}
- */
-export function openGift() {
-  if (giftsLeft() <= 0) return null;
-  state.daily.gifts += 1;
-
-  const roll = Math.random();
-  if (roll >= EXPLORE.GIFT_COIN_CHANCE + EXPLORE.GIFT_XP_CHANCE) {
-    const candidates = ITEMS.filter((item) => item.price > 0 && !item.rank && !state.owned.includes(item.id));
-    if (candidates.length) {
-      const item = candidates[Math.floor(Math.random() * candidates.length)];
-      state.owned.push(item.id);
-      return { kind: 'item', amount: 0, item, reward: grantReward({}) };
-    }
-  }
-  if (roll < EXPLORE.GIFT_COIN_CHANCE || roll >= EXPLORE.GIFT_COIN_CHANCE + EXPLORE.GIFT_XP_CHANCE) {
-    const amount = 5 + Math.floor(Math.random() * 11);
-    return { kind: 'coins', amount, item: null, reward: grantReward({ coins: amount }) };
-  }
-  const amount = 5 + Math.floor(Math.random() * 8);
-  const reward = grantReward({ xp: amount });
-  return { kind: 'xp', amount: reward.xp, item: null, reward };
-}
-
-function recordAnswer(correct) {
-  state.stats.answered += 1;
-  if (correct) state.stats.correct += 1;
-}
+export const getPublicProfiles = (ids) => backend.publicProfiles(ids);
+export const getPublicProfile = (id) => backend.publicProfile(id);
+export const getMyKudos = () => backend.myKudos();
+export const getMyVouchers = () => backend.myVouchers();
+export const getLeaderboard = (scope, unit) => backend.leaderboard(scope, unit);
+export const getHouseStandings = () => backend.houseStandings();
