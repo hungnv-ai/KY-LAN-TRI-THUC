@@ -121,7 +121,7 @@ src/
     events.js         # sự kiện theo mùa: trang trí + nút sự kiện
     goldenBell.js     # Rung Chuông Vàng: lịch trận, điều khiển bảng thi theo đồng hồ máy chủ
     overview.js       # 🔭 Toàn cảnh đảo (camera bay lên cao / bay về)
-    intro.js          # màn chào: camera lượn quanh đảo (mỗi ngày 1 lần)
+    intro.js          # màn chào: camera lượn quanh đảo (mỗi lần vào game, chạm để bỏ qua)
     zoneGrowth.js     # Vùng Đất lớn lên theo XP tháng của Nhà (house_standings, ZONE_GROWTH)
   admin/              # trang quản trị (chỉ chạy trực tuyến)
     main.js           # đăng nhập, khung sidebar, điều hướng theo #hash, nhận quyền admin đầu tiên
