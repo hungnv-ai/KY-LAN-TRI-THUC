@@ -106,6 +106,15 @@ export function setupOverviewButton(onToggle) {
   return { set };
 }
 
+/**
+ * Ẩn giao diện trong lúc chạy màn chào (camera lượn quanh đảo).
+ *
+ * @param {boolean} on
+ */
+export function setIntroMode(on) {
+  document.body.classList.toggle('is-intro', on);
+}
+
 export function onHomeClick(handler) {
   els.homeBtn.addEventListener('click', handler);
 }

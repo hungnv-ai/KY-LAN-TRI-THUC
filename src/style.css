@@ -2130,3 +2130,20 @@ body.is-overview .nav {
     top: calc(max(8px, env(safe-area-inset-top)) + 96px);
   }
 }
+
+/* Màn chào: ẩn giao diện để camera lượn quanh đảo trọn vẹn. */
+body.is-intro .hud,
+body.is-intro .explore-bar,
+body.is-intro .nav,
+body.is-intro .quick-actions,
+body.is-intro .joystick,
+body.is-intro .key-hint,
+body.is-intro .speech {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hud,
+.explore-bar {
+  transition: opacity 0.4s;
+}

@@ -88,6 +88,7 @@ export function createScenery(scene) {
   );
   shallow.rotation.x = -Math.PI / 2;
   shallow.position.y = -0.22;
+  shallow.name = 'shallow'; // scene/dayCycle.js đổi màu theo giờ
   root.add(shallow);
   // Vệt sóng trắng mảnh sát bờ (nhấp nhô nhẹ).
   const foam = new THREE.Mesh(

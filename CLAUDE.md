@@ -91,6 +91,9 @@ src/
     goldenBell.js     # chuông vàng 3D trên quảng trường
     scenery.js        # cảnh trang trí: mây, nước nông, đảo xa, hoa trên cỏ, chim
     labelFader.js     # biển chữ mờ dần khi ở xa (sprite.userData.fade = { near, far, overview })
+    dayCycle.js       # ngày–hoàng hôn–đêm theo giờ VN (?time=19.5 để xem thử): trời, nắng, sao, đèn lồng, đom đóm
+    sea.js            # biển lấp lánh, cá nhảy, thuyền buồm VA
+    zoneGrowth.js     # trang trí Vùng Đất theo cấp 0–4 (hoa → pha lê → sao → cầu vồng)
     loader.js         # tải .glb (để dành cho model 3D thật)
   ui/                 # DOM
     dom.js            # h() tạo phần tử, formatNumber
@@ -117,6 +120,8 @@ src/
     events.js         # sự kiện theo mùa: trang trí + nút sự kiện
     goldenBell.js     # Rung Chuông Vàng: lịch trận, điều khiển bảng thi theo đồng hồ máy chủ
     overview.js       # 🔭 Toàn cảnh đảo (camera bay lên cao / bay về)
+    intro.js          # màn chào: camera lượn quanh đảo (mỗi ngày 1 lần)
+    zoneGrowth.js     # Vùng Đất lớn lên theo XP tháng của Nhà (house_standings, ZONE_GROWTH)
   admin/              # trang quản trị (chỉ chạy trực tuyến)
     main.js           # đăng nhập, khung sidebar, điều hướng theo #hash, nhận quyền admin đầu tiên
     api.js / widgets.js / charts.js / admin.css
