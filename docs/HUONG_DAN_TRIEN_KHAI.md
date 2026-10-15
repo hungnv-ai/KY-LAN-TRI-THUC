@@ -114,6 +114,10 @@ Mục tiêu: chỉ người có email `@vaschools.edu.vn` đăng nhập được
 2. Ở thanh trên cùng, bấm ô chọn dự án (cạnh logo Google Cloud) → **New project**
    → tên `Ky Lan Tri Thuc` → **Organization** để là `vaschools.edu.vn` → **Create**.
    Chờ vài giây rồi chọn đúng dự án vừa tạo.
+   > **Báo "quota limit for creating projects" (hết lượt tạo dự án)?** Dùng chung một dự án có sẵn
+   > của trường (ví dụ `VA Runners Vote`): chọn dự án đó, **bỏ qua 4b mục 3–4** (màn hình đồng ý đã
+   > có), chỉ kiểm tra ở **Audience** thấy **Internal** (hoặc *In production*), rồi làm **4c** để tạo
+   > **client mới riêng** cho game. **Không sửa client cũ** — sẽ làm hỏng đăng nhập của ứng dụng kia.
 3. Ô tìm kiếm trên cùng gõ **Google Auth Platform** (hoặc vào menu ☰ → **APIs & Services**
    → **OAuth consent screen**) → bấm **Get started**.
 4. Điền lần lượt:
