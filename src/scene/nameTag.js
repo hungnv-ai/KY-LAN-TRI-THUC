@@ -3,7 +3,7 @@ import { VALUES } from '../config.js';
 import { getRankInfo } from '../data/ranks.js';
 
 /** Chiều cao bảng tên (đơn vị sprite không co giãn) — giữ cố định khi đứng gần/xa. */
-const SCREEN_HEIGHT = 0.05;
+const SCREEN_HEIGHT = 0.038;
 /** Độ cao bảng tên phía trên chân Kỳ lân (m). */
 export const NAME_TAG_Y = 2.95;
 
