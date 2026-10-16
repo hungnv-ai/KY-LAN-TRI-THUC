@@ -1,11 +1,14 @@
 import { createLocalBackend } from '../game/localBackend.js';
 import { createRemoteBackend } from '../game/remoteBackend.js';
 import { friendlyError, getProfile, initProgress, updateProfile } from '../game/progress.js';
-import { getSession, getSupabase, isAllowedEmail, isOnlineConfigured, signInWithGoogle, signOut } from '../net/supabase.js';
+import { fetchMaintenance, getSession, getSupabase, isAllowedEmail, isOnlineConfigured, signInWithGoogle, signOut } from '../net/supabase.js';
 import { showLoginScreen, showProfileSetup } from '../ui/accountView.js';
+import { closeMaintenance, showMaintenance } from '../ui/maintenanceView.js';
 
 /** Cho phép "chơi thử không đăng nhập" khi đã có máy chủ? (false = bắt buộc đăng nhập). */
 const ALLOW_OFFLINE_WHEN_ONLINE = false;
+/** Màn hình bảo trì tự kiểm tra lại sau mỗi chừng này (ms). */
+const MAINTENANCE_RECHECK_MS = 30000;
 
 /**
  * Bắt đầu phiên chơi: chọn bộ xử lý (ngoại tuyến / Supabase), đăng nhập Google nếu cần,
@@ -22,9 +25,18 @@ export async function startSession() {
 
   const supabase = await getSupabase();
   let error = null;
+  let staffLogin = false;
 
   for (;;) {
     const session = await getSession();
+    // Đang bảo trì: người chơi thấy màn hình bảo trì; giáo viên / quản trị vẫn đăng nhập để kiểm tra.
+    const maint = await fetchMaintenance();
+    if (maint.on && !maint.canBypass && (session || !staffLogin)) {
+      const action = await waitForMaintenance(maint, Boolean(session));
+      if (action === 'login') staffLogin = true;
+      if (action === 'switch') await signOut();
+      continue;
+    }
     if (session) {
       if (!isAllowedEmail(session.user.email)) {
         await signOut();
@@ -56,6 +68,36 @@ export async function startSession() {
       return { mode: 'local', supabase: null, userId: localPlayerId() };
     }
   }
+}
+
+/**
+ * Hiện màn hình bảo trì cho tới khi: bảo trì xong ('open'), nhân viên muốn đăng nhập ('login')
+ * hoặc người chơi đổi tài khoản ('switch').
+ *
+ * @param {{ message: string }} maint
+ * @param {boolean} signedIn
+ * @returns {Promise<'open' | 'login' | 'switch'>}
+ */
+function waitForMaintenance(maint, signedIn) {
+  return new Promise((resolve) => {
+    let timer = 0;
+    const finish = (action) => {
+      clearInterval(timer);
+      closeMaintenance();
+      resolve(action);
+    };
+    const recheck = async () => {
+      const now = await fetchMaintenance();
+      if (!now.on || now.canBypass) finish('open');
+    };
+    showMaintenance({
+      message: maint.message,
+      onRetry: recheck,
+      onStaffLogin: signedIn ? undefined : () => finish('login'),
+      onSwitchAccount: signedIn ? () => finish('switch') : undefined,
+    });
+    timer = setInterval(recheck, MAINTENANCE_RECHECK_MS);
+  });
 }
 
 /** Lần đầu vào game: khai báo tên hiển thị + bộ phận/lớp cho bảng tên. */

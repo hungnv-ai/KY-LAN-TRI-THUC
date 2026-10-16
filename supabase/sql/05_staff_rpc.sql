@@ -262,3 +262,27 @@ begin
   return jsonb_build_object('ok', true);
 end;
 $$;
+
+
+-- ── Bảo trì game ──────────────────────────────────────────────────────────
+-- Ai cũng đọc được (kể cả chưa đăng nhập) để hiện màn hình "Đang bảo trì".
+create or replace function public.maintenance_status()
+returns jsonb language sql stable security definer set search_path = public as $$
+  select jsonb_build_object(
+    'on', coalesce((public._cfg('MAINTENANCE') ->> 'on')::boolean, false),
+    'message', coalesce(public._cfg('MAINTENANCE') ->> 'message', ''),
+    'canBypass', public.is_staff()
+  );
+$$;
+
+-- BGH / Quản trị bật–tắt bảo trì và sửa lời nhắn.
+create or replace function public.admin_set_maintenance(p_on boolean, p_message text default '')
+returns jsonb language plpgsql security definer set search_path = public as $$
+begin
+  perform public._require_manager();
+  insert into game_settings (key, value)
+  values ('MAINTENANCE', jsonb_build_object('on', coalesce(p_on, false), 'message', left(coalesce(trim(p_message), ''), 500)))
+  on conflict (key) do update set value = excluded.value, updated_at = now();
+  return public.maintenance_status();
+end;
+$$;

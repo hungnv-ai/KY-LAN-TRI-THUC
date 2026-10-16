@@ -51,6 +51,19 @@ export async function signInWithGoogle() {
   if (error) throw error;
 }
 
+/**
+ * Trạng thái bảo trì (đọc được cả khi chưa đăng nhập).
+ *
+ * @returns {Promise<{ on: boolean, message: string, canBypass: boolean }>} lỗi mạng / máy chủ cũ → coi như không bảo trì
+ */
+export async function fetchMaintenance() {
+  const supabase = await getSupabase();
+  if (!supabase) return { on: false, message: '', canBypass: false };
+  const { data, error } = await supabase.rpc('maintenance_status');
+  if (error || !data) return { on: false, message: '', canBypass: false };
+  return { on: Boolean(data.on), message: data.message ?? '', canBypass: Boolean(data.canBypass) };
+}
+
 export async function signOut() {
   const supabase = await getSupabase();
   await supabase?.auth.signOut();

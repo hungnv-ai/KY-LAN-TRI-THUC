@@ -87,6 +87,10 @@ begin
   if not public._email_allowed(v_email) then
     raise exception 'email_domain_not_allowed' using errcode = '28000';
   end if;
+  -- Đang bảo trì: chỉ nhân viên (giáo viên, BGH, quản trị) dùng được game.
+  if coalesce((public._cfg('MAINTENANCE') ->> 'on')::boolean, false) and not public.is_staff() then
+    raise exception 'maintenance' using errcode = 'P0001';
+  end if;
   return v_uid;
 end;
 $$;

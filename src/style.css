@@ -2325,3 +2325,98 @@ body.is-intro .speech {
   white-space: pre;
   line-height: 1.5;
 }
+
+/* ── Màn hình bảo trì ───────────────────────────────────────────────── */
+.maint-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  overflow-y: auto;
+  background: linear-gradient(160deg, rgba(154, 0, 54, 0.94), rgba(92, 0, 32, 0.97));
+}
+
+.maint-card {
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 360px);
+  align-items: stretch;
+  overflow: hidden;
+  width: min(720px, 100%);
+  border-radius: 28px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.maint-mascot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: right center;
+}
+
+.maint-body {
+  display: grid;
+  align-self: center;
+  gap: 12px;
+  padding: 28px 28px 24px;
+  text-align: left;
+}
+
+.maint-tag {
+  justify-self: start;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #fff1d6;
+  color: #7a5a1e;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.maint-title {
+  margin: 0;
+  color: var(--tri-thuc);
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.maint-message {
+  margin: 0;
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+.maint-note {
+  margin: 0;
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .maint-card {
+    grid-template-columns: 1fr;
+  }
+
+  .maint-mascot {
+    max-height: 38vh;
+    object-fit: cover;
+    object-position: center 30%;
+  }
+
+  .maint-body {
+    padding: 20px;
+    text-align: center;
+  }
+
+  .maint-tag {
+    justify-self: center;
+  }
+
+  .maint-title {
+    font-size: 22px;
+  }
+}

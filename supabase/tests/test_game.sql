@@ -569,4 +569,38 @@ begin
   assert (public_profiles(array[B]) -> 0 ->> 'distance')::numeric >= 10000, 'hồ sơ công khai có quãng đường (huy hiệu)';
 end $$;
 
+-- Bảo trì: người chơi bị chặn, nhân viên vẫn vào; chỉ BGH/Quản trị bật được.
+do $$
+declare
+  A uuid := '00000000-0000-0000-0000-00000000000a';
+  B uuid := '00000000-0000-0000-0000-00000000000b';
+  r jsonb;
+  v_role_b text;
+begin
+  perform test_as(B); -- B đang là giáo viên: không được bật bảo trì
+  perform test_expect_error($q$select admin_set_maintenance(true, 'x')$q$, 'forbidden');
+  perform test_admin();
+  select role into v_role_b from profiles where id = B;
+  update profiles set role = 'player' where id = B;
+  perform test_as(A); -- A là quản trị
+  r := admin_set_maintenance(true, 'Đang nâng cấp');
+  assert (r ->> 'on')::boolean and (r ->> 'canBypass')::boolean, 'quản trị bật bảo trì, vẫn vào được';
+  r := get_my_state();
+  assert r ? 'xp', 'quản trị vẫn chơi được khi bảo trì';
+  perform test_as(B);
+  r := maintenance_status();
+  assert (r ->> 'on')::boolean and not (r ->> 'canBypass')::boolean and r ->> 'message' = 'Đang nâng cấp', 'người chơi thấy bảo trì';
+  perform test_expect_error($q$select get_my_state()$q$, 'maintenance');
+  perform test_as(null);
+  execute 'set role anon';
+  assert (maintenance_status() ->> 'on')::boolean, 'chưa đăng nhập vẫn đọc được trạng thái bảo trì';
+  perform test_as(A);
+  r := admin_set_maintenance(false, '');
+  perform test_as(B);
+  r := get_my_state();
+  assert r ? 'xp', 'tắt bảo trì → người chơi vào lại';
+  perform test_admin();
+  update profiles set role = v_role_b where id = B;
+end $$;
+
 select '✔ Tất cả kiểm thử máy chủ đều đạt' as ket_qua;

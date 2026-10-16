@@ -4,6 +4,65 @@ import { api, getSetting } from '../api.js';
 import { EVENTS } from '../../data/events.js';
 import { badge, field, select } from '../widgets.js';
 
+/** Lời nhắn gợi ý khi bật bảo trì. */
+const MAINTENANCE_HINT = 'Kỳ Lân đang được nâng cấp để vui hơn. Bạn quay lại sau ít phút nhé!';
+
+/**
+ * Bảo trì game: công tắc bật/tắt + lời nhắn. Bật → người chơi thấy màn hình bảo trì (Kỳ lân ló đầu);
+ * giáo viên / BGH / quản trị vẫn vào được để kiểm tra.
+ *
+ * @param {string} role
+ */
+function maintenanceCard(role) {
+  const canEdit = role === 'admin' || role === 'bgh';
+  const status = h('p', { class: 'muted' }, 'Đang tải…');
+  const toggle = h('input', { type: 'checkbox', class: 'maint-switch-input', disabled: !canEdit });
+  const message = h('textarea', { class: 'input', rows: 3, maxlength: 500, placeholder: MAINTENANCE_HINT, disabled: !canEdit });
+  const save = h('button', { class: 'btn', type: 'button', disabled: !canEdit }, 'Lưu');
+
+  function showStatus(on) {
+    status.replaceChildren(
+      on ? badge('ĐANG BẢO TRÌ — người chơi không vào được game', 'danger', '🛠️') : badge('Game đang mở bình thường', 'success', '✓'),
+    );
+  }
+
+  async function load() {
+    try {
+      const r = await api.maintenanceStatus();
+      toggle.checked = Boolean(r.on);
+      message.value = r.message ?? '';
+      showStatus(r.on);
+    } catch (err) {
+      status.textContent = err.message;
+    }
+  }
+
+  save.addEventListener('click', async () => {
+    save.disabled = true;
+    try {
+      const r = await api.setMaintenance(toggle.checked, message.value);
+      showStatus(r.on);
+      showToast(r.on ? 'Đã BẬT bảo trì — người chơi sẽ thấy màn hình bảo trì trong ~1 phút' : 'Đã TẮT bảo trì — game mở lại', { type: 'success', icon: '🛠️' });
+    } catch (err) {
+      showToast(err.message, { type: 'warn' });
+    }
+    save.disabled = false;
+  });
+  load();
+
+  return h(
+    'section',
+    { class: 'card' },
+    h('header', { class: 'card-head' }, h('h3', {}, '🛠️ Bảo trì game')),
+    h('p', { class: 'muted' }, 'Bật khi cần sửa / nâng cấp game. Người chơi sẽ thấy màn hình bảo trì có Kỳ lân và lời nhắn bên dưới; giáo viên, BGH và quản trị vẫn vào được để kiểm tra.'),
+    h('label', { class: 'maint-switch' }, toggle, h('span', { class: 'maint-switch-track', 'aria-hidden': 'true' }), h('span', {}, 'Bật chế độ bảo trì')),
+    field('Lời nhắn cho người chơi', message, 'Để trống = dùng lời nhắn mặc định.'),
+    h('div', { class: 'page-actions' }, save),
+    status,
+    canEdit ? '' : h('p', { class: 'muted' }, 'Chỉ Ban Giám hiệu và Quản trị được bật/tắt bảo trì.'),
+  );
+}
+
 /** Sự kiện theo mùa: tự động theo lịch, bật ngay (để thử / mở sớm) hoặc tắt. */
 function eventCard() {
   const status = h('p', { class: 'muted' }, 'Đang tải…');
@@ -83,6 +142,7 @@ export async function renderSettings(el, { role }) {
   });
 
   el.replaceChildren(
+    maintenanceCard(role),
     eventCard(),
     h(
       'section',
