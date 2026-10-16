@@ -22,12 +22,21 @@ const CANVAS_H = 128;
 const HOUSE_COLOR = Object.fromEntries(VALUES.map((v) => [v.id, v.color]));
 /** Từ hạng này trở lên (chỉ số trong RANKS) bảng tên có viền lấp lánh. */
 const SHINY_RANK_INDEX = 4;
+/** Ô huy hiệu mốc quãng đường. */
+const BADGE_ICON_FONT = '50px "Be Vietnam Pro", Arial, sans-serif';
+const BADGE_LABEL_FONT = '800 30px "Be Vietnam Pro", Arial, sans-serif';
+const BADGE_BG = '#FFF4DC';
+const BADGE_GOLD = '#C49C57';
+const BADGE_TEXT = '#7A5A1E';
 
 /**
  * Bảng tên nổi trên đầu Kỳ lân: [icon hạng] Tên · bộ phận, dải màu Nhà, viền theo màu hạng.
  * Nhìn là biết người đó hạng nào, thuộc Nhà nào → động lực thi đua.
  *
- * @returns {{ sprite: THREE.Sprite, set: (info: { name: string, unit?: string | null, xp: number, house?: string | null, badge?: string, isMe?: boolean }) => void,
+ * Bên phải là ô huy hiệu mốc quãng đường cao nhất (👟 1 km…) nếu đã đạt.
+ *
+ * @returns {{ sprite: THREE.Sprite, set: (info: { name: string, unit?: string | null, xp: number, house?: string | null,
+ *   badge?: { icon: string, label: string, special: boolean } | null, isMe?: boolean }) => void,
  *   update: (elapsed: number) => void, dispose: () => void }}
  */
 export function createNameTag() {
@@ -43,14 +52,14 @@ export function createNameTag() {
   let shiny = false;
   let last = '';
 
-  function set({ name, unit, xp, house, badge = '', isMe = false }) {
-    const key = `${name}|${unit}|${xp}|${house}|${badge}|${isMe}`;
+  function set({ name, unit, xp, house, badge = null, isMe = false }) {
+    const key = `${name}|${unit}|${xp}|${house}|${badge?.label}|${isMe}`;
     if (key === last) return;
     last = key;
     const info = getRankInfo(xp ?? 0);
-    shiny = info.index >= SHINY_RANK_INDEX;
+    shiny = info.index >= SHINY_RANK_INDEX || Boolean(badge?.special);
 
-    const title = `${info.rank.icon} ${name || 'Kỳ lân'}${badge ? ` ${badge}` : ''}`;
+    const title = `${info.rank.icon} ${name || 'Kỳ lân'}`;
     const subtitle = [info.label, unit].filter(Boolean).join(' · ');
     const fontTitle = '800 50px "Be Vietnam Pro", Arial, sans-serif';
     const fontSub = '600 32px "Be Vietnam Pro", Arial, sans-serif';
@@ -58,13 +67,21 @@ export function createNameTag() {
     const wTitle = ctx.measureText(title).width;
     ctx.font = fontSub;
     const wSub = ctx.measureText(subtitle).width;
-    const width = Math.ceil(Math.max(wTitle, wSub) + 64);
+    let badgeW = 0;
+    if (badge) {
+      ctx.font = BADGE_ICON_FONT;
+      badgeW = ctx.measureText(badge.icon).width;
+      ctx.font = BADGE_LABEL_FONT;
+      badgeW = Math.ceil(Math.max(badgeW, ctx.measureText(badge.label).width) + 28);
+    }
+    const extra = badge ? badgeW + 12 : 0;
+    const width = Math.ceil(Math.max(wTitle, wSub) + 64 + extra);
     canvas.width = width;
     canvas.height = CANVAS_H;
 
-    // Nền + viền màu hạng.
+    // Nền + viền màu hạng (mốc đặc biệt: viền vàng).
     ctx.fillStyle = isMe ? 'rgba(255, 250, 240, 0.96)' : 'rgba(255, 255, 255, 0.92)';
-    ctx.strokeStyle = info.rank.color;
+    ctx.strokeStyle = badge?.special ? BADGE_GOLD : info.rank.color;
     ctx.lineWidth = 7;
     ctx.beginPath();
     ctx.roundRect(5, 5, width - 10, CANVAS_H - 10, 30);
@@ -78,12 +95,30 @@ export function createNameTag() {
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    const cx = (width - extra) / 2 + 8;
     ctx.fillStyle = '#2E2017';
     ctx.font = fontTitle;
-    ctx.fillText(title, width / 2 + 8, 46);
+    ctx.fillText(title, cx, 46);
     ctx.fillStyle = info.rank.color;
     ctx.font = fontSub;
-    ctx.fillText(subtitle, width / 2 + 8, 94);
+    ctx.fillText(subtitle, cx, 94);
+
+    // Ô huy hiệu mốc quãng đường bên phải: icon + số km.
+    if (badge) {
+      const bx = width - badgeW - 14;
+      ctx.fillStyle = badge.special ? BADGE_GOLD : BADGE_BG;
+      ctx.strokeStyle = BADGE_GOLD;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.roundRect(bx, 12, badgeW, CANVAS_H - 24, 18);
+      ctx.fill();
+      ctx.stroke();
+      ctx.font = BADGE_ICON_FONT;
+      ctx.fillText(badge.icon, bx + badgeW / 2, 46);
+      ctx.fillStyle = badge.special ? '#FFFFFF' : BADGE_TEXT;
+      ctx.font = BADGE_LABEL_FONT;
+      ctx.fillText(badge.label, bx + badgeW / 2, 94);
+    }
 
     texture.needsUpdate = true;
     sprite.scale.set((SCREEN_HEIGHT * width) / CANVAS_H, SCREEN_HEIGHT, 1);

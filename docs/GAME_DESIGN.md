@@ -73,7 +73,8 @@ Linh vật Kỳ lân của VA Schools (KHÔNG phải ngựa trắng có sừng).
 - Mốc quãng đường (tổng mét cộng dồn mọi ngày; `src/config.js` → `MILESTONES`; bấm ô 🏃 để xem):
   1 km 👟 Bước chân đầu tiên +20 Xu · 5 km 🏃 Nhà thám hiểm nhỏ +50 Xu ·
   10 km 🧭 Lữ khách VA +100 Xu + Giày Lữ Khách (độc quyền) · 21 km 🥈 Bán marathon +150 Xu ·
-  42 km 🏅 Marathon Kỳ Lân +300 Xu + huy hiệu 🏅 trên bảng tên. Máy chủ tự trao khi qua mốc, mỗi mốc 1 lần.
+  42 km 🏅 Marathon Kỳ Lân +300 Xu + bảng tên viền vàng. Máy chủ tự trao khi qua mốc, mỗi mốc 1 lần.
+  Mốc cao nhất đã đạt hiện thành ô huy hiệu (vd 👟 1 km) bên phải bảng tên và trong danh sách 👥 — ai cũng thấy để thi đua.
 
 ## Tính năng mở rộng (đã làm, theo lựa chọn của người dùng)
 

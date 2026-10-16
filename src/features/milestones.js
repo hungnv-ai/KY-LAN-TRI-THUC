@@ -40,10 +40,10 @@ export function setupMilestones({ rewards, onBadgeChanged }) {
         const parts = [`Bạn đã chạy tổng cộng ${m.meters / 1000} km trên đảo!`];
         if (r.reward?.coins) parts.push(`Thưởng +${r.reward.coins} Xu${r.reward.xp ? `, +${r.reward.xp} XP` : ''}.`);
         if (r.item) parts.push(`Quà độc quyền: ${r.item.name} — mở Tủ đồ để mang thử nhé!`);
-        if (m.badge) parts.push(`Huy hiệu ${m.icon} đã gắn lên bảng tên của bạn.`);
+        parts.push(m.badge ? `Bảng tên của bạn giờ có huy hiệu ${m.icon} ${m.meters / 1000} km viền vàng lấp lánh!` : `Bảng tên của bạn giờ hiện ${m.icon} ${m.meters / 1000} km — mọi người trên đảo đều thấy!`);
         await celebrateDialog({ icon: m.icon, title: `Mốc ${m.meters / 1000} km: ${m.title}!`, message: parts.join(' ') });
         if (r.reward?.rankUp) await rewards.announceRankUp(r.reward.rankUp);
-        if (m.badge) onBadgeChanged?.();
+        onBadgeChanged?.();
       }
     });
     return queue;

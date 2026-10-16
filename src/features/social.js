@@ -40,6 +40,7 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving,
   mascot.object.add(myTag.sprite);
   const mySticker = createStickerBubble(mascot.object);
   const myBadge = () => milestoneBadge(Number(getState().stats.distance) || 0);
+  const badgeText = (b) => (b ? `${b.icon} ${b.label}` : '');
   const refreshMyTag = () => {
     const p = getProfile();
     myTag.set({ name: p.displayName, unit: p.unit, xp: getState().xp, house: p.house, badge: myBadge(), isMe: true });
@@ -102,6 +103,7 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving,
         unit: p.profile?.unit,
         xp: p.profile?.xp ?? 0,
         house: p.profile?.house,
+        badge: badgeText(milestoneBadge(Number(p.profile?.distance) || 0)),
         distance: Math.hypot(p.position.x - me.x, p.position.z - me.z),
       })),
       onGo: (id) => {

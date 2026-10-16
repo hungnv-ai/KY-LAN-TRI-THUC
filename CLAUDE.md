@@ -63,7 +63,7 @@ src/
     localBackend.js   # luật thưởng chạy trên máy (ngoại tuyến) — giữ khớp với supabase/sql
     remoteBackend.js  # gọi RPC Supabase cùng tên hàm
     missions.js       # nhiệm vụ ngày (chọn theo ngày) + tiến độ
-    milestones.js     # mốc quãng đường (1–42 km): mốc kế tiếp, huy hiệu bảng tên
+    milestones.js     # mốc quãng đường (1–42 km): mốc kế tiếp, huy hiệu mốc cao nhất trên bảng tên
     storage.js        # localStorage an toàn
     time.js           # ngày (giờ VN), Giờ Vàng
     bellClock.js      # đồng hồ trận Rung Chuông Vàng (cùng công thức với _bell_phase)
