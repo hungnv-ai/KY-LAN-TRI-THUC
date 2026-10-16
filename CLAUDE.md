@@ -83,7 +83,7 @@ src/
     emotes.js         # bộ cảm xúc theo sticker (wave, happy, cheer, oops, think, cry, faint, cool, bored)
     outfits.js        # dựng & gắn trang phục 3D theo item.model
     fx.js             # hạt hiệu ứng (xu, sao, vòng sáng) dùng pool
-    nameTag.js        # bảng tên trên đầu: tên, hạng, Nhà
+    nameTag.js        # bảng tên trên đầu: "Họ và tên (Google) - Hạng" / phòng ban, dải màu Nhà, huy hiệu mốc
     remotePlayers.js  # Kỳ lân người khác: nội suy, LOD theo khoảng cách
     quality.js        # tự giảm/tăng chất lượng theo FPS
     stickerBubble.js  # bong bóng sticker cạnh đầu Kỳ lân
@@ -110,11 +110,13 @@ src/
     giftShopView.js / petView.js / cardView.js / eventView.js / bellView.js
     peopleView.js     # danh sách người cùng đảo (bấm 👥) + nút "Tới chỗ bạn"
     milestonesView.js # bảng mốc quãng đường (bấm ô 🏃)
+    badgeTip.js       # chú thích nhỏ cạnh con trỏ (tên mốc khi rê vào huy hiệu bảng tên)
     quizView.js / wardrobeView.js / ranksView.js / todayView.js / quickQuestionView.js
   features/           # điều phối 1 tính năng lớn: nối scene + game + ui (không chứa luật thưởng)
     session.js        # khởi động: ngoại tuyến hay đăng nhập + hồ sơ
     rewards.js        # hiệu ứng nhận thưởng, lên hạng
     milestones.js     # mốc quãng đường: bấm ô 🏃 xem mốc, ăn mừng khi vừa qua mốc
+    badgeTips.js      # rê chuột / chạm vào huy hiệu trên bảng tên → hiện tên mốc
     menu.js           # các nút điều hướng → mở bảng tương ứng
     explore.js        # Khám phá Vùng Đất: chạy, câu hỏi mỗi 100 m, cột Vùng Đất, xu, hộp quà
     social.js         # nhiều người chơi trên đảo + chạm vào Kỳ lân người khác + thiệp sự kiện

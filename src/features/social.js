@@ -31,7 +31,7 @@ import { openProfileCard } from '../ui/profileCard.js';
  * @param {{ world: object, island: object, mascot: object, supabase: object | null, userId: string,
  *   isMoving: () => boolean, onGoTo?: (x: number, z: number) => void }} deps
  * @returns {{ update: (delta: number, elapsed: number) => void, notifyProfileChanged: () => void,
- *   sendSticker: (stickerId: string) => void }}
+ *   sendSticker: (stickerId: string) => void, nameTagSprites: () => import('three').Sprite[] }}
  */
 export function setupSocial({ world, island, mascot, supabase, userId, isMoving, onGoTo }) {
   // ── Bảng tên của mình ───────────────────────────────────────────────
@@ -43,7 +43,7 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving,
   const badgeText = (b) => (b ? `${b.icon} ${b.label}` : '');
   const refreshMyTag = () => {
     const p = getProfile();
-    myTag.set({ name: p.displayName, unit: p.unit, xp: getState().xp, house: p.house, badge: myBadge(), isMe: true });
+    myTag.set({ name: p.fullName || p.displayName, unit: p.unit, xp: getState().xp, house: p.house, badge: myBadge(), isMe: true });
   };
   refreshMyTag();
 
@@ -58,7 +58,7 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving,
   function localProfile() {
     const p = getProfile();
     const s = getState();
-    return { displayName: p.displayName, unit: p.unit, house: p.house, role: p.role, xp: s.xp, equipped: s.equipped, streak: s.streak.count, pet: s.pets?.active ?? null, distance: Math.floor(Number(s.stats.distance) || 0) };
+    return { displayName: p.displayName, fullName: p.fullName ?? null, unit: p.unit, house: p.house, role: p.role, xp: s.xp, equipped: s.equipped, streak: s.streak.count, pet: s.pets?.active ?? null, distance: Math.floor(Number(s.stats.distance) || 0) };
   }
 
   const mp = createMultiplayer({
@@ -200,7 +200,7 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving,
   }
 
   if (import.meta.env.DEV) window.__kltSocial = { remote, mp };
-  return { update, notifyProfileChanged, sendSticker };
+  return { update, notifyProfileChanged, sendSticker, nameTagSprites: () => [myTag.sprite, ...remote.tagSprites()] };
 }
 
 function round2(n) {

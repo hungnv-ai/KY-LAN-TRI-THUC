@@ -2307,3 +2307,20 @@ body.is-intro .speech {
   font-weight: 800;
   white-space: nowrap;
 }
+
+/* Chú thích khi rê chuột / chạm vào huy hiệu mốc quãng đường trên bảng tên. */
+.badge-tip {
+  position: fixed;
+  z-index: 25;
+  max-width: 260px;
+  padding: 8px 12px;
+  border: 2px solid var(--trach-nhiem);
+  border-radius: 12px;
+  background: #fff8e6;
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  font-size: 14px;
+  font-weight: 700;
+  pointer-events: none;
+  white-space: nowrap;
+}
