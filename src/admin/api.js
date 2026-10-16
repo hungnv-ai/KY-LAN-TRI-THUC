@@ -115,6 +115,8 @@ export const api = {
   bellResults: (id) => rpc('admin_bell_results', { p_game: id }),
   eventStatus: () => rpc('admin_event_status'),
   setEvent: (mode, id = null) => rpc('admin_set_event', { p_mode: mode, p_id: id }),
+  maintenanceStatus: () => rpc('maintenance_status'),
+  setMaintenance: (on, message) => rpc('admin_set_maintenance', { p_on: on, p_message: message }),
   setAllowedDomains: (domains) => rpc('admin_set_allowed_domains', { p_domains: domains }),
 };
 

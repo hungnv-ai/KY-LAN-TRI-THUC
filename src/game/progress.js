@@ -20,6 +20,7 @@ const listeners = new Set();
 
 /** Thông báo lỗi thân thiện theo mã lỗi máy chủ. */
 const ERROR_MESSAGES = {
+  maintenance: 'Game đang bảo trì — bạn quay lại sau ít phút nhé.',
   not_enough_coins: 'Bạn chưa đủ Xu.',
   already_owned: 'Bạn đã có món này rồi.',
   item_not_buyable: 'Món này chỉ mở khoá khi lên hạng.',

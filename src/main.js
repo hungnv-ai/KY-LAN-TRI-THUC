@@ -16,6 +16,7 @@ import { createRewards } from './features/rewards.js';
 import { setupMilestones } from './features/milestones.js';
 import { setupBadgeTips } from './features/badgeTips.js';
 import { startSession } from './features/session.js';
+import { setupMaintenance } from './features/maintenance.js';
 import { setupSocial } from './features/social.js';
 import {
   getActiveStreak,
@@ -129,6 +130,7 @@ boot().catch((err) => {
 
 async function boot() {
   const session = await startSession();
+  setupMaintenance({ online: session.mode === 'remote' });
   wardrobe.equipAll(getState().equipped);
   if (['teacher', 'bgh', 'admin'].includes(getState().profile.role)) showAdminLink();
 

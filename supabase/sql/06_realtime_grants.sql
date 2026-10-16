@@ -33,3 +33,6 @@ begin
     end if;
   end loop;
 end $$;
+
+-- Màn hình bảo trì hiện cả khi chưa đăng nhập.
+grant execute on function public.maintenance_status() to anon;

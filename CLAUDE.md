@@ -37,7 +37,7 @@ docs/mascot-reference/ # ẢNH MẪU mascot chuẩn + bảng sticker → cảm x
 index.html            # game: canvas + HUD + thanh điều hướng + bảng trượt + toast + loading
 admin.html            # trang quản trị (/admin) cho giáo viên, BGH, quản trị
 vercel.json           # cache, header bảo mật, cleanUrls
-public/               # icon, manifest.webmanifest + sw.js (PWA), og-image
+public/               # icon, manifest.webmanifest + sw.js (PWA), og-image, maintenance-kylan.webp (ảnh bảo trì)
 supabase/
   sql/01..10_*.sql    # máy chủ: 01 bảng, 02 hàm phụ, 03 RPC người chơi, 04 xã hội, 05 nhân viên,
                       #   06 quyền (luôn chạy cuối), 07 đổi quà, 08 thú cưng, 09 sự kiện, 10 Rung Chuông Vàng
@@ -111,9 +111,11 @@ src/
     peopleView.js     # danh sách người cùng đảo (bấm 👥) + nút "Tới chỗ bạn"
     milestonesView.js # bảng mốc quãng đường (bấm ô 🏃)
     badgeTip.js       # chú thích nhỏ cạnh con trỏ (tên mốc khi rê vào huy hiệu bảng tên)
+    maintenanceView.js # màn hình "Đang bảo trì" (Kỳ lân ló đầu + lời nhắn của quản trị)
     quizView.js / wardrobeView.js / ranksView.js / todayView.js / quickQuestionView.js
   features/           # điều phối 1 tính năng lớn: nối scene + game + ui (không chứa luật thưởng)
-    session.js        # khởi động: ngoại tuyến hay đăng nhập + hồ sơ
+    session.js        # khởi động: ngoại tuyến hay đăng nhập + hồ sơ (+ chặn khi bảo trì)
+    maintenance.js    # đang chơi mà quản trị bật bảo trì → hiện màn hình bảo trì; tắt → tự tải lại
     rewards.js        # hiệu ứng nhận thưởng, lên hạng
     milestones.js     # mốc quãng đường: bấm ô 🏃 xem mốc, ăn mừng khi vừa qua mốc
     badgeTips.js      # rê chuột / chạm vào huy hiệu trên bảng tên → hiện tên mốc
@@ -132,7 +134,7 @@ src/
     main.js           # đăng nhập, khung sidebar, điều hướng theo #hash, nhận quyền admin đầu tiên
     api.js / widgets.js / charts.js / admin.css
     pages/            # dashboard, questions (CSV), players (vai trò), bell (Rung Chuông Vàng),
-                      #   vouchers (+ danh mục quà), settings (+ bật/tắt sự kiện)
+                      #   vouchers (+ danh mục quà), settings (+ bật/tắt bảo trì, sự kiện)
 ```
 
 ## Quy tắc viết code mô-đun hoá

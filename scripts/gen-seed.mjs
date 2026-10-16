@@ -53,6 +53,7 @@ for (const [key, value] of Object.entries(settings)) {
 
 // Sự kiện: mặc định tự bật theo lịch; không ghi đè lựa chọn bật/tắt của BGH.
 seed.push(`insert into public.game_settings (key, value) values ('EVENT_OVERRIDE', ${jsonLit({ mode: 'auto', id: null })}) on conflict (key) do nothing;`);
+seed.push(`insert into public.game_settings (key, value) values ('MAINTENANCE', ${jsonLit({ on: false, message: '' })}) on conflict (key) do nothing;`);
 
 RANKS.forEach((r, i) => {
   seed.push(

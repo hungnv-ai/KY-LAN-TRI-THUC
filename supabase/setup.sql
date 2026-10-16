@@ -382,6 +382,10 @@ begin
   if not public._email_allowed(v_email) then
     raise exception 'email_domain_not_allowed' using errcode = '28000';
   end if;
+  -- Đang bảo trì: chỉ nhân viên (giáo viên, BGH, quản trị) dùng được game.
+  if coalesce((public._cfg('MAINTENANCE') ->> 'on')::boolean, false) and not public.is_staff() then
+    raise exception 'maintenance' using errcode = 'P0001';
+  end if;
   return v_uid;
 end;
 $$;
@@ -1629,6 +1633,30 @@ end;
 $$;
 
 
+-- ── Bảo trì game ──────────────────────────────────────────────────────────
+-- Ai cũng đọc được (kể cả chưa đăng nhập) để hiện màn hình "Đang bảo trì".
+create or replace function public.maintenance_status()
+returns jsonb language sql stable security definer set search_path = public as $$
+  select jsonb_build_object(
+    'on', coalesce((public._cfg('MAINTENANCE') ->> 'on')::boolean, false),
+    'message', coalesce(public._cfg('MAINTENANCE') ->> 'message', ''),
+    'canBypass', public.is_staff()
+  );
+$$;
+
+-- BGH / Quản trị bật–tắt bảo trì và sửa lời nhắn.
+create or replace function public.admin_set_maintenance(p_on boolean, p_message text default '')
+returns jsonb language plpgsql security definer set search_path = public as $$
+begin
+  perform public._require_manager();
+  insert into game_settings (key, value)
+  values ('MAINTENANCE', jsonb_build_object('on', coalesce(p_on, false), 'message', left(coalesce(trim(p_message), ''), 500)))
+  on conflict (key) do update set value = excluded.value, updated_at = now();
+  return public.maintenance_status();
+end;
+$$;
+
+
 -- >>> 07_gift_shop.sql
 -- ════════════════════════════════════════════════════════════════════════
 -- Cửa hàng đổi Xu lấy Phiếu quà hiện vật
@@ -2203,6 +2231,7 @@ insert into public.game_settings (key, value) values ('VALUES', '[{"id":"nhanAi"
 insert into public.game_settings (key, value) values ('ALLOWED_EMAIL_DOMAINS', '["vaschools.edu.vn"]'::jsonb) on conflict (key) do nothing;
 insert into public.game_settings (key, value) values ('DEFAULT_EQUIPPED', '{"jacket":"jacket-va","hat":"hat-none","glasses":"glasses-none","shoes":"shoes-red","backpack":"backpack-none","aura":"aura-none"}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('EVENT_OVERRIDE', '{"mode":"auto","id":null}'::jsonb) on conflict (key) do nothing;
+insert into public.game_settings (key, value) values ('MAINTENANCE', '{"on":false,"message":""}'::jsonb) on conflict (key) do nothing;
 insert into public.ranks (id, sort, name, icon, xp, color, reward, tiers) values ('tapSu', 0, 'Tập Sự', '🐣', 0, '#8F7562', 'Áo khoác VA cơ bản', false) on conflict (id) do update set sort = excluded.sort, name = excluded.name, icon = excluded.icon, xp = excluded.xp, color = excluded.color, reward = excluded.reward, tiers = excluded.tiers;
 insert into public.ranks (id, sort, name, icon, xp, color, reward, tiers) values ('thanhVien', 1, 'Thành Viên', '🎒', 300, '#009082', 'Ba lô đen', false) on conflict (id) do update set sort = excluded.sort, name = excluded.name, icon = excluded.icon, xp = excluded.xp, color = excluded.color, reward = excluded.reward, tiers = excluded.tiers;
 insert into public.ranks (id, sort, name, icon, xp, color, reward, tiers) values ('dong', 2, 'Đồng', '🥉', 1500, '#B87333', 'Khung hạng màu đồng', true) on conflict (id) do update set sort = excluded.sort, name = excluded.name, icon = excluded.icon, xp = excluded.xp, color = excluded.color, reward = excluded.reward, tiers = excluded.tiers;
@@ -2402,6 +2431,9 @@ begin
     end if;
   end loop;
 end $$;
+
+-- Màn hình bảo trì hiện cả khi chưa đăng nhập.
+grant execute on function public.maintenance_status() to anon;
 
 
 select 'Cài đặt Kỳ Lân Tri Thức thành công ✔' as ket_qua;
