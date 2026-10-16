@@ -37,7 +37,7 @@ const BADGE_TEXT = '#7A5A1E';
  * Bên phải là ô huy hiệu mốc quãng đường cao nhất (👟 1 km…) nếu đã đạt.
  *
  * @returns {{ sprite: THREE.Sprite, set: (info: { name: string, unit?: string | null, xp: number, house?: string | null,
- *   badge?: { icon: string, label: string, title?: string, special: boolean } | null, isMe?: boolean }) => void,
+ *   badge?: { icon: string, label: string, title?: string, special: boolean, next?: string | null } | null, isMe?: boolean }) => void,
  *   update: (elapsed: number) => void, dispose: () => void }}
  */
 export function createNameTag() {
@@ -54,7 +54,7 @@ export function createNameTag() {
   let last = '';
 
   function set({ name, unit, xp, house, badge = null, isMe = false }) {
-    const key = `${name}|${unit}|${xp}|${house}|${badge?.label}|${isMe}`;
+    const key = `${name}|${unit}|${xp}|${house}|${badge?.label}|${badge?.next}|${isMe}`;
     if (key === last) return;
     last = key;
     const info = getRankInfo(xp ?? 0);
@@ -135,7 +135,7 @@ export function createNameTag() {
     }
     // Vùng ô huy hiệu theo toạ độ uv (0..1) — để rê chuột / chạm vào thì hiện tên mốc.
     sprite.userData.badgeTip = badge
-      ? { u0: (width - badgeW - 14) / width, u1: (width - 14) / width, text: `${badge.icon} ${badge.title ?? ''} · đã chạy ${badge.label}` }
+      ? { u0: (width - badgeW - 14) / width, u1: (width - 14) / width, text: `${badge.icon} ${badge.title ?? ''} · đã chạy ${badge.label}\n${badge.next ? `Mốc tiếp theo: ${badge.next}` : '🎉 Đã chinh phục mốc cao nhất!'}` }
       : null;
 
     texture.needsUpdate = true;
