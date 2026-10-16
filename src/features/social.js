@@ -10,6 +10,7 @@ import {
   getState,
   sendKudos,
 } from '../game/progress.js';
+import { milestoneBadge } from '../game/milestones.js';
 import { createMultiplayer } from '../net/multiplayer.js';
 import { createNameTag } from '../scene/nameTag.js';
 import { createStickerBubble } from '../scene/stickerBubble.js';
@@ -38,9 +39,10 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving,
   const myTag = createNameTag();
   mascot.object.add(myTag.sprite);
   const mySticker = createStickerBubble(mascot.object);
+  const myBadge = () => milestoneBadge(Number(getState().stats.distance) || 0);
   const refreshMyTag = () => {
     const p = getProfile();
-    myTag.set({ name: p.displayName, unit: p.unit, xp: getState().xp, house: p.house, isMe: true });
+    myTag.set({ name: p.displayName, unit: p.unit, xp: getState().xp, house: p.house, badge: myBadge(), isMe: true });
   };
   refreshMyTag();
 
@@ -55,7 +57,7 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving,
   function localProfile() {
     const p = getProfile();
     const s = getState();
-    return { displayName: p.displayName, unit: p.unit, house: p.house, role: p.role, xp: s.xp, equipped: s.equipped, streak: s.streak.count, pet: s.pets?.active ?? null };
+    return { displayName: p.displayName, unit: p.unit, house: p.house, role: p.role, xp: s.xp, equipped: s.equipped, streak: s.streak.count, pet: s.pets?.active ?? null, distance: Math.floor(Number(s.stats.distance) || 0) };
   }
 
   const mp = createMultiplayer({

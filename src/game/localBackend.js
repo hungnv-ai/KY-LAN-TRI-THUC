@@ -14,6 +14,7 @@ import { PETS } from '../data/pets.js';
 import { QUESTIONS } from '../data/questions.js';
 import { getRankInfo, rankIndexOf } from '../data/ranks.js';
 import { createLocalBell } from './localBell.js';
+import { listMilestones } from './milestones.js';
 import { missionStatus } from './missions.js';
 import { loadJSON, saveJSON } from './storage.js';
 import { dayKey, isGoldenHour, yesterdayKey } from './time.js';
@@ -72,6 +73,7 @@ function createInitialState() {
     equipped: { ...DEFAULT_EQUIPPED },
     streak: { count: 0, lastDay: null },
     pets: { owned: [], active: null, egg: 0, eggNeed: PETS_CONFIG.EGG_DAYS },
+    milestones: [],
     daily: createDaily(),
     stats: { answered: 0, correct: 0, rounds: 0, distance: 0, heartsReceived: 0, thanksReceived: 0 },
     profile: {
@@ -152,6 +154,23 @@ export function createLocalBackend() {
   }
 
   const noReward = () => ({ xp: 0, coins: 0, golden: false, rankUp: null });
+
+  /** Qua mốc quãng đường chưa nhận → thưởng một lần (giống add_distance trên máy chủ). */
+  function claimMilestones() {
+    const reached = [];
+    for (const m of listMilestones()) {
+      if (state.stats.distance < m.meters || state.milestones.includes(m.id)) continue;
+      state.milestones.push(m.id);
+      const reward = applyReward(m.xp ?? 0, m.coins ?? 0, 'milestone');
+      let item = null;
+      if (m.item && !state.owned.includes(m.item)) {
+        state.owned.push(m.item);
+        item = { id: m.item, name: getItem(m.item)?.name ?? m.item };
+      }
+      reached.push({ id: m.id, reward, item });
+    }
+    return reached;
+  }
 
   /** Ấp trứng thêm 1 ngày; đủ ngày → nở thú cưng chưa có (giống _egg_tick trên máy chủ). */
   function eggTick() {
@@ -355,7 +374,7 @@ export function createLocalBackend() {
       const add = Math.max(0, Math.min(meters, 500));
       state.daily.distance += add;
       state.stats.distance += add;
-      return { added: add, state: snapshot() };
+      return { added: add, milestones: claimMilestones(), state: snapshot() };
     },
 
     async collectCoin() {
@@ -374,7 +393,7 @@ export function createLocalBackend() {
       let result = null;
       if (roll >= EXPLORE.GIFT_COIN_CHANCE + EXPLORE.GIFT_XP_CHANCE) {
         const event = localActiveEvent();
-        const candidates = ITEMS.filter((it) => it.price > 0 && !it.rank && !state.owned.includes(it.id) && (!it.event || it.event === event));
+        const candidates = ITEMS.filter((it) => it.price > 0 && !it.rank && !it.milestone && !state.owned.includes(it.id) && (!it.event || it.event === event));
         if (candidates.length) {
           const item = candidates[Math.floor(Math.random() * candidates.length)];
           state.owned.push(item.id);
@@ -393,7 +412,7 @@ export function createLocalBackend() {
 
     async buyItem(itemId) {
       const item = getItem(itemId);
-      if (!item || item.rank) throw new Error('item_not_buyable');
+      if (!item || item.rank || item.milestone) throw new Error('item_not_buyable');
       if (item.event && item.event !== localActiveEvent()) throw new Error('event_item_unavailable');
       if (state.owned.includes(itemId)) throw new Error('already_owned');
       if (state.coins < item.price) throw new Error('not_enough_coins');

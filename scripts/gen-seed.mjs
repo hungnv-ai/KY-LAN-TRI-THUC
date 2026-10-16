@@ -29,6 +29,7 @@ const settings = {
   CHECK_IN: config.CHECK_IN,
   GOLDEN_HOURS: config.GOLDEN_HOURS,
   EXPLORE: config.EXPLORE,
+  MILESTONES: config.MILESTONES,
   MISSIONS: config.MISSIONS,
   KUDOS: config.KUDOS,
   VOUCHER: config.VOUCHER,
@@ -63,9 +64,9 @@ RANKS.forEach((r, i) => {
 
 for (const it of ITEMS) {
   seed.push(
-    `insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event) values (${[
-      lit(it.id), lit(it.slot), lit(it.name), it.price, lit(it.rank ?? null), lit(it.rarity), lit(it.model), STARTER_ITEMS.includes(it.id) ? 'true' : 'false', lit(it.event ?? null),
-    ].join(', ')}) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event;`,
+    `insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event, milestone) values (${[
+      lit(it.id), lit(it.slot), lit(it.name), it.price, lit(it.rank ?? null), lit(it.rarity), lit(it.model), STARTER_ITEMS.includes(it.id) ? 'true' : 'false', lit(it.event ?? null), lit(it.milestone ?? null),
+    ].join(', ')}) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event, milestone = excluded.milestone;`,
   );
 }
 

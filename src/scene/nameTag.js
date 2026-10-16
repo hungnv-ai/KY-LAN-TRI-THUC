@@ -27,7 +27,7 @@ const SHINY_RANK_INDEX = 4;
  * Bảng tên nổi trên đầu Kỳ lân: [icon hạng] Tên · bộ phận, dải màu Nhà, viền theo màu hạng.
  * Nhìn là biết người đó hạng nào, thuộc Nhà nào → động lực thi đua.
  *
- * @returns {{ sprite: THREE.Sprite, set: (info: { name: string, unit?: string | null, xp: number, house?: string | null, isMe?: boolean }) => void,
+ * @returns {{ sprite: THREE.Sprite, set: (info: { name: string, unit?: string | null, xp: number, house?: string | null, badge?: string, isMe?: boolean }) => void,
  *   update: (elapsed: number) => void, dispose: () => void }}
  */
 export function createNameTag() {
@@ -43,14 +43,14 @@ export function createNameTag() {
   let shiny = false;
   let last = '';
 
-  function set({ name, unit, xp, house, isMe = false }) {
-    const key = `${name}|${unit}|${xp}|${house}|${isMe}`;
+  function set({ name, unit, xp, house, badge = '', isMe = false }) {
+    const key = `${name}|${unit}|${xp}|${house}|${badge}|${isMe}`;
     if (key === last) return;
     last = key;
     const info = getRankInfo(xp ?? 0);
     shiny = info.index >= SHINY_RANK_INDEX;
 
-    const title = `${info.rank.icon} ${name || 'Kỳ lân'}`;
+    const title = `${info.rank.icon} ${name || 'Kỳ lân'}${badge ? ` ${badge}` : ''}`;
     const subtitle = [info.label, unit].filter(Boolean).join(' · ');
     const fontTitle = '800 50px "Be Vietnam Pro", Arial, sans-serif';
     const fontSub = '600 32px "Be Vietnam Pro", Arial, sans-serif';

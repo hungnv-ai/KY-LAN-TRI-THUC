@@ -1,4 +1,5 @@
 import { ITEMS, RARITY, SLOTS } from '../data/items.js';
+import { getMilestone } from '../game/milestones.js';
 import { RANKS } from '../data/ranks.js';
 import { h, formatNumber } from './dom.js';
 import { openSheet } from './sheet.js';
@@ -7,7 +8,7 @@ import { openSheet } from './sheet.js';
  * Giao diện Tủ đồ: tab theo slot, lưới thẻ trang phục.
  *
  * @param {{
- *   getStatus: (item: object) => 'equipped' | 'owned' | 'buyable' | 'tooPoor' | 'locked' | 'eventLocked',
+ *   getStatus: (item: object) => 'equipped' | 'owned' | 'buyable' | 'tooPoor' | 'locked' | 'milestoneLocked' | 'eventLocked',
  *   onSelect: (item: object) => void | Promise<void>,
  *   onClose?: () => void,
  * }} handlers
@@ -59,7 +60,7 @@ export function openWardrobe({ getStatus, onSelect, onClose }) {
     return h(
       'button',
       {
-        class: `item-card ${status === 'equipped' ? 'is-equipped' : ''} ${status === 'locked' ? 'is-locked' : ''}`,
+        class: `item-card ${status === 'equipped' ? 'is-equipped' : ''} ${status === 'locked' || status === 'milestoneLocked' ? 'is-locked' : ''}`,
         type: 'button',
         onclick: () => onSelect(item),
       },
@@ -85,6 +86,10 @@ function statusText(item, status) {
     case 'locked': {
       const rank = RANKS.find((r) => r.id === item.rank);
       return `🔒 Hạng ${rank?.name ?? ''}`;
+    }
+    case 'milestoneLocked': {
+      const m = getMilestone(item.milestone);
+      return `🏃 Mốc ${m ? m.meters / 1000 : '?'} km`;
     }
     default:
       return `🪙 ${formatNumber(item.price)}`;

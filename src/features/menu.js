@@ -1,4 +1,5 @@
 import { sfx } from '../audio/sfx.js';
+import { getMilestone } from '../game/milestones.js';
 import { RANKS } from '../data/ranks.js';
 import {
   answerQuestion,
@@ -153,6 +154,12 @@ export function setupMenu({ world, mascot, wardrobe, fx, rewards, onOutfitChange
           if (status === 'locked') {
             const rank = RANKS.find((r) => r.id === item.rank);
             showToast(`Đạt hạng ${rank.name} để mở khoá "${item.name}"!`, { type: 'warn', icon: '🔒' });
+            mascot.emote('think');
+            return;
+          }
+          if (status === 'milestoneLocked') {
+            const m = getMilestone(item.milestone);
+            showToast(`Chạy đủ ${m ? m.meters / 1000 : '?'} km (mốc ${m?.icon ?? ''} ${m?.title ?? ''}) để nhận "${item.name}"!`, { type: 'warn', icon: '🏃' });
             mascot.emote('think');
             return;
           }

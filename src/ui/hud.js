@@ -22,6 +22,7 @@ const els = {
   overviewBtn: document.getElementById('overview-btn'),
   soundBtn: document.getElementById('sound-btn'),
   onlinePill: document.getElementById('online-pill'),
+  distancePill: document.getElementById('distance-pill'),
   onlineValue: document.getElementById('online-value'),
   adminLink: document.getElementById('admin-link'),
   progress: document.getElementById('loading-progress'),
@@ -151,6 +152,15 @@ export function setupSoundButton(muted, onChange) {
  *
  * @param {() => void} handler
  */
+/**
+ * Bấm ô quãng đường 🏃 (mở bảng mốc quãng đường).
+ *
+ * @param {() => void} handler
+ */
+export function onDistanceClick(handler) {
+  els.distancePill.addEventListener('click', handler);
+}
+
 export function onOnlineClick(handler) {
   els.onlinePill.addEventListener('click', handler);
 }

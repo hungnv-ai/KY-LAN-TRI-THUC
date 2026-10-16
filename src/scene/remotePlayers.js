@@ -5,6 +5,7 @@ import { createNameTag } from './nameTag.js';
 import { createWardrobe } from './outfits.js';
 import { createStickerBubble } from './stickerBubble.js';
 import { createPetFollower } from './pets.js';
+import { milestoneBadge } from '../game/milestones.js';
 
 /** Tốc độ bám theo vị trí nhận được (càng lớn càng sát, càng nhỏ càng mượt). */
 const FOLLOW_SPEED = 10;
@@ -100,7 +101,7 @@ export function createRemotePlayers({ scene, island, onTap, onSelect }) {
     const p = ensure(profile.id);
     const changedOutfit = JSON.stringify(p.profile?.equipped) !== JSON.stringify(profile.equipped);
     p.profile = profile;
-    p.tag.set({ name: profile.displayName, unit: profile.unit, xp: profile.xp ?? 0, house: profile.house });
+    p.tag.set({ name: profile.displayName, unit: profile.unit, xp: profile.xp ?? 0, house: profile.house, badge: milestoneBadge(Number(profile.distance) || 0) });
     if (changedOutfit && p.wardrobe && profile.equipped) p.wardrobe.equipAll(profile.equipped);
     syncPet(p);
   }

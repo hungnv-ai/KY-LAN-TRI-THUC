@@ -248,6 +248,7 @@ begin
       'egg', s.egg_progress,
       'eggNeed', public._cfgn('PETS', 'EGG_DAYS', 3)
     ),
+    'milestones', to_jsonb(s.milestones),
     'daily', jsonb_build_object(
       'day', d.day,
       'checkedIn', d.checked_in,

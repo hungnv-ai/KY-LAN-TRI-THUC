@@ -40,10 +40,11 @@ const SUN_OFFSET = { x: 5, y: 10, z: 6 };
  *   sun: import('three').DirectionalLight,
  *   fx: ReturnType<typeof import('../scene/fx.js').createFx>,
  *   onRankUp: (reward: object) => void,
+ *   onMilestones?: (reached: object[]) => void  vừa qua mốc quãng đường (máy chủ đã trao thưởng),
  * }} deps
  * @returns {{ update: (delta: number, elapsed: number) => void, isMoving: () => boolean }}
  */
-export function createExplore({ world, island, mascot, sun, fx, onRankUp }) {
+export function createExplore({ world, island, mascot, sun, fx, onRankUp, onMilestones }) {
   const movement = createMovement(mascot, island, world.camera);
   const player = mascot.object.position;
 
@@ -66,6 +67,9 @@ export function createExplore({ world, island, mascot, sun, fx, onRankUp }) {
     const meters = unsavedDistance;
     unsavedDistance = 0;
     flushing = addDistance(meters)
+      .then((res) => {
+        if (res?.milestones?.length) onMilestones?.(res.milestones);
+      })
       .catch(() => {})
       .finally(() => (flushing = null));
     return flushing;
