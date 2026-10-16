@@ -14,6 +14,7 @@ import { setupZoneGrowth } from './features/zoneGrowth.js';
 import { setupMenu } from './features/menu.js';
 import { createRewards } from './features/rewards.js';
 import { setupMilestones } from './features/milestones.js';
+import { setupBadgeTips } from './features/badgeTips.js';
 import { startSession } from './features/session.js';
 import { setupSocial } from './features/social.js';
 import {
@@ -174,6 +175,7 @@ async function boot() {
     onGoTo: (x, z) => explore.teleportNear(x, z),
   });
 
+  setupBadgeTips({ world, getSprites: () => social.nameTagSprites() });
   setupExpressions({ world, mascot, social });
   setupGiftShop({ mascot, fx });
   pets = setupPets({ world, island, mascot, fx, onPetChanged: () => social.notifyProfileChanged() });

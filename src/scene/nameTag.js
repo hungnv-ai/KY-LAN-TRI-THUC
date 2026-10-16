@@ -30,13 +30,14 @@ const BADGE_GOLD = '#C49C57';
 const BADGE_TEXT = '#7A5A1E';
 
 /**
- * Bảng tên nổi trên đầu Kỳ lân: [icon hạng] Tên · bộ phận, dải màu Nhà, viền theo màu hạng.
+ * Bảng tên nổi trên đầu Kỳ lân: dòng trên "[icon hạng] Họ và tên - Hạng", dòng dưới phòng ban;
+ * dải màu Nhà, viền theo màu hạng.
  * Nhìn là biết người đó hạng nào, thuộc Nhà nào → động lực thi đua.
  *
  * Bên phải là ô huy hiệu mốc quãng đường cao nhất (👟 1 km…) nếu đã đạt.
  *
  * @returns {{ sprite: THREE.Sprite, set: (info: { name: string, unit?: string | null, xp: number, house?: string | null,
- *   badge?: { icon: string, label: string, special: boolean } | null, isMe?: boolean }) => void,
+ *   badge?: { icon: string, label: string, title?: string, special: boolean } | null, isMe?: boolean }) => void,
  *   update: (elapsed: number) => void, dispose: () => void }}
  */
 export function createNameTag() {
@@ -59,12 +60,17 @@ export function createNameTag() {
     const info = getRankInfo(xp ?? 0);
     shiny = info.index >= SHINY_RANK_INDEX || Boolean(badge?.special);
 
-    const title = `${info.rank.icon} ${name || 'Kỳ lân'}`;
-    const subtitle = [info.label, unit].filter(Boolean).join(' · ');
+    const titleName = `${info.rank.icon} ${name || 'Kỳ lân'}`;
+    const titleRank = ` - ${info.label}`;
+    const subtitle = unit || 'VA Schools';
     const fontTitle = '800 50px "Be Vietnam Pro", Arial, sans-serif';
     const fontSub = '600 32px "Be Vietnam Pro", Arial, sans-serif';
+    const fontRank = '700 40px "Be Vietnam Pro", Arial, sans-serif';
     ctx.font = fontTitle;
-    const wTitle = ctx.measureText(title).width;
+    const wName = ctx.measureText(titleName).width;
+    ctx.font = fontRank;
+    const wRank = ctx.measureText(titleRank).width;
+    const wTitle = wName + wRank;
     ctx.font = fontSub;
     const wSub = ctx.measureText(subtitle).width;
     let badgeW = 0;
@@ -96,10 +102,18 @@ export function createNameTag() {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const cx = (width - extra) / 2 + 8;
+    // Dòng trên: họ tên (màu mực) + hạng (màu hạng), canh giữa cả cụm.
+    const startX = cx - wTitle / 2;
+    ctx.textAlign = 'left';
     ctx.fillStyle = '#2E2017';
     ctx.font = fontTitle;
-    ctx.fillText(title, cx, 46);
+    ctx.fillText(titleName, startX, 46);
     ctx.fillStyle = info.rank.color;
+    ctx.font = fontRank;
+    ctx.fillText(titleRank, startX + wName, 48);
+    // Dòng dưới: phòng ban.
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#6B5A4E';
     ctx.font = fontSub;
     ctx.fillText(subtitle, cx, 94);
 
@@ -119,6 +133,10 @@ export function createNameTag() {
       ctx.font = BADGE_LABEL_FONT;
       ctx.fillText(badge.label, bx + badgeW / 2, 94);
     }
+    // Vùng ô huy hiệu theo toạ độ uv (0..1) — để rê chuột / chạm vào thì hiện tên mốc.
+    sprite.userData.badgeTip = badge
+      ? { u0: (width - badgeW - 14) / width, u1: (width - 14) / width, text: `${badge.icon} ${badge.title ?? ''} · đã chạy ${badge.label}` }
+      : null;
 
     texture.needsUpdate = true;
     sprite.scale.set((SCREEN_HEIGHT * width) / CANVAS_H, SCREEN_HEIGHT, 1);

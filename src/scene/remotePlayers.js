@@ -101,7 +101,7 @@ export function createRemotePlayers({ scene, island, onTap, onSelect }) {
     const p = ensure(profile.id);
     const changedOutfit = JSON.stringify(p.profile?.equipped) !== JSON.stringify(profile.equipped);
     p.profile = profile;
-    p.tag.set({ name: profile.displayName, unit: profile.unit, xp: profile.xp ?? 0, house: profile.house, badge: milestoneBadge(Number(profile.distance) || 0) });
+    p.tag.set({ name: profile.fullName || profile.displayName, unit: profile.unit, xp: profile.xp ?? 0, house: profile.house, badge: milestoneBadge(Number(profile.distance) || 0) });
     if (changedOutfit && p.wardrobe && profile.equipped) p.wardrobe.equipAll(profile.equipped);
     syncPet(p);
   }
@@ -203,6 +203,8 @@ export function createRemotePlayers({ scene, island, onTap, onSelect }) {
     /** Danh sách người chơi đang thấy trên đảo (cho bảng "Ai đang online"). */
     list: () =>
       [...players.values()].filter((p) => p.hasMotion).map((p) => ({ id: p.id, profile: p.profile, position: p.root.position })),
+    /** Bảng tên đang hiện (để rê chuột vào huy hiệu). */
+    tagSprites: () => [...players.values()].filter((p) => p.hasMotion).map((p) => p.tag.sprite),
     count: () => players.size,
   };
 }

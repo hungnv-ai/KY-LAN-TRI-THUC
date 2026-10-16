@@ -12,6 +12,7 @@ begin
     select jsonb_agg(jsonb_build_object(
       'id', p.id,
       'displayName', coalesce(p.display_name, p.full_name),
+      'fullName', p.full_name,
       'unit', p.unit,
       'house', p.house,
       'role', p.role,
@@ -37,6 +38,7 @@ begin
   select jsonb_build_object(
     'id', p.id,
     'displayName', coalesce(p.display_name, p.full_name),
+    'fullName', p.full_name,
     'unit', p.unit,
     'house', p.house,
     'role', p.role,
