@@ -63,6 +63,7 @@ src/
     localBackend.js   # luật thưởng chạy trên máy (ngoại tuyến) — giữ khớp với supabase/sql
     remoteBackend.js  # gọi RPC Supabase cùng tên hàm
     missions.js       # nhiệm vụ ngày (chọn theo ngày) + tiến độ
+    milestones.js     # mốc quãng đường (1–42 km): mốc kế tiếp, huy hiệu bảng tên
     storage.js        # localStorage an toàn
     time.js           # ngày (giờ VN), Giờ Vàng
     bellClock.js      # đồng hồ trận Rung Chuông Vàng (cùng công thức với _bell_phase)
@@ -108,10 +109,12 @@ src/
     photoView.js      # đếm ngược, khung ảnh VA, tải về/chia sẻ
     giftShopView.js / petView.js / cardView.js / eventView.js / bellView.js
     peopleView.js     # danh sách người cùng đảo (bấm 👥) + nút "Tới chỗ bạn"
+    milestonesView.js # bảng mốc quãng đường (bấm ô 🏃)
     quizView.js / wardrobeView.js / ranksView.js / todayView.js / quickQuestionView.js
   features/           # điều phối 1 tính năng lớn: nối scene + game + ui (không chứa luật thưởng)
     session.js        # khởi động: ngoại tuyến hay đăng nhập + hồ sơ
     rewards.js        # hiệu ứng nhận thưởng, lên hạng
+    milestones.js     # mốc quãng đường: bấm ô 🏃 xem mốc, ăn mừng khi vừa qua mốc
     menu.js           # các nút điều hướng → mở bảng tương ứng
     explore.js        # Khám phá Vùng Đất: chạy, câu hỏi mỗi 100 m, cột Vùng Đất, xu, hộp quà
     social.js         # nhiều người chơi trên đảo + chạm vào Kỳ lân người khác + thiệp sự kiện

@@ -53,6 +53,8 @@ alter table public.questions add column if not exists event text;
 alter table public.questions drop constraint if exists questions_topic_check;
 alter table public.questions add constraint questions_topic_check check (topic in ('values', 'va', 'general', 'event'));
 alter table public.items add column if not exists event text;
+-- Đồ độc quyền của mốc quãng đường (không bán, không rơi từ hộp quà).
+alter table public.items add column if not exists milestone text;
 create index if not exists questions_status_idx on public.questions (status);
 
 create table if not exists public.profiles (
@@ -90,6 +92,8 @@ create index if not exists player_state_xp_idx on public.player_state (xp desc);
 alter table public.player_state add column if not exists pets text[] not null default '{}';
 alter table public.player_state add column if not exists active_pet text;
 alter table public.player_state add column if not exists egg_progress int not null default 0;
+-- Mốc quãng đường đã nhận thưởng (id trong MILESTONES.LIST).
+alter table public.player_state add column if not exists milestones text[] not null default '{}';
 
 create table if not exists public.daily_counters (
   user_id uuid not null references public.profiles (id) on delete cascade,

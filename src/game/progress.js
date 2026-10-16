@@ -197,12 +197,13 @@ export function getActiveEvent() {
 
 /**
  * @param {object} item
- * @returns {'equipped' | 'owned' | 'buyable' | 'tooPoor' | 'locked' | 'eventLocked'}
+ * @returns {'equipped' | 'owned' | 'buyable' | 'tooPoor' | 'locked' | 'milestoneLocked' | 'eventLocked'}
  */
 export function itemStatus(item) {
   if (state.equipped[item.slot] === item.id) return 'equipped';
   if (state.owned.includes(item.id)) return 'owned';
   if (item.rank) return 'locked';
+  if (item.milestone) return 'milestoneLocked';
   if (item.event && item.event !== state.event) return 'eventLocked';
   return state.coins >= item.price ? 'buyable' : 'tooPoor';
 }
@@ -251,7 +252,12 @@ export async function askQuestion(kind, station = null) {
   return call('issueQuestion', kind, station);
 }
 
-/** @param {number} meters */
+/**
+ * Gửi quãng đường vừa chạy; máy chủ tự trao thưởng khi qua mốc quãng đường.
+ *
+ * @param {number} meters
+ * @returns {Promise<{ added: number, milestones?: { id: string, reward: object, item: { id: string, name: string } | null }[] }>}
+ */
 export async function addDistance(meters) {
   return call('addDistance', meters);
 }

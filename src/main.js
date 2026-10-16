@@ -13,6 +13,7 @@ import { playIntro } from './features/intro.js';
 import { setupZoneGrowth } from './features/zoneGrowth.js';
 import { setupMenu } from './features/menu.js';
 import { createRewards } from './features/rewards.js';
+import { setupMilestones } from './features/milestones.js';
 import { startSession } from './features/session.js';
 import { setupSocial } from './features/social.js';
 import {
@@ -151,6 +152,7 @@ async function boot() {
   });
 
   const rewards = createRewards({ world, mascot, fx, onRankUp: () => social?.notifyProfileChanged() });
+  const milestones = setupMilestones({ rewards, onBadgeChanged: () => social?.notifyProfileChanged() });
 
   explore = createExplore({
     world,
@@ -159,6 +161,7 @@ async function boot() {
     sun,
     fx,
     onRankUp: (reward) => rewards.announceRankUp(reward.rankUp),
+    onMilestones: (reached) => milestones.celebrate(reached),
   });
 
   social = setupSocial({

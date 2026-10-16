@@ -545,4 +545,28 @@ begin
   perform admin_set_event('auto');
 end $$;
 
+-- Mốc quãng đường: qua mốc → thưởng đúng một lần, đồ độc quyền không mua được.
+do $$
+declare
+  B uuid := '00000000-0000-0000-0000-00000000000b';
+  r jsonb;
+  v_coins int;
+begin
+  perform test_admin();
+  update player_state set distance = 9990, milestones = '{}' where user_id = B;
+  update daily_counters set last_distance_at = now() - interval '60 seconds' where user_id = B;
+  select coins into v_coins from player_state where user_id = B;
+  perform test_as(B);
+  r := add_distance(20);
+  assert jsonb_array_length(r -> 'milestones') = 3, 'qua 3 mốc 1/5/10 km cùng lúc';
+  assert (r -> 'state' -> 'coins')::int = v_coins + 170, 'thưởng 20 + 50 + 100 Xu';
+  assert r -> 'state' -> 'owned' ? 'shoes-traveler', 'nhận Giày Lữ Khách ở mốc 10 km';
+  assert r -> 'state' -> 'milestones' ? 'km10', 'ghi nhận mốc đã nhận';
+  assert (r -> 'milestones' -> 2 -> 'item' ->> 'id') = 'shoes-traveler', 'báo món quà độc quyền';
+  r := add_distance(0);
+  assert jsonb_array_length(r -> 'milestones') = 0, 'không thưởng mốc 2 lần';
+  perform test_expect_error($q$select buy_item('shoes-traveler')$q$, 'item_not_buyable');
+  assert (public_profiles(array[B]) -> 0 ->> 'distance')::numeric >= 10000, 'hồ sơ công khai có quãng đường (huy hiệu)';
+end $$;
+
 select '✔ Tất cả kiểm thử máy chủ đều đạt' as ket_qua;

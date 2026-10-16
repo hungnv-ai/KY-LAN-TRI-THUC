@@ -306,11 +306,34 @@ declare
   -- Không thể chạy nhanh hơn tốc độ chạy tối đa (chống gửi quãng đường giả).
   v_max numeric := public._cfgn('EXPLORE', 'RUN_SPEED', 7.5) * 1.3 * least(v_secs, 60) + 3;
   v_add numeric := greatest(0, least(coalesce(p_meters, 0), v_max, 500));
+  v_total numeric;
+  v_done text[];
+  v_m jsonb;
+  v_reward jsonb;
+  v_item jsonb;
+  v_reached jsonb := '[]';
 begin
   update daily_counters set distance = distance + v_add, last_distance_at = now()
     where user_id = v_uid and day = d.day;
-  update player_state set distance = distance + v_add where user_id = v_uid;
-  return jsonb_build_object('added', v_add, 'state', public._state_json(v_uid));
+  update player_state set distance = distance + v_add where user_id = v_uid
+    returning distance, milestones into v_total, v_done;
+  -- Mốc quãng đường: qua mốc chưa nhận → thưởng một lần (+ đồ độc quyền nếu có).
+  for v_m in select m from jsonb_array_elements(public._cfg('MILESTONES') -> 'LIST') m loop
+    continue when v_total < (v_m ->> 'meters')::numeric or (v_m ->> 'id') = any (v_done);
+    update player_state set milestones = array_append(milestones, v_m ->> 'id') where user_id = v_uid;
+    v_reward := public._apply_reward(v_uid, coalesce((v_m ->> 'xp')::int, 0), coalesce((v_m ->> 'coins')::int, 0),
+      'milestone', jsonb_build_object('milestone', v_m ->> 'id'));
+    v_item := null;
+    if v_m ->> 'item' is not null then
+      update player_state set owned = array_append(owned, v_m ->> 'item')
+        where user_id = v_uid and not ((v_m ->> 'item') = any (owned));
+      if found then
+        select jsonb_build_object('id', i.id, 'name', i.name) into v_item from items i where i.id = v_m ->> 'item';
+      end if;
+    end if;
+    v_reached := v_reached || jsonb_build_object('id', v_m ->> 'id', 'reward', v_reward, 'item', v_item);
+  end loop;
+  return jsonb_build_object('added', v_add, 'milestones', v_reached, 'state', public._state_json(v_uid));
 end;
 $$;
 
@@ -359,7 +382,7 @@ begin
     v_reward := public._no_reward();
   elsif v_roll >= v_coin + v_xpc then
     select i.id, i.name into v_item from items i, player_state s
-    where s.user_id = v_uid and i.price > 0 and i.rank_id is null and not (i.id = any (s.owned))
+    where s.user_id = v_uid and i.price > 0 and i.rank_id is null and i.milestone is null and not (i.id = any (s.owned))
       and (i.event is null or i.event = public._active_event())
     order by random() limit 1;
     if found then
@@ -396,7 +419,7 @@ declare
   s player_state;
 begin
   select * into i from items where id = p_item;
-  if not found or i.rank_id is not null then raise exception 'item_not_buyable'; end if;
+  if not found or i.rank_id is not null or i.milestone is not null then raise exception 'item_not_buyable'; end if;
   if i.event is not null and i.event is distinct from public._active_event() then raise exception 'event_item_unavailable'; end if;
   select * into s from player_state where user_id = v_uid for update;
   if p_item = any (s.owned) then raise exception 'already_owned'; end if;

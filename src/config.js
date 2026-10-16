@@ -86,6 +86,21 @@ export const EXPLORE = {
 };
 
 /**
+ * Mốc quãng đường (tổng số mét đã chạy từ trước tới nay). Qua mốc → thưởng tự động một lần.
+ * `item`: món đồ độc quyền (chỉ có khi đạt mốc); `badge`: icon hiện trên bảng tên.
+ * Máy chủ đọc danh sách này qua game_settings ('MILESTONES').
+ */
+export const MILESTONES = {
+  LIST: [
+    { id: 'km1', meters: 1000, icon: '👟', title: 'Bước chân đầu tiên', xp: 0, coins: 20 },
+    { id: 'km5', meters: 5000, icon: '🏃', title: 'Nhà thám hiểm nhỏ', xp: 0, coins: 50 },
+    { id: 'km10', meters: 10000, icon: '🧭', title: 'Lữ khách VA', xp: 0, coins: 100, item: 'shoes-traveler' },
+    { id: 'km21', meters: 21000, icon: '🥈', title: 'Bán marathon', xp: 0, coins: 150 },
+    { id: 'km42', meters: 42000, icon: '🏅', title: 'Marathon Kỳ Lân', xp: 0, coins: 300, badge: true },
+  ],
+};
+
+/**
  * Nhiệm vụ hằng ngày: mỗi ngày chọn 3 nhiệm vụ (giống nhau cho mọi người) từ danh mục này.
  * `counter` là bộ đếm trong ngày (xem daily trong game/progress.js và bảng daily_counters).
  */

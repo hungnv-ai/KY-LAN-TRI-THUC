@@ -4,6 +4,7 @@
  *
  * - `price`: giá Xu (0 = miễn phí).
  * - `rank`: id hạng cần đạt để mở khoá (phần thưởng lên hạng, miễn phí khi đủ hạng).
+ * - `milestone`: id mốc quãng đường (MILESTONES trong config.js) — chỉ nhận được khi đạt mốc, không bán.
  * - `rarity`: common | rare | epic | legendary.
  * - `icon`: emoji hiển thị trong Tủ đồ cho món không có màu đại diện.
  * - `model: null` = "Không mặc" cho slot đó.
@@ -52,6 +53,7 @@ export const ITEMS = [
   { id: 'shoes-red', slot: 'shoes', name: 'Giày đỏ VA', price: 0, rarity: 'common', model: 'shoes', params: { body: '#B3122A', sole: '#F0C48A' } },
   { id: 'shoes-blue', slot: 'shoes', name: 'Giày Khai Phóng', price: 80, rarity: 'common', model: 'shoes', params: { body: '#1750B5', sole: '#FFFFFF' } },
   { id: 'shoes-white', slot: 'shoes', name: 'Sneaker trắng', price: 100, rarity: 'rare', model: 'shoes', params: { body: '#F5F6F7', sole: '#9A0036' } },
+  { id: 'shoes-traveler', slot: 'shoes', name: 'Giày Lữ Khách', price: 0, milestone: 'km10', rarity: 'epic', model: 'shoes', params: { body: '#1F7A5C', sole: '#F2C14E' } },
   { id: 'shoes-silver', slot: 'shoes', name: 'Giày bạc', price: 0, rank: 'bac', rarity: 'epic', model: 'shoes', params: { body: '#C9D1D8', sole: '#5B6670', metal: true } },
 
   // Ba lô

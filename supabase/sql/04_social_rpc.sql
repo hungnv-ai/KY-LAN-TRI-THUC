@@ -18,6 +18,7 @@ begin
       'xp', s.xp,
       'equipped', s.equipped,
       'pet', s.active_pet,
+      'distance', floor(s.distance),
       'streak', case when s.streak_last >= public._today() - 1 then s.streak_count else 0 end
     ))
     from profiles p join player_state s on s.user_id = p.id

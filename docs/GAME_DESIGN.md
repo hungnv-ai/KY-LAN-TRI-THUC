@@ -70,6 +70,10 @@ Linh vật Kỳ lân của VA Schools (KHÔNG phải ngựa trắng có sừng).
   - Xu vàng rơi: +1 Xu, tối đa 40/ngày. Hộp quà bất ngờ (cột sáng vàng): tối đa 5/ngày,
     60% Xu · 30% XP · 10% trang phục miễn phí.
 - Quà hiện vật / "Phiếu quà": để GĐ2 (cần máy chủ chống gian lận, BGH duyệt).
+- Mốc quãng đường (tổng mét cộng dồn mọi ngày; `src/config.js` → `MILESTONES`; bấm ô 🏃 để xem):
+  1 km 👟 Bước chân đầu tiên +20 Xu · 5 km 🏃 Nhà thám hiểm nhỏ +50 Xu ·
+  10 km 🧭 Lữ khách VA +100 Xu + Giày Lữ Khách (độc quyền) · 21 km 🥈 Bán marathon +150 Xu ·
+  42 km 🏅 Marathon Kỳ Lân +300 Xu + huy hiệu 🏅 trên bảng tên. Máy chủ tự trao khi qua mốc, mỗi mốc 1 lần.
 
 ## Tính năng mở rộng (đã làm, theo lựa chọn của người dùng)
 
