@@ -8,7 +8,7 @@ const HOUSE = Object.fromEntries(VALUES.map((v) => [v.id, v]));
 /**
  * Bảng "Ai đang ở cùng đảo": tên, hạng, Nhà, khoảng cách; bấm "Tới chỗ bạn" để chạy tới ngay.
  *
- * @param {{ people: { id: string, name: string, unit?: string, xp: number, house?: string, distance: number }[],
+ * @param {{ people: { id: string, name: string, unit?: string, xp: number, house?: string, distance: number, badge?: string }[],
  *   room: string, onGo: (id: string) => void, onView: (id: string) => void }} opts
  */
 export function openPeople({ people, room, onGo, onView }) {
@@ -32,7 +32,7 @@ export function openPeople({ people, room, onGo, onView }) {
                 h(
                   'button',
                   { class: 'people-name', type: 'button', onclick: () => onView(p.id) },
-                  h('strong', {}, p.name ?? 'Kỳ lân'),
+                  h('strong', {}, p.name ?? 'Kỳ lân', p.badge ? h('span', { class: 'people-badge' }, p.badge) : ''),
                   h(
                     'small',
                     {},

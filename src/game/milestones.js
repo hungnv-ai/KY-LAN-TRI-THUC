@@ -29,13 +29,13 @@ export function nextMilestone(distance) {
 }
 
 /**
- * Huy hiệu trên bảng tên: icon của mốc có `badge` cao nhất đã đạt.
+ * Huy hiệu trên bảng tên: mốc cao nhất đã đạt (vd 👟 1 km) — ai cũng thấy để thi đua.
  *
  * @param {number} distance tổng quãng đường (m)
- * @returns {string} emoji hoặc chuỗi rỗng
+ * @returns {{ icon: string, label: string, special: boolean } | null} null = chưa đạt mốc nào
  */
 export function milestoneBadge(distance) {
-  let badge = '';
-  for (const m of MILESTONES.LIST) if (m.badge && distance >= m.meters) badge = m.icon;
-  return badge;
+  let top = null;
+  for (const m of MILESTONES.LIST) if (distance >= m.meters) top = m;
+  return top ? { icon: top.icon, label: `${top.meters / 1000} km`, special: Boolean(top.badge) } : null;
 }

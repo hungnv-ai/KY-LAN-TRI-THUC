@@ -87,7 +87,8 @@ export const EXPLORE = {
 
 /**
  * Mốc quãng đường (tổng số mét đã chạy từ trước tới nay). Qua mốc → thưởng tự động một lần.
- * `item`: món đồ độc quyền (chỉ có khi đạt mốc); `badge`: icon hiện trên bảng tên.
+ * `item`: món đồ độc quyền (chỉ có khi đạt mốc). Mốc cao nhất đã đạt hiện trên bảng tên (vd "👟 1 km");
+ * `badge`: mốc đặc biệt — bảng tên viền vàng lấp lánh.
  * Máy chủ đọc danh sách này qua game_settings ('MILESTONES').
  */
 export const MILESTONES = {

@@ -2295,3 +2295,15 @@ body.is-intro .speech {
 .ms-note {
   margin-top: 12px;
 }
+
+.people-badge {
+  margin-left: 6px;
+  padding: 1px 8px;
+  border: 1px solid var(--trach-nhiem);
+  border-radius: 999px;
+  background: #fff4dc;
+  color: #7a5a1e;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}

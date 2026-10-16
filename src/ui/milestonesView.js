@@ -29,7 +29,7 @@ export function openMilestones({ distance, claimed, milestones }) {
     { class: 'ms-list' },
     ...milestones.map((m) => {
       const done = claimed.includes(m.id) || distance >= m.meters;
-      const reward = [m.coins ? `+${formatNumber(m.coins)} Xu` : '', m.xp ? `+${formatNumber(m.xp)} XP` : '', m.itemName ? `👟 ${m.itemName}` : '', m.badge ? 'huy hiệu trên bảng tên' : '']
+      const reward = [m.coins ? `+${formatNumber(m.coins)} Xu` : '', m.xp ? `+${formatNumber(m.xp)} XP` : '', m.itemName ? `👟 ${m.itemName}` : '', m.badge ? 'bảng tên viền vàng' : '']
         .filter(Boolean)
         .join(' · ');
       return h(
@@ -44,7 +44,7 @@ export function openMilestones({ distance, claimed, milestones }) {
 
   openSheet({
     title: '🏃 Mốc quãng đường',
-    content: h('div', {}, head, list, h('p', { class: 'muted ms-note' }, 'Quãng đường cộng dồn mọi ngày. Qua mốc là tự nhận thưởng — cứ chạy khám phá đảo nhé!')),
+    content: h('div', {}, head, list, h('p', { class: 'muted ms-note' }, 'Quãng đường cộng dồn mọi ngày. Qua mốc là tự nhận thưởng, và mốc cao nhất hiện trên bảng tên cho mọi người cùng thấy — cứ chạy khám phá đảo nhé!')),
     variant: 'side',
   });
 }
