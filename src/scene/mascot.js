@@ -367,6 +367,8 @@ function createCustomModelSlot(parent) {
     // Bỏ clip không khớp khung xương của model (vd file động tác của nhân vật khác).
     const clips = (next.animations ?? []).filter((clip) => bindsTo(model, clip));
     if (!clips.length) return;
+    // Game tự di chuyển nhân vật → bỏ phần "bước tới" có sẵn trong động tác (tránh giật lùi khi lặp lại).
+    clips.forEach(removeRootDrift);
     mixer = new THREE.AnimationMixer(model);
     const found = Object.fromEntries(Object.entries(LOCOMOTION_CLIPS).map(([k, re]) => [k, pick(clips, re)]));
     const used = new Set(Object.values(found).filter(Boolean));
@@ -446,6 +448,30 @@ function createCustomModelSlot(parent) {
   }
 
   return { set, update, playEmote, top, active: () => Boolean(model) };
+}
+
+/**
+ * Động tác không "tại chỗ" (root motion): xương hông trôi dần về phía trước rồi nhảy về chỗ cũ
+ * khi lặp → nhân vật giật lùi. Trừ đi phần trôi tuyến tính theo chiều ngang (x, z) của mọi track
+ * vị trí; nhún lên xuống (y) và lắc lư qua lại (có đầu–cuối trùng nhau) được giữ nguyên.
+ * Gọi nhiều lần vẫn an toàn (lần sau không còn gì để trừ).
+ */
+function removeRootDrift(clip) {
+  for (const track of clip.tracks) {
+    if (!track.name.endsWith('.position') || track.times.length < 2) continue;
+    const v = track.values;
+    const last = v.length - 3;
+    const dx = v[last] - v[0];
+    const dz = v[last + 2] - v[2];
+    if (dx === 0 && dz === 0) continue;
+    const t0 = track.times[0];
+    const span = track.times[track.times.length - 1] - t0 || 1;
+    for (let i = 0, k = 0; i < v.length; i += 3, k++) {
+      const f = (track.times[k] - t0) / span;
+      v[i] -= dx * f;
+      v[i + 2] -= dz * f;
+    }
+  }
 }
 
 /** Clip có điều khiển được ít nhất một bộ phận của model không (so tên xương / node). */

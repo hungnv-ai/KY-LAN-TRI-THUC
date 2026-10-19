@@ -250,7 +250,9 @@ Phần này cần **bộ phận IT** (người quản lý tên miền `vaschools
 Nhân vật 3D chưa có "khung xương" (rig) thì game tự cho nhún nhảy, lắc lư khi chạy. Muốn có động tác
 thật như Kỳ lân dựng sẵn:
 
-1. Trong công cụ tạo 3D (VD **Meshy**), mở nhân vật → chọn chức năng **Rig / Animate** (gắn khung xương),
+0. Tạo nhân vật từ ảnh **đứng thẳng, hai tay buông xoè (tư thế chữ A)** — tư thế vẫy tay / chống hông làm
+   tay, vai bị méo khi cử động. Giảm lưới (**Retopo**) còn khoảng 10–50 nghìn mặt.
+1. Trong công cụ tạo 3D (VD **Tripo3D** / **Meshy**), mở nhân vật → chọn chức năng **Rig / Animate** (gắn khung xương),
    kiểu nhân vật **2 chân (Humanoid)**, làm theo hướng dẫn đặt các điểm khớp (cằm, cổ tay, khuỷu tay, đầu gối…).
 2. Tải về **model đã rig** dạng **GLB** → vào `/admin` → **🦄 Nhân vật** → tải lên như nhân vật mới
    (có thể xoá nhân vật cũ chưa rig).
