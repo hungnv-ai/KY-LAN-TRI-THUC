@@ -11,6 +11,7 @@ có thể làm theo bằng cách bấm chuột; Claude viết toàn bộ code.
 ## Stack
 
 - **Vite** (dev server + build), **Three.js** (`three` + `three/addons/...`), HTML5/CSS thuần.
+- Trang quản trị dùng thêm `@gltf-transform/*` + `meshoptimizer` (chỉ để nén file .glb, tải lười — game không tải).
 - JavaScript ES Modules (không TypeScript, không framework UI). Không thêm dependency mới
   nếu chưa thật sự cần — hỏi người dùng trước.
 
@@ -98,7 +99,7 @@ src/
     dayCycle.js       # ngày–hoàng hôn–đêm theo giờ VN (?time=19.5 để xem thử): trời, nắng, sao, đèn lồng, đom đóm
     sea.js            # biển lấp lánh, cá nhảy, thuyền buồm VA
     zoneGrowth.js     # trang trí Vùng Đất theo cấp 0–4 (hoa → pha lê → sao → cầu vồng)
-    loader.js         # tải .glb (nhân vật 3D tải lên; clone giữ khung xương animation)
+    loader.js         # tải .glb (nhân vật 3D tải lên; clone giữ khung xương, giải nén meshopt)
   ui/                 # DOM
     dom.js            # h() tạo phần tử, formatNumber
     hud.js            # thanh hạng/XP/Xu/chuỗi, thanh Khám phá, số người online, nút âm thanh
@@ -137,6 +138,7 @@ src/
   admin/              # trang quản trị (chỉ chạy trực tuyến)
     main.js           # đăng nhập, khung sidebar, điều hướng theo #hash, nhận quyền admin đầu tiên
     api.js / widgets.js / charts.js / admin.css
+    glbCompress.js    # nén .glb trong trình duyệt trước khi tải lên (gltf-transform + meshoptimizer, tải lười)
     pages/            # dashboard, questions (CSV), players (vai trò), bell (Rung Chuông Vàng), characters (tải .glb),
                       #   vouchers (+ danh mục quà), settings (+ bật/tắt bảo trì, sự kiện)
 ```

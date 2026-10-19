@@ -154,7 +154,7 @@ const CHARACTER_BUCKET = 'characters';
 /**
  * Tải file .glb lên kho nhân vật.
  *
- * @param {File} file
+ * @param {File | Blob} file
  * @returns {Promise<{ url: string, path: string }>}
  */
 export async function uploadCharacterModel(file) {
