@@ -1,6 +1,7 @@
 import { EXPLORE, QUIZ, VALUES } from '../config.js';
 import { getEvent } from '../data/events.js';
 import { dayKey, yesterdayKey } from './time.js';
+import { DEFAULT_CHARACTER } from '../data/characters.js';
 
 /**
  * Tiến trình người chơi — lớp trung gian duy nhất mà phần còn lại của game dùng.
@@ -20,6 +21,7 @@ const listeners = new Set();
 
 /** Thông báo lỗi thân thiện theo mã lỗi máy chủ. */
 const ERROR_MESSAGES = {
+  character_not_found: 'Nhân vật này không còn — hãy chọn nhân vật khác.',
   maintenance: 'Game đang bảo trì — bạn quay lại sau ít phút nhé.',
   not_enough_coins: 'Bạn chưa đủ Xu.',
   already_owned: 'Bạn đã có món này rồi.',
@@ -281,6 +283,29 @@ export async function buyItem(itemId) {
 /** @returns {Promise<void>} */
 export async function equipItem(itemId) {
   await call('equipItem', itemId);
+}
+
+/**
+ * Danh mục nhân vật đang mở (Kỳ lân Nam/Nữ + nhân vật 3D quản trị tải lên).
+ *
+ * @returns {Promise<{ id: string, name: string, gender: string, variant: string | null, modelUrl: string | null }[]>}
+ */
+export async function listCharacters() {
+  return backend.listCharacters();
+}
+
+/**
+ * Chọn nhân vật (lưu trên máy chủ, người khác cũng thấy).
+ *
+ * @param {string} id
+ */
+export async function setCharacter(id) {
+  await call('setCharacter', id);
+}
+
+/** @returns {string} id nhân vật đang dùng */
+export function getCharacterId() {
+  return state.character || DEFAULT_CHARACTER;
 }
 
 /** @returns {{ owned: string[], active: string | null, egg: number, eggNeed: number }} */

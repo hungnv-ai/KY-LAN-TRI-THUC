@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 
 /**
- * Tải file .glb (đặt trong `public/models/`). Hiện Kỳ lân được dựng bằng code
- * (`src/scene/mascot.js`); module này để sẵn cho GĐ4 khi có model 3D chất lượng cao.
+ * Tải file .glb: nhân vật 3D do quản trị tải lên (Supabase Storage) hoặc file trong `public/models/`.
+ * Kỳ lân mặc định vẫn dựng bằng code (`src/scene/mascot.js`).
  */
 
 /** LoadingManager dùng chung để theo dõi tiến trình tải toàn bộ tài nguyên. */
@@ -27,7 +28,8 @@ export async function loadGLB(url) {
 
   try {
     const gltf = await cache.get(url);
-    const scene = gltf.scene.clone(true);
+    // SkeletonUtils.clone giữ đúng khung xương cho model có animation (SkinnedMesh).
+    const scene = cloneSkinned(gltf.scene);
     scene.traverse((obj) => {
       if (obj.isMesh) {
         obj.castShadow = true;

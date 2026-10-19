@@ -362,3 +362,72 @@ export function createEmojiSprite(char) {
   }
   return new THREE.Sprite(new THREE.SpriteMaterial({ map: spriteTextures.get(char), transparent: true, depthWrite: false }));
 }
+
+/** Màu riêng của Kỳ lân Nữ. */
+const FEMALE_COLORS = { bow: 0xff4f8b, bowKnot: 0xe6b04c, blush: 0xff8fa8, lash: 0x2a1410 };
+const BOW_SCALE = 1.35;
+
+/**
+ * Chi tiết riêng của Kỳ lân Nữ (giữ nguyên mọi nét nhận diện VA): lông mi cong, má hồng,
+ * nơ hồng trên bờm (váy dựng trong mascot.js). Trả về danh sách object để bật/tắt theo biến thể.
+ *
+ * @param {{ head: THREE.Group, faceGroup: THREE.Group, eyes: { side: number, variants: Record<string, THREE.Object3D> }[],
+ *   center: THREE.Vector3, radii: THREE.Vector3 }} parts
+ * @returns {THREE.Object3D[]}
+ */
+export function createFemaleParts({ head, faceGroup, eyes, center, radii }) {
+  const created = [];
+  const lashMat = mat(FEMALE_COLORS.lash, 0.5);
+  const lashGeo = new THREE.CapsuleGeometry(0.011, 0.045, 4, 6);
+
+  // Lông mi: 3 sợi cong ra ngoài ở mép trên phía ngoài của mắt (chỉ hiện khi mắt mở).
+  for (const eye of eyes) {
+    const lashes = new THREE.Group();
+    for (const [i, deg] of [25, 50, 75].entries()) {
+      const a = THREE.MathUtils.degToRad(deg);
+      const dirX = Math.cos(a) * eye.side;
+      const dirY = Math.sin(a);
+      const lash = mesh(lashGeo, lashMat);
+      lash.position.set(dirX * 0.13, dirY * 0.14, 0.02);
+      lash.rotation.z = Math.atan2(dirY, dirX) - Math.PI / 2;
+      lash.scale.setScalar(1 - i * 0.1);
+      lashes.add(lash);
+    }
+    eye.variants.open.add(lashes);
+    created.push(lashes);
+  }
+
+  // Má hồng.
+  const blushMat = new THREE.MeshStandardMaterial({ color: FEMALE_COLORS.blush, roughness: 0.8, transparent: true, opacity: 0.8 });
+  for (const side of [-1, 1]) {
+    const blush = mesh(new THREE.CircleGeometry(0.065, 24), blushMat);
+    blush.castShadow = false;
+    faceGroup.add(placeOnEllipsoid(blush, radii, 0.34 * side, -0.17, 0.012));
+    created.push(blush);
+  }
+
+  // Nơ hồng cài bên trái bờm (bên phải người xem), trước các ngọn lửa.
+  const bow = new THREE.Group();
+  bow.name = 'Bow';
+  const bowMat = mat(FEMALE_COLORS.bow, 0.45);
+  for (const side of [-1, 1]) {
+    const wing = mesh(new THREE.ConeGeometry(0.11, 0.2, 16), bowMat);
+    wing.scale.set(1, 1, 0.45);
+    wing.rotation.z = (side * Math.PI) / 2;
+    wing.position.x = side * 0.1;
+    bow.add(wing);
+    const tail = mesh(new THREE.CapsuleGeometry(0.025, 0.12, 4, 8), bowMat);
+    tail.position.set(side * 0.035, -0.1, -0.01);
+    tail.rotation.z = side * 0.35;
+    bow.add(tail);
+  }
+  bow.add(mesh(new THREE.SphereGeometry(0.05, 16, 12), mat(FEMALE_COLORS.bowKnot, 0.3, 0.5)));
+  // Góc trên–trước bên trái đầu, quay mặt ra phía trước, nghiêng nhẹ cho duyên dáng.
+  bow.position.copy(center).add(new THREE.Vector3(radii.x * 0.56, radii.y * 0.8, radii.z * 0.52));
+  bow.rotation.set(-0.25, 0.35, -0.35);
+  bow.scale.setScalar(BOW_SCALE);
+  head.add(bow);
+  created.push(bow);
+
+  return created;
+}

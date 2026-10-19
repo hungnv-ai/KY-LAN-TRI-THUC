@@ -41,9 +41,10 @@ const TRY_ON_MS = 2500;
  *
  * @param {{ world: object, mascot: object, wardrobe: object, fx: object,
  *   rewards: ReturnType<typeof import('./rewards.js').createRewards>,
- *   onOutfitChanged: () => void, onCheckedIn?: (result: object) => void | Promise<void> }} deps
+ *   onOutfitChanged: () => void, onCheckedIn?: (result: object) => void | Promise<void>,
+ *   characters?: ReturnType<typeof import('./characters.js').setupCharacters> }} deps
  */
-export function setupMenu({ world, mascot, wardrobe, fx, rewards, onOutfitChanged, onCheckedIn }) {
+export function setupMenu({ world, mascot, wardrobe, fx, rewards, onOutfitChanged, onCheckedIn, characters }) {
   const warn = (err) => showToast(friendlyError(err), { type: 'warn', icon: '⚠️' });
 
   async function doCheckIn() {
@@ -148,6 +149,21 @@ export function setupMenu({ world, mascot, wardrobe, fx, rewards, onOutfitChange
       const view = openWardrobe({
         getStatus: itemStatus,
         onClose: () => world.setPanelFocus(false),
+        characters: characters && {
+          list: characters.catalog,
+          current: characters.current,
+          onPick: async (id) => {
+            try {
+              await characters.choose(id);
+              sfx.gift();
+              fx.aura(mascot.object, { duration: 1 });
+              showToast('Đã đổi nhân vật — mọi người trên đảo cũng thấy!', { type: 'success', icon: '🦄' });
+            } catch (err) {
+              warn(err);
+            }
+            view.refresh();
+          },
+        },
         onSelect: async (item) => {
           const status = itemStatus(item);
           if (status === 'equipped') return;

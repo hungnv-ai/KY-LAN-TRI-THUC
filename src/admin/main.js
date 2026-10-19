@@ -2,6 +2,7 @@ import { h } from '../ui/dom.js';
 import { getSession, isOnlineConfigured, signInWithGoogle, signOut } from '../net/supabase.js';
 import { api } from './api.js';
 import { renderBell } from './pages/bell.js';
+import { renderCharacters } from './pages/characters.js';
 import { renderDashboard } from './pages/dashboard.js';
 import { ROLES, renderPlayers } from './pages/players.js';
 import { renderQuestions } from './pages/questions.js';
@@ -22,6 +23,7 @@ const NAV = [
   { id: 'players', icon: '👥', label: 'Người chơi', roles: ['teacher', 'bgh', 'admin'], render: renderPlayers },
   { id: 'bell', icon: '🔔', label: 'Rung Chuông Vàng', roles: ['bgh', 'admin'], render: renderBell },
   { id: 'vouchers', icon: '🎟️', label: 'Phiếu quà', roles: ['bgh', 'admin'], render: renderVouchers },
+  { id: 'characters', icon: '🦄', label: 'Nhân vật', roles: ['bgh', 'admin'], render: renderCharacters },
   { id: 'settings', icon: '⚙️', label: 'Cài đặt & phân quyền', roles: ['bgh', 'admin'], render: renderSettings, bottom: true },
 ];
 

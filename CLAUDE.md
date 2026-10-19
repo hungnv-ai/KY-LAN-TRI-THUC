@@ -40,7 +40,8 @@ vercel.json           # cache, header bảo mật, cleanUrls
 public/               # icon, manifest.webmanifest + sw.js (PWA), og-image, maintenance-kylan.webp (ảnh bảo trì)
 supabase/
   sql/01..10_*.sql    # máy chủ: 01 bảng, 02 hàm phụ, 03 RPC người chơi, 04 xã hội, 05 nhân viên,
-                      #   06 quyền (luôn chạy cuối), 07 đổi quà, 08 thú cưng, 09 sự kiện, 10 Rung Chuông Vàng
+                      #   06 quyền (luôn chạy cuối), 07 đổi quà, 08 thú cưng, 09 sự kiện, 10 Rung Chuông Vàng,
+                      #   11 nhân vật (bảng characters + kho Storage "characters" cho file .glb)
   setup.sql           # SINH TỰ ĐỘNG (npm run gen:sql) — file người dùng dán vào SQL Editor
   tests/              # auth_stub.sql + test_game.sql (npm run test:sql)
 scripts/              # gen-seed.mjs (sinh setup.sql), test-sql.sh
@@ -58,6 +59,7 @@ src/
     gifts.js          # quà hiện vật ban đầu (đổi bằng Xu; BGH sửa trong trang quản trị)
     pets.js           # 8 thú cưng + thông số dựng hình (look) + tỉ lệ nở
     events.js         # sự kiện theo mùa (lịch MM-DD, thiệp, câu hỏi sự kiện) + activeEventId()
+    characters.js     # nhân vật dựng sẵn: Kỳ lân Nam (mặc định) / Kỳ lân Nữ (nhân vật 3D tải lên ở máy chủ)
   game/               # logic thuần, KHÔNG đụng DOM/Three.js
     progress.js       # mặt tiền duy nhất UI gọi: đọc đồng bộ, ghi bất đồng bộ (trả {state})
     localBackend.js   # luật thưởng chạy trên máy (ngoại tuyến) — giữ khớp với supabase/sql
@@ -78,8 +80,9 @@ src/
     island.js         # hòn đảo: quảng trường, 5 đường đi, 5 Vùng Đất (cột + cảnh), va chạm, độ cao
     movement.js       # điều khiển nhân vật theo hướng camera, va chạm, quay mặt
     pickups.js        # xu vàng rơi & hộp quà bất ngờ (hiển thị + phát hiện nhặt)
-    mascot.js         # Kỳ lân VA: lắp ráp thân/đầu, nét mặt, tư thế, emote(), setMood()
-    mascotParts.js    # dựng chi tiết: bờm lửa cánh hoa, sừng, mắt/miệng nhiều kiểu, tay, huy hiệu
+    mascot.js         # Kỳ lân VA: lắp ráp thân/đầu, nét mặt, tư thế, emote(), setMood(),
+                      #   setVariant('male'|'female'), setCustomModel(glb) (model 3D tải lên + animation)
+    mascotParts.js    # dựng chi tiết: bờm lửa cánh hoa, sừng, mắt/miệng nhiều kiểu, tay, huy hiệu, nét Kỳ lân Nữ
     emotes.js         # bộ cảm xúc theo sticker (wave, happy, cheer, oops, think, cry, faint, cool, bored)
     outfits.js        # dựng & gắn trang phục 3D theo item.model
     fx.js             # hạt hiệu ứng (xu, sao, vòng sáng) dùng pool
@@ -95,7 +98,7 @@ src/
     dayCycle.js       # ngày–hoàng hôn–đêm theo giờ VN (?time=19.5 để xem thử): trời, nắng, sao, đèn lồng, đom đóm
     sea.js            # biển lấp lánh, cá nhảy, thuyền buồm VA
     zoneGrowth.js     # trang trí Vùng Đất theo cấp 0–4 (hoa → pha lê → sao → cầu vồng)
-    loader.js         # tải .glb (để dành cho model 3D thật)
+    loader.js         # tải .glb (nhân vật 3D tải lên; clone giữ khung xương animation)
   ui/                 # DOM
     dom.js            # h() tạo phần tử, formatNumber
     hud.js            # thanh hạng/XP/Xu/chuỗi, thanh Khám phá, số người online, nút âm thanh
@@ -112,12 +115,13 @@ src/
     milestonesView.js # bảng mốc quãng đường (bấm ô 🏃)
     badgeTip.js       # chú thích nhỏ cạnh con trỏ (tên mốc khi rê vào huy hiệu bảng tên)
     maintenanceView.js # màn hình "Đang bảo trì" (Kỳ lân ló đầu + lời nhắn của quản trị)
-    quizView.js / wardrobeView.js / ranksView.js / todayView.js / quickQuestionView.js
+    quizView.js / wardrobeView.js (+ tab 🦄 Nhân vật) / ranksView.js / todayView.js / quickQuestionView.js
   features/           # điều phối 1 tính năng lớn: nối scene + game + ui (không chứa luật thưởng)
     session.js        # khởi động: ngoại tuyến hay đăng nhập + hồ sơ (+ chặn khi bảo trì)
     maintenance.js    # đang chơi mà quản trị bật bảo trì → hiện màn hình bảo trì; tắt → tự tải lại
     rewards.js        # hiệu ứng nhận thưởng, lên hạng
     milestones.js     # mốc quãng đường: bấm ô 🏃 xem mốc, ăn mừng khi vừa qua mốc
+    characters.js     # nhân vật: danh mục, áp nhân vật lên Kỳ lân (mình + người khác), chọn nhân vật
     badgeTips.js      # rê chuột / chạm vào huy hiệu trên bảng tên → hiện tên mốc
     menu.js           # các nút điều hướng → mở bảng tương ứng
     explore.js        # Khám phá Vùng Đất: chạy, câu hỏi mỗi 100 m, cột Vùng Đất, xu, hộp quà
@@ -133,7 +137,7 @@ src/
   admin/              # trang quản trị (chỉ chạy trực tuyến)
     main.js           # đăng nhập, khung sidebar, điều hướng theo #hash, nhận quyền admin đầu tiên
     api.js / widgets.js / charts.js / admin.css
-    pages/            # dashboard, questions (CSV), players (vai trò), bell (Rung Chuông Vàng),
+    pages/            # dashboard, questions (CSV), players (vai trò), bell (Rung Chuông Vàng), characters (tải .glb),
                       #   vouchers (+ danh mục quà), settings (+ bật/tắt bảo trì, sự kiện)
 ```
 
@@ -158,6 +162,8 @@ src/
    - Thêm trang phục = thêm entry vào `data/items.js` (+ builder trong `scene/outfits.js`
      nếu là `model` mới). Mỗi slot chỉ mặc một món; `createWardrobe().equip` tự gỡ món cũ.
    - File `.glb` chỉ tải qua `scene/loader.js`; không tạo `GLTFLoader` ở nơi khác.
+   - Nhân vật: Kỳ lân Nam/Nữ là biến thể dựng bằng code (`setVariant`); nhân vật 3D tải lên gắn qua
+     `setCustomModel` (ẩn Kỳ lân dựng sẵn → trang phục/nét mặt không hiện trên model này).
 6. **Logic game tách khỏi giao diện.** `game/*` không đụng DOM/Three.js; UI gọi API của
    `game/progress.js`. GĐ2 chuyển tính điểm sang server nhưng giữ nguyên API đó.
 7. **Vòng lặp duy nhất:** chỉ có `renderer.setAnimationLoop` trong `main.js`. Module cần

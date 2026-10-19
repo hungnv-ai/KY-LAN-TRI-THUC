@@ -42,7 +42,7 @@ function maintenanceCard(role) {
     try {
       const r = await api.setMaintenance(toggle.checked, message.value);
       showStatus(r.on);
-      showToast(r.on ? 'Đã BẬT bảo trì — người chơi sẽ thấy màn hình bảo trì trong ~1 phút' : 'Đã TẮT bảo trì — game mở lại', { type: 'success', icon: '🛠️' });
+      showToast(r.on ? 'Đã BẬT bảo trì — người chơi sẽ thấy màn hình bảo trì trong khoảng 1 phút' : 'Đã TẮT bảo trì — game mở lại', { type: 'success', icon: '🛠️' });
     } catch (err) {
       showToast(err.message, { type: 'warn' });
     }

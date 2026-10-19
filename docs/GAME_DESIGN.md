@@ -88,6 +88,9 @@ Linh vật Kỳ lân của VA Schools (KHÔNG phải ngựa trắng có sừng).
   rơi, 3 trang phục giới hạn, thiệp tri ân (cả hai +5 Xu), 14 câu hỏi "Tôn sư trọng đạo".
 - **Rung Chuông Vàng**: BGH hẹn giờ; cả trường cùng trả lời, sai là dừng chân, cả vòng sai thì cứu trợ;
   người trụ lại nhận XP + Xu (+ phiếu quà nếu ≤ 3 người). Ngoại tuyến có trận luyện tập với bạn ảo.
+- **Chọn nhân vật** (Tủ đồ › 🦄 Nhân vật, miễn phí, đổi lúc nào cũng được, người khác cùng thấy):
+  Kỳ lân Nam (mặc định) · Kỳ lân Nữ (nơ hồng, lông mi, má hồng, váy — giữ đủ nét VA) · nhân vật 3D
+  (.glb) do BGH / Quản trị tải lên ở trang quản trị › Nhân vật. Nhân vật 3D chưa mặc được trang phục.
 
 ## Cơ chế giữ chân
 
