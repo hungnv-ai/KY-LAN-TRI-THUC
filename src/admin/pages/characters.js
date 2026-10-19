@@ -1,4 +1,4 @@
-import { GENDERS } from '../../data/characters.js';
+import { ANIMATION_SLOTS, GENDERS } from '../../data/characters.js';
 import { h } from '../../ui/dom.js';
 import { confirmDialog, showToast } from '../../ui/feedback.js';
 import { api, deleteCharacterModel, uploadCharacterModel } from '../api.js';
@@ -37,7 +37,11 @@ export async function renderCharacters(el) {
               key: 'name',
               label: 'Nhân vật',
               className: 'col-wide',
-              render: (c) => h('div', {}, h('strong', {}, `${c.variant ? (c.variant === 'female' ? '🎀' : '🦄') : '🧊'} ${c.name}`), h('div', { class: 'muted small' }, c.variant ? 'Dựng sẵn trong game' : 'Model 3D tải lên')),
+              render: (c) => {
+                const anims = Object.keys(c.animations ?? {}).length;
+                const sub = c.variant ? 'Dựng sẵn trong game' : `Model 3D tải lên · ${anims ? `🎬 ${anims} động tác` : 'chưa có động tác (tự nhún nhảy)'}`;
+                return h('div', {}, h('strong', {}, `${c.variant ? (c.variant === 'female' ? '🎀' : '🦄') : '🧊'} ${c.name}`), h('div', { class: 'muted small' }, sub));
+              },
             },
             { key: 'gender', label: 'Giới tính', render: (c) => GENDERS[c.gender] ?? c.gender },
             { key: 'players', label: 'Đang dùng', render: (c) => `${c.players} người` },
@@ -50,6 +54,7 @@ export async function renderCharacters(el) {
                 h(
                   'div',
                   { class: 'row-actions' },
+                  c.modelUrl ? h('button', { class: 'btn-sm', type: 'button', onclick: () => editAnimations(c) }, '🎬 Động tác') : '',
                   c.modelUrl ? h('a', { class: 'btn-sm', href: c.modelUrl, target: '_blank', rel: 'noopener' }, 'Tải file') : '',
                   h('button', { class: 'btn-sm', type: 'button', onclick: () => edit(c) }, 'Sửa'),
                   c.variant ? '' : h('button', { class: 'btn-sm btn-sm-danger', type: 'button', onclick: () => remove(c) }, 'Xoá'),
@@ -87,6 +92,79 @@ export async function renderCharacters(el) {
     }
   }
 
+  /** Tải / thay / gỡ file động tác cho nhân vật 3D. */
+  async function editAnimations(c) {
+    const current = c.animations ?? {};
+    const rows = ANIMATION_SLOTS.map((slot) => {
+      const input = h('input', { class: 'input input-file-sm', type: 'file', accept: '.glb,model/gltf-binary' });
+      const drop = h('input', { type: 'checkbox' });
+      const has = Boolean(current[slot.id]);
+      const row = h(
+        'div',
+        { class: 'anim-row' },
+        h('div', { class: 'anim-label' }, h('strong', {}, `${slot.icon} ${slot.label}`), slot.hint ? h('small', { class: 'muted' }, slot.hint) : ''),
+        h('span', { class: `anim-state ${has ? 'is-on' : ''}` }, has ? '✓ Đã có' : '—'),
+        input,
+        has ? h('label', { class: 'check small' }, drop, ' Gỡ') : h('span', {}),
+      );
+      return { slot, input, drop, row };
+    });
+    const progress = h('p', { class: 'muted small', role: 'status' }, '');
+
+    const saved = await formDialog({
+      title: `🎬 Động tác của "${c.name}"`,
+      wide: true,
+      body: h(
+        'div',
+        {},
+        h(
+          'p',
+          { class: 'muted small' },
+          'Mỗi ô là 1 file .glb có động tác, xuất từ CÙNG một nhân vật đã gắn khung xương (rig) với model chính. ',
+          'Trang tự bỏ lưới / hình bề mặt, chỉ giữ chuyển động nên file tải lên rất nhẹ. Ô nào để trống thì nhân vật tự nhún nhảy thay thế.',
+        ),
+        h('div', { class: 'anim-list' }, rows.map((r) => r.row)),
+        progress,
+      ),
+      submitText: 'Lưu động tác',
+      onSubmit: async () => {
+        const next = { ...current };
+        const oldPaths = [];
+        const newPaths = [];
+        const { extractAnimation } = await import('../glbCompress.js');
+        try {
+          for (const { slot, input, drop } of rows) {
+            const f = input.files[0];
+            if (f) {
+              if (!/\.glb$/i.test(f.name)) throw new Error(`${slot.label}: chỉ nhận file .glb.`);
+              progress.textContent = `Đang xử lý "${slot.label}"…`;
+              const r = await extractAnimation(f);
+              const up = await uploadCharacterModel(r.blob);
+              newPaths.push(up.path);
+              if (current[slot.id]?.path) oldPaths.push(current[slot.id].path);
+              next[slot.id] = { url: up.url, path: up.path, clip: r.clips[0]?.name ?? '' };
+            } else if (drop.checked && current[slot.id]) {
+              if (current[slot.id].path) oldPaths.push(current[slot.id].path);
+              delete next[slot.id];
+            }
+          }
+          progress.textContent = 'Đang lưu…';
+          await api.saveCharacter({ id: c.id, name: c.name, gender: c.gender, active: c.active, animations: next });
+        } catch (err) {
+          // Lưu thất bại → xoá các file vừa tải lên để kho không bị rác.
+          await Promise.all(newPaths.map((p) => deleteCharacterModel(p)));
+          progress.textContent = '';
+          throw new Error(/Invalid|magic|JSON|glTF/i.test(err.message) ? 'Có file không đọc được — hãy chắc đây là file .glb hợp lệ.' : err.message);
+        }
+        await Promise.all(oldPaths.map((p) => deleteCharacterModel(p)));
+      },
+    });
+    if (saved) {
+      showToast('Đã lưu động tác — người chơi thấy sau khi tải lại game', { type: 'success', icon: '🎬' });
+      load();
+    }
+  }
+
   async function remove(c) {
     const ok = await confirmDialog({
       icon: '🗑️',
@@ -98,6 +176,7 @@ export async function renderCharacters(el) {
     try {
       const r = await api.deleteCharacter(c.id);
       await deleteCharacterModel(r.storagePath ?? c.storagePath);
+      await Promise.all((r.animationPaths ?? []).map((p) => deleteCharacterModel(p)));
       showToast('Đã xoá nhân vật', { type: 'success', icon: '🗑️' });
       load();
     } catch (err) {
@@ -183,10 +262,11 @@ function guideCard() {
       'ol',
       { class: 'role-list' },
       h('li', {}, 'Dùng công cụ tạo 3D từ ảnh (VD: Meshy, Tripo3D) — tải ảnh Kỳ lân đứng thẳng, nền trơn, nhìn chính diện.'),
-      h('li', {}, 'Nếu công cụ có "Rigging / Animation": chọn kiểu nhân vật hai chân và thêm động tác đứng (Idle), đi (Walk), chạy (Run).'),
+      h('li', {}, 'Muốn nhân vật có động tác: dùng chức năng "Rigging / Animation" của công cụ (chọn kiểu nhân vật 2 chân) → tải model đã rig lên ở đây.'),
+      h('li', {}, 'Sau đó bấm "🎬 Động tác" ở danh sách → tải từng file động tác (Đứng yên, Đi bộ, Chạy, Vẫy tay, Vui mừng…) xuất từ cùng nhân vật đó.'),
       h('li', {}, 'Xuất file định dạng GLB. File nặng cũng được — trang này tự nén trước khi tải lên.'),
       h('li', {}, 'Tải lên ở thẻ phía trên. Game tự chỉnh chiều cao và đặt nhân vật đứng trên mặt đất.'),
     ),
-    h('p', { class: 'muted' }, 'Lưu ý: nhân vật 3D tải lên chưa mặc được trang phục trong Tủ đồ và chỉ cử động theo animation có sẵn trong file. Mặt nhân vật nên hướng về phía trước (trục +Z của file).'),
+    h('p', { class: 'muted' }, 'Lưu ý: nhân vật 3D tải lên chưa mặc được trang phục trong Tủ đồ. Chưa có động tác thì game tự cho nhân vật nhún nhảy, lắc lư khi chạy. Mặt nhân vật nên hướng về phía trước (trục +Z của file).'),
   );
 }

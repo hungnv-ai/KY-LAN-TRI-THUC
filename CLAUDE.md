@@ -60,7 +60,7 @@ src/
     gifts.js          # quà hiện vật ban đầu (đổi bằng Xu; BGH sửa trong trang quản trị)
     pets.js           # 8 thú cưng + thông số dựng hình (look) + tỉ lệ nở
     events.js         # sự kiện theo mùa (lịch MM-DD, thiệp, câu hỏi sự kiện) + activeEventId()
-    characters.js     # nhân vật dựng sẵn: Kỳ lân Nam (mặc định) / Kỳ lân Nữ (nhân vật 3D tải lên ở máy chủ)
+    characters.js     # nhân vật dựng sẵn Kỳ lân Nam / Nữ + ô động tác (ANIMATION_SLOTS) cho nhân vật 3D tải lên
   game/               # logic thuần, KHÔNG đụng DOM/Three.js
     progress.js       # mặt tiền duy nhất UI gọi: đọc đồng bộ, ghi bất đồng bộ (trả {state})
     localBackend.js   # luật thưởng chạy trên máy (ngoại tuyến) — giữ khớp với supabase/sql
@@ -82,7 +82,8 @@ src/
     movement.js       # điều khiển nhân vật theo hướng camera, va chạm, quay mặt
     pickups.js        # xu vàng rơi & hộp quà bất ngờ (hiển thị + phát hiện nhặt)
     mascot.js         # Kỳ lân VA: lắp ráp thân/đầu, nét mặt, tư thế, emote(), setMood(),
-                      #   setVariant('male'|'female'), setCustomModel(glb) (model 3D tải lên + animation)
+                      #   setVariant('male'|'female'), setCustomModel(glb) (model 3D tải lên + animation đứng/đi/chạy/cảm xúc,
+                      #   thiếu animation → tự nhún nhảy)
     mascotParts.js    # dựng chi tiết: bờm lửa cánh hoa, sừng, mắt/miệng nhiều kiểu, tay, huy hiệu, nét Kỳ lân Nữ
     emotes.js         # bộ cảm xúc theo sticker (wave, happy, cheer, oops, think, cry, faint, cool, bored)
     outfits.js        # dựng & gắn trang phục 3D theo item.model
@@ -138,7 +139,7 @@ src/
   admin/              # trang quản trị (chỉ chạy trực tuyến)
     main.js           # đăng nhập, khung sidebar, điều hướng theo #hash, nhận quyền admin đầu tiên
     api.js / widgets.js / charts.js / admin.css
-    glbCompress.js    # nén .glb trong trình duyệt trước khi tải lên (gltf-transform + meshoptimizer, tải lười)
+    glbCompress.js    # nén .glb / tách riêng động tác (animation) trước khi tải lên (gltf-transform + meshoptimizer, tải lười)
     pages/            # dashboard, questions (CSV), players (vai trò), bell (Rung Chuông Vàng), characters (tải .glb),
                       #   vouchers (+ danh mục quà), settings (+ bật/tắt bảo trì, sự kiện)
 ```

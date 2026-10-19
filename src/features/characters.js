@@ -44,9 +44,9 @@ export function setupCharacters({ mascot, onChanged }) {
     const c = await find(id || DEFAULT_CHARACTER);
     if (c?.modelUrl) {
       try {
-        const glb = await loadGLB(c.modelUrl);
+        const [glb, extra] = await Promise.all([loadGLB(c.modelUrl), loadAnimationClips(c.animations)]);
         if (tokens.get(target) !== token) return;
-        target.setCustomModel(glb);
+        target.setCustomModel({ scene: glb.scene, animations: [...extra, ...glb.animations] });
         return;
       } catch (err) {
         console.warn('[characters] Không tải được model 3D, dùng Kỳ lân Nam:', err);
@@ -62,6 +62,29 @@ export function setupCharacters({ mascot, onChanged }) {
     await apply(mascot, id);
     mascot.emote('cheer');
     onChanged?.();
+  }
+
+  /**
+   * Tải các file động tác (mỗi ô 1 file) → clip đặt tên theo ô (walk, wave…) để mascot nhận ra.
+   * File lỗi thì bỏ qua, nhân vật vẫn hiện với các động tác còn lại.
+   */
+  async function loadAnimationClips(map) {
+    const entries = Object.entries(map ?? {});
+    const loaded = await Promise.all(
+      entries.map(async ([slot, url]) => {
+        try {
+          const { animations } = await loadGLB(url);
+          if (!animations.length) return null;
+          const clip = animations[0].clone();
+          clip.name = slot;
+          return clip;
+        } catch (err) {
+          console.warn(`[characters] Không tải được động tác "${slot}":`, err);
+          return null;
+        }
+      }),
+    );
+    return loaded.filter(Boolean);
   }
 
   const ready = refresh().then(() => apply(mascot, getCharacterId()));

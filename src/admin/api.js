@@ -29,6 +29,7 @@ const MESSAGES = {
   default_character_locked: 'Không thể tắt Kỳ lân Nam — đây là nhân vật mặc định.',
   builtin_character_locked: 'Không thể xoá nhân vật dựng sẵn (chỉ tắt được).',
   character_not_found: 'Không tìm thấy nhân vật.',
+  invalid_animations: 'Danh sách động tác không hợp lệ.',
 };
 
 /**
@@ -130,6 +131,7 @@ export const api = {
       p_model_url: c.modelUrl ?? null,
       p_storage_path: c.storagePath ?? null,
       p_active: c.active ?? true,
+      p_animations: c.animations ?? null,
     }),
   deleteCharacter: (id) => rpc('admin_delete_character', { p_id: id }),
   setMaintenance: (on, message) => rpc('admin_set_maintenance', { p_on: on, p_message: message }),

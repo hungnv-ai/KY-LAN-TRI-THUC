@@ -245,6 +245,22 @@ Phần này cần **bộ phận IT** (người quản lý tên miền `vaschools
 | **Bảo trì game** (tạm khoá cho người chơi) | `/admin` → **Cài đặt & phân quyền** → **🛠️ Bảo trì game** → gạt công tắc **Bật**, gõ lời nhắn → **Lưu**. Người chơi thấy màn hình bảo trì có Kỳ lân trong ~1 phút; giáo viên/BGH/quản trị vẫn vào được để kiểm tra. Xong thì gạt **Tắt** → **Lưu**, game tự mở lại. |
 | Mở **Tuần lễ Tri ân 20/11** sớm để xem thử | `/admin` → **Cài đặt & phân quyền** → **Sự kiện theo mùa** → chọn "Bật ngay" → **Áp dụng**. Xem xong chọn lại "Tự động theo lịch". |
 
+### Cho nhân vật 3D có động tác (đi, chạy, vẫy tay…)
+
+Nhân vật 3D chưa có "khung xương" (rig) thì game tự cho nhún nhảy, lắc lư khi chạy. Muốn có động tác
+thật như Kỳ lân dựng sẵn:
+
+1. Trong công cụ tạo 3D (VD **Meshy**), mở nhân vật → chọn chức năng **Rig / Animate** (gắn khung xương),
+   kiểu nhân vật **2 chân (Humanoid)**, làm theo hướng dẫn đặt các điểm khớp (cằm, cổ tay, khuỷu tay, đầu gối…).
+2. Tải về **model đã rig** dạng **GLB** → vào `/admin` → **🦄 Nhân vật** → tải lên như nhân vật mới
+   (có thể xoá nhân vật cũ chưa rig).
+3. Trong thư viện động tác của công cụ, chọn lần lượt từng động tác (Idle/đứng, Walking/đi, Running/chạy,
+   Waving/vẫy tay, Cheering/vui mừng…) → tải mỗi động tác thành 1 file **GLB**.
+4. Ở danh sách nhân vật, bấm **🎬 Động tác** → chọn file cho từng ô → **Lưu động tác**.
+   Trang tự bỏ phần hình, chỉ giữ chuyển động nên file rất nhẹ. Ô nào trống thì nhân vật tự nhún nhảy thay thế.
+
+> Các file động tác phải xuất từ **cùng một nhân vật đã rig** với model chính, nếu không game sẽ bỏ qua.
+
 ## Cập nhật về sau
 
 | Tình huống | Bạn làm gì |

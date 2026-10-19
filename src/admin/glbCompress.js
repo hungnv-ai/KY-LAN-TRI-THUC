@@ -70,3 +70,36 @@ function countTriangles(doc) {
 function formatK(n) {
   return n >= 1000 ? `${Math.round(n / 1000)} nghìn` : String(n);
 }
+
+/**
+ * Tách riêng phần động tác (animation) từ file .glb: bỏ lưới, vật liệu, hình bề mặt — chỉ giữ
+ * khung xương + chuyển động → file rất nhẹ (thường vài chục KB).
+ *
+ * @param {File | Blob} file
+ * @returns {Promise<{ blob: Blob, clips: { name: string, seconds: number }[], before: number, after: number }>}
+ */
+export async function extractAnimation(file) {
+  await MeshoptDecoder.ready;
+  const io = new WebIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.decoder': MeshoptDecoder });
+  const doc = await io.readBinary(new Uint8Array(await file.arrayBuffer()));
+  const root = doc.getRoot();
+  const animations = root.listAnimations();
+  if (!animations.length) throw new Error('File này không có động tác nào (animation). Hãy xuất file kèm animation từ công cụ 3D.');
+
+  for (const node of root.listNodes()) node.setMesh(null);
+  for (const mesh of root.listMeshes()) mesh.dispose();
+  for (const material of root.listMaterials()) material.dispose();
+  for (const texture of root.listTextures()) texture.dispose();
+  await doc.transform(prune({ keepLeaves: true }), resample());
+
+  const clips = root.listAnimations().map((anim) => {
+    let seconds = 0;
+    for (const sampler of anim.listSamplers()) {
+      const input = sampler.getInput();
+      if (input) seconds = Math.max(seconds, input.getMax([0])[0]);
+    }
+    return { name: anim.getName() || 'Động tác', seconds };
+  });
+  const out = await io.writeBinary(doc);
+  return { blob: new Blob([out], { type: 'model/gltf-binary' }), clips, before: file.size, after: out.byteLength };
+}
