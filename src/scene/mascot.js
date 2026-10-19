@@ -6,6 +6,7 @@ import {
   createBadge,
   createEmojiSprite,
   createEye,
+  createFemaleParts,
   createHand,
   createMouth,
   createSpiralBrowGeometry,
@@ -92,6 +93,9 @@ const IDLE_BORED_SEC = 28;
  *   setLocomotion: (speed: number) => void,
  *   onEmote: (fn: (name: string) => void) => () => void,
  *   headWorldPosition: (target?: THREE.Vector3) => THREE.Vector3,
+ *   setVariant: (variant: 'male' | 'female') => void,
+ *   setCustomModel: (model: { scene: THREE.Object3D, animations?: THREE.AnimationClip[] } | null) => void,
+ *   hasCustomModel: () => boolean,
  * }}
  */
 export function createMascot() {
@@ -120,9 +124,16 @@ export function createMascot() {
   bounce.name = 'Bounce';
   root.add(bounce);
 
+  // Kỳ lân dựng bằng code nằm trong "builtIn"; khi dùng model 3D tải lên thì ẩn nhóm này.
+  const builtIn = new THREE.Group();
+  builtIn.name = 'BuiltIn';
+  bounce.add(builtIn);
+
   const anchors = { Root: root };
-  const { torso, arms, legs } = buildBody(bounce, materials, anchors);
-  const { head, skull, face } = buildHead(bounce, materials, anchors);
+  const { torso, arms, legs, shortsParts, skirt } = buildBody(builtIn, materials, anchors);
+  const { head, skull, face, femaleParts } = buildHead(builtIn, materials, anchors);
+  femaleParts.forEach((o) => (o.visible = false));
+  const custom = createCustomModelSlot(bounce);
 
   root.traverse((o) => {
     if (o.isMesh) {
@@ -224,6 +235,7 @@ export function createMascot() {
 
     face.update(delta);
     props.update(delta);
+    custom.update(delta, locomotion);
   }
 
   const tmp = new THREE.Vector3();
@@ -248,8 +260,103 @@ export function createMascot() {
       idleTime = 0;
       if (!current) endEmote();
     },
-    headWorldPosition: (target) => skull.getWorldPosition(target ?? tmp),
+    headWorldPosition: (target) => (custom.active() ? custom.top : skull).getWorldPosition(target ?? tmp),
+    /** Kỳ lân Nam (mặc định) hoặc Kỳ lân Nữ (lông mi, má hồng, nơ). */
+    setVariant(variant) {
+      const female = variant === 'female';
+      femaleParts.forEach((o) => (o.visible = female));
+      skirt.visible = female;
+      shortsParts.forEach((o) => (o.visible = !female));
+    },
+    /** Thay bằng model 3D tải lên (null = quay về Kỳ lân dựng sẵn). */
+    setCustomModel(model) {
+      custom.set(model);
+      builtIn.visible = !custom.active();
+      props.show(custom.active() ? null : activeDef().prop);
+    },
+    hasCustomModel: () => custom.active(),
   };
+}
+
+// ── Model 3D tải lên (.glb) ───────────────────────────────────────────────
+
+/** Chiều cao chuẩn của nhân vật (bằng Kỳ lân dựng sẵn) để bảng tên, camera không phải đổi. */
+const CUSTOM_MODEL_HEIGHT = 2.6;
+const ANIM_FADE_SEC = 0.25;
+
+/**
+ * Chỗ gắn model .glb: tự co giãn về chiều cao chuẩn, đặt chân chạm đất, chạy animation
+ * "idle" / "walk" / "run" nếu file có (tên chứa các chữ này).
+ */
+function createCustomModelSlot(parent) {
+  const holder = new THREE.Group();
+  holder.name = 'CustomModel';
+  parent.add(holder);
+  const top = new THREE.Object3D();
+  holder.add(top);
+  let model = null;
+  let mixer = null;
+  let actions = {};
+  let playing = null;
+  const box = new THREE.Box3();
+  const size = new THREE.Vector3();
+
+  function pick(clips, re) {
+    return clips.find((c) => re.test(c.name)) ?? null;
+  }
+
+  function set(next) {
+    if (model) holder.remove(model);
+    mixer?.stopAllAction();
+    model = null;
+    mixer = null;
+    actions = {};
+    playing = null;
+    if (!next?.scene) return;
+
+    model = next.scene;
+    model.updateMatrixWorld(true);
+    box.setFromObject(model);
+    box.getSize(size);
+    const scale = size.y > 0 ? CUSTOM_MODEL_HEIGHT / size.y : 1;
+    model.scale.multiplyScalar(scale);
+    model.updateMatrixWorld(true);
+    box.setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+    model.position.x -= center.x;
+    model.position.z -= center.z;
+    model.position.y -= box.min.y;
+    holder.add(model);
+    top.position.set(0, CUSTOM_MODEL_HEIGHT * 0.85, 0);
+
+    const clips = next.animations ?? [];
+    if (clips.length) {
+      mixer = new THREE.AnimationMixer(model);
+      const idle = pick(clips, /idle|stand|breath/i) ?? clips[0];
+      const walk = pick(clips, /walk/i);
+      const run = pick(clips, /run|jog/i) ?? walk;
+      for (const [key, clip] of Object.entries({ idle, walk: walk ?? run, run })) {
+        if (clip) actions[key] = mixer.clipAction(clip);
+      }
+      play('idle');
+    }
+  }
+
+  function play(key) {
+    const action = actions[key] ?? actions.idle;
+    if (!action || action === playing) return;
+    action.reset().fadeIn(ANIM_FADE_SEC).play();
+    playing?.fadeOut(ANIM_FADE_SEC);
+    playing = action;
+  }
+
+  function update(delta, locomotion) {
+    if (!mixer) return;
+    play(locomotion > 1.3 ? 'run' : locomotion > 0 ? 'walk' : 'idle');
+    mixer.update(delta);
+  }
+
+  return { set, update, top, active: () => Boolean(model) };
 }
 
 // ── Chuyển động thêm cho từng cảm xúc ─────────────────────────────────────
@@ -316,15 +423,31 @@ function buildBody(bounce, materials, anchors) {
     legs[side < 0 ? 'R' : 'L'] = hip;
   }
 
-  // Quần soóc dài tới gối, ống rộng.
+  // Quần soóc dài tới gối, ống rộng (Kỳ lân Nam).
+  const shortsParts = [];
   const shorts = mesh(new THREE.CylinderGeometry(0.36, 0.4, 0.24, 28), materials.shorts);
   shorts.position.y = 0.62;
   bounce.add(shorts);
+  shortsParts.push(shorts);
   for (const side of [-1, 1]) {
     const cuff = mesh(new THREE.CylinderGeometry(0.18, 0.19, 0.2, 20), materials.shorts);
     cuff.position.set(0.18 * side, 0.48, 0);
     bounce.add(cuff);
+    shortsParts.push(cuff);
   }
+  // Váy xoè cùng màu (Kỳ lân Nữ) — ẩn mặc định.
+  const skirt = new THREE.Group();
+  skirt.visible = false;
+  const skirtBody = mesh(new THREE.CylinderGeometry(0.37, 0.52, 0.32, 32, 1, true), materials.shorts);
+  skirtBody.material = materials.shorts.clone();
+  skirtBody.material.side = THREE.DoubleSide;
+  skirtBody.position.y = 0.6;
+  skirt.add(skirtBody);
+  const skirtHem = mesh(new THREE.TorusGeometry(0.515, 0.022, 8, 40), materials.jacketTrim);
+  skirtHem.rotation.x = Math.PI / 2;
+  skirtHem.position.y = 0.44;
+  skirt.add(skirtHem);
+  bounce.add(skirt);
 
   // Thân áo khoác dáng hộp bo tròn (tiện tròn theo profile, dẹt trước–sau).
   const torso = new THREE.Group();
@@ -401,7 +524,7 @@ function buildBody(bounce, materials, anchors) {
     arms[side < 0 ? 'R' : 'L'] = shoulder;
   }
 
-  return { torso, arms, legs };
+  return { torso, arms, legs, shortsParts, skirt };
 }
 
 function buildHead(bounce, materials, anchors) {
@@ -449,6 +572,7 @@ function buildHead(bounce, materials, anchors) {
   }
 
   const face = createFaceController(faceGroup, radii, materials);
+  const femaleParts = createFemaleParts({ head, faceGroup, eyes: face.eyes, center, radii });
 
   // Điểm gắn nón: đỉnh đầu (trên bờm).
   const headTop = new THREE.Group();
@@ -457,7 +581,7 @@ function buildHead(bounce, materials, anchors) {
   head.add(headTop);
   anchors.HeadTop = headTop;
 
-  return { head, skull, face };
+  return { head, skull, face, femaleParts };
 }
 
 // ── Nét mặt ───────────────────────────────────────────────────────────────
@@ -526,7 +650,7 @@ function createFaceController(faceGroup, radii, materials) {
   }
 
   set();
-  return { set, update };
+  return { set, update, eyes };
 }
 
 /** Kính râm đen (sticker "ngầu"). */

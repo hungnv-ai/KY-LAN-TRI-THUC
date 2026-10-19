@@ -102,6 +102,8 @@ alter table public.player_state add column if not exists active_pet text;
 alter table public.player_state add column if not exists egg_progress int not null default 0;
 -- Mốc quãng đường đã nhận thưởng (id trong MILESTONES.LIST).
 alter table public.player_state add column if not exists milestones text[] not null default '{}';
+-- Nhân vật đang dùng (id trong bảng characters, 11_characters.sql).
+alter table public.player_state add column if not exists character_id text not null default 'kylan-nam';
 
 create table if not exists public.daily_counters (
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -548,6 +550,7 @@ begin
       'eggNeed', public._cfgn('PETS', 'EGG_DAYS', 3)
     ),
     'milestones', to_jsonb(s.milestones),
+    'character', s.character_id,
     'daily', jsonb_build_object(
       'day', d.day,
       'checkedIn', d.checked_in,
@@ -1162,6 +1165,7 @@ begin
       'xp', s.xp,
       'equipped', s.equipped,
       'pet', s.active_pet,
+      'character', s.character_id,
       'distance', floor(s.distance),
       'streak', case when s.streak_last >= public._today() - 1 then s.streak_count else 0 end
     ))
@@ -1189,6 +1193,7 @@ begin
     'equipped', s.equipped,
     'owned', to_jsonb(s.owned),
     'pet', s.active_pet,
+    'character', s.character_id,
     'petCount', coalesce(array_length(s.pets, 1), 0),
     'streak', case when s.streak_last >= public._today() - 1 then s.streak_count else 0 end,
     'distance', floor(s.distance),
@@ -2213,6 +2218,134 @@ end;
 $$;
 
 
+-- >>> 11_characters.sql
+-- ════════════════════════════════════════════════════════════════════════
+-- Nhân vật: Kỳ lân Nam / Nữ dựng sẵn + nhân vật 3D (.glb) do BGH / Quản trị tải lên.
+-- File .glb lưu ở Supabase Storage (bucket công khai "characters").
+-- ════════════════════════════════════════════════════════════════════════
+
+create table if not exists public.characters (
+  id text primary key,
+  name text not null,
+  gender text not null default 'nam' check (gender in ('nam', 'nu', 'khac')),
+  variant text,            -- 'male' | 'female' = dựng sẵn bằng code; null = model 3D tải lên
+  model_url text,          -- đường dẫn file .glb (null với nhân vật dựng sẵn)
+  storage_path text,       -- đường dẫn trong bucket (để xoá file)
+  active boolean not null default true,
+  sort int not null default 100,
+  created_at timestamptz not null default now()
+);
+alter table public.characters enable row level security;
+drop policy if exists "đọc nhân vật" on public.characters;
+create policy "đọc nhân vật" on public.characters for select using (true);
+
+-- Nhân vật đang mở cho người chơi chọn.
+create or replace function public.list_characters()
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+begin
+  perform public._require_player();
+  return coalesce((
+    select jsonb_agg(jsonb_build_object('id', c.id, 'name', c.name, 'gender', c.gender, 'variant', c.variant, 'modelUrl', c.model_url)
+      order by c.sort, c.created_at)
+    from characters c where c.active
+  ), '[]');
+end;
+$$;
+
+create or replace function public.set_character(p_id text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_uid uuid := public._require_player();
+begin
+  if not exists (select 1 from characters where id = p_id and active) then raise exception 'character_not_found'; end if;
+  update player_state set character_id = p_id, updated_at = now() where user_id = v_uid;
+  return jsonb_build_object('ok', true, 'state', public._state_json(v_uid));
+end;
+$$;
+
+-- ── Quản trị ──────────────────────────────────────────────────────────────
+create or replace function public.admin_list_characters()
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+begin
+  perform public._require_manager();
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'id', c.id, 'name', c.name, 'gender', c.gender, 'variant', c.variant, 'modelUrl', c.model_url,
+      'storagePath', c.storage_path, 'active', c.active, 'createdAt', c.created_at,
+      'players', (select count(*) from player_state s where s.character_id = c.id)
+    ) order by c.sort, c.created_at)
+    from characters c
+  ), '[]');
+end;
+$$;
+
+-- Thêm (p_id null) hoặc sửa nhân vật. Nhân vật dựng sẵn chỉ đổi được tên / bật–tắt.
+create or replace function public.admin_save_character(
+  p_id text, p_name text, p_gender text, p_model_url text default null, p_storage_path text default null, p_active boolean default true
+)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  v_id text := p_id;
+  v_name text := trim(coalesce(p_name, ''));
+begin
+  perform public._require_manager();
+  if length(v_name) < 2 then raise exception 'invalid_name'; end if;
+  if p_gender not in ('nam', 'nu', 'khac') then raise exception 'invalid_gender'; end if;
+  if v_id = 'kylan-nam' and not coalesce(p_active, true) then raise exception 'default_character_locked'; end if;
+  if v_id is null then
+    if coalesce(p_model_url, '') !~ '^https://' then raise exception 'invalid_model_url'; end if;
+    v_id := 'glb-' || substr(md5(gen_random_uuid()::text), 1, 10);
+    insert into characters (id, name, gender, model_url, storage_path, active)
+    values (v_id, v_name, p_gender, p_model_url, p_storage_path, coalesce(p_active, true));
+  else
+    update characters set
+      name = v_name,
+      gender = p_gender,
+      active = coalesce(p_active, true),
+      model_url = case when variant is null and p_model_url ~ '^https://' then p_model_url else model_url end,
+      storage_path = case when variant is null and p_storage_path is not null then p_storage_path else storage_path end
+    where id = v_id;
+    if not found then raise exception 'character_not_found'; end if;
+  end if;
+  -- Nhân vật bị tắt → người đang dùng quay về Kỳ lân Nam.
+  update player_state set character_id = 'kylan-nam'
+  where character_id in (select id from characters where not active);
+  return jsonb_build_object('ok', true, 'id', v_id);
+end;
+$$;
+
+create or replace function public.admin_delete_character(p_id text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare c characters;
+begin
+  perform public._require_manager();
+  select * into c from characters where id = p_id;
+  if not found then raise exception 'character_not_found'; end if;
+  if c.variant is not null then raise exception 'builtin_character_locked'; end if;
+  update player_state set character_id = 'kylan-nam' where character_id = p_id;
+  delete from characters where id = p_id;
+  return jsonb_build_object('ok', true, 'storagePath', c.storage_path);
+end;
+$$;
+
+-- ── Kho file .glb (Supabase Storage): ai cũng tải về xem được, chỉ BGH / Quản trị tải lên / xoá ──
+do $$
+begin
+  if to_regclass('storage.buckets') is not null then
+    insert into storage.buckets (id, name, public) values ('characters', 'characters', true)
+    on conflict (id) do update set public = true;
+    execute 'drop policy if exists "klt nhân vật: tải lên" on storage.objects';
+    execute $p$create policy "klt nhân vật: tải lên" on storage.objects for insert to authenticated
+      with check (bucket_id = 'characters' and public.is_manager())$p$;
+    execute 'drop policy if exists "klt nhân vật: sửa" on storage.objects';
+    execute $p$create policy "klt nhân vật: sửa" on storage.objects for update to authenticated
+      using (bucket_id = 'characters' and public.is_manager())$p$;
+    execute 'drop policy if exists "klt nhân vật: xoá" on storage.objects';
+    execute $p$create policy "klt nhân vật: xoá" on storage.objects for delete to authenticated
+      using (bucket_id = 'characters' and public.is_manager())$p$;
+  end if;
+end $$;
+
+
 -- ── Dữ liệu ban đầu (sinh tự động từ src/ — đừng sửa tay) ──
 insert into public.game_settings (key, value) values ('QUIZ', '{"QUESTIONS_PER_ROUND":5,"TIME_LIMIT_SEC":180,"XP_PER_CORRECT":10,"COINS_PER_CORRECT":5,"XP_PER_TRY":2,"PERFECT_BONUS_XP":20,"PERFECT_BONUS_COINS":10,"REWARDED_ROUNDS_PER_DAY":3}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('CHECK_IN', '{"XP":20,"COINS":15,"STREAK_BONUS_COINS_PER_DAY":2,"STREAK_BONUS_MAX_DAYS":7}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
@@ -2239,6 +2372,8 @@ insert into public.ranks (id, sort, name, icon, xp, color, reward, tiers) values
 insert into public.ranks (id, sort, name, icon, xp, color, reward, tiers) values ('vang', 4, 'Vàng', '🥇', 12000, '#C49C57', 'Vương miện vàng', true) on conflict (id) do update set sort = excluded.sort, name = excluded.name, icon = excluded.icon, xp = excluded.xp, color = excluded.color, reward = excluded.reward, tiers = excluded.tiers;
 insert into public.ranks (id, sort, name, icon, xp, color, reward, tiers) values ('kimCuong', 5, 'Kim Cương', '💎', 25000, '#1750B5', 'Áo khoác Kim Cương', true) on conflict (id) do update set sort = excluded.sort, name = excluded.name, icon = excluded.icon, xp = excluded.xp, color = excluded.color, reward = excluded.reward, tiers = excluded.tiers;
 insert into public.ranks (id, sort, name, icon, xp, color, reward, tiers) values ('huyenThoai', 6, 'Kỳ Lân Huyền Thoại', '👑', 50000, '#9A0036', 'Hào quang Huyền Thoại', false) on conflict (id) do update set sort = excluded.sort, name = excluded.name, icon = excluded.icon, xp = excluded.xp, color = excluded.color, reward = excluded.reward, tiers = excluded.tiers;
+insert into public.characters (id, name, gender, variant, sort) values ('kylan-nam', 'Kỳ lân Nam', 'nam', 'male', 1) on conflict (id) do update set name = excluded.name, gender = excluded.gender, variant = excluded.variant, sort = excluded.sort;
+insert into public.characters (id, name, gender, variant, sort) values ('kylan-nu', 'Kỳ lân Nữ', 'nu', 'female', 2) on conflict (id) do update set name = excluded.name, gender = excluded.gender, variant = excluded.variant, sort = excluded.sort;
 insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event, milestone) values ('jacket-va', 'jacket', 'Áo khoác VA', 0, null, 'common', 'jacket', true, null, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event, milestone = excluded.milestone;
 insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event, milestone) values ('jacket-nhanai', 'jacket', 'Áo Nhân Ái', 120, null, 'rare', 'jacket', false, null, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event, milestone = excluded.milestone;
 insert into public.items (id, slot, name, price, rank_id, rarity, model, starter, event, milestone) values ('jacket-banlinh', 'jacket', 'Áo Bản Lĩnh', 120, null, 'rare', 'jacket', false, null, null) on conflict (id) do update set slot = excluded.slot, name = excluded.name, price = excluded.price, rank_id = excluded.rank_id, rarity = excluded.rarity, model = excluded.model, starter = excluded.starter, event = excluded.event, milestone = excluded.milestone;

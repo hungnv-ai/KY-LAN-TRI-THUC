@@ -94,6 +94,8 @@ alter table public.player_state add column if not exists active_pet text;
 alter table public.player_state add column if not exists egg_progress int not null default 0;
 -- Mốc quãng đường đã nhận thưởng (id trong MILESTONES.LIST).
 alter table public.player_state add column if not exists milestones text[] not null default '{}';
+-- Nhân vật đang dùng (id trong bảng characters, 11_characters.sql).
+alter table public.player_state add column if not exists character_id text not null default 'kylan-nam';
 
 create table if not exists public.daily_counters (
   user_id uuid not null references public.profiles (id) on delete cascade,

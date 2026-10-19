@@ -14,6 +14,7 @@ import { setupZoneGrowth } from './features/zoneGrowth.js';
 import { setupMenu } from './features/menu.js';
 import { createRewards } from './features/rewards.js';
 import { setupMilestones } from './features/milestones.js';
+import { setupCharacters } from './features/characters.js';
 import { setupBadgeTips } from './features/badgeTips.js';
 import { startSession } from './features/session.js';
 import { setupMaintenance } from './features/maintenance.js';
@@ -155,6 +156,7 @@ async function boot() {
   });
 
   const rewards = createRewards({ world, mascot, fx, onRankUp: () => social?.notifyProfileChanged() });
+  const characters = setupCharacters({ mascot, onChanged: () => social?.notifyProfileChanged() });
   const milestones = setupMilestones({ rewards, onBadgeChanged: () => social?.notifyProfileChanged() });
 
   explore = createExplore({
@@ -175,6 +177,7 @@ async function boot() {
     userId: session.userId,
     isMoving: () => explore.isMoving(),
     onGoTo: (x, z) => explore.teleportNear(x, z),
+    applyCharacter: (target, id) => characters.apply(target, id),
   });
 
   setupBadgeTips({ world, getSprites: () => social.nameTagSprites() });
@@ -190,6 +193,7 @@ async function boot() {
     rewards,
     onOutfitChanged: () => social.notifyProfileChanged(),
     onCheckedIn: (result) => pets.handleEgg(result.egg),
+    characters,
   });
   events = setupEvents({ world, island, mascot, openWardrobe: () => menu.wardrobe() });
   goldenBell = setupGoldenBell({ world, island, mascot, fx, rewards });

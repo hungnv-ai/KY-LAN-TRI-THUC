@@ -603,4 +603,47 @@ begin
   update profiles set role = v_role_b where id = B;
 end $$;
 
+-- Nhân vật: chọn Kỳ lân Nữ, BGH thêm / tắt / xoá nhân vật 3D.
+do $$
+declare
+  A uuid := '00000000-0000-0000-0000-00000000000a'; -- quản trị
+  B uuid := '00000000-0000-0000-0000-00000000000b'; -- giáo viên
+  r jsonb;
+  v_id text;
+begin
+  perform test_as(B);
+  r := list_characters();
+  assert jsonb_array_length(r) = 2, 'có sẵn Kỳ lân Nam + Nữ';
+  assert (get_my_state() ->> 'character') = 'kylan-nam', 'mặc định Kỳ lân Nam';
+  r := set_character('kylan-nu');
+  assert r -> 'state' ->> 'character' = 'kylan-nu', 'chọn Kỳ lân Nữ';
+  assert (public_profiles(array[B]) -> 0 ->> 'character') = 'kylan-nu', 'người khác thấy Kỳ lân Nữ';
+  perform test_expect_error($q$select set_character('khong-co')$q$, 'character_not_found');
+  perform test_expect_error($q$select admin_save_character(null, 'Rồng', 'nam', 'https://x.supabase.co/a.glb')$q$, 'forbidden');
+
+  perform test_as(A);
+  perform test_expect_error($q$select admin_save_character(null, 'Rồng', 'nam', 'http://x/a.glb')$q$, 'invalid_model_url');
+  perform test_expect_error($q$select admin_save_character('kylan-nam', 'Kỳ lân Nam', 'nam', null, null, false)$q$, 'default_character_locked');
+  perform test_expect_error($q$select admin_delete_character('kylan-nu')$q$, 'builtin_character_locked');
+  r := admin_save_character(null, 'Kỳ lân 3D', 'nam', 'https://x.supabase.co/storage/v1/object/public/characters/a.glb', 'a.glb');
+  v_id := r ->> 'id';
+  assert v_id like 'glb-%', 'thêm nhân vật 3D';
+  assert jsonb_array_length(admin_list_characters()) = 3, 'quản trị thấy 3 nhân vật';
+
+  perform test_as(B);
+  r := set_character(v_id);
+  assert r -> 'state' ->> 'character' = v_id, 'chọn nhân vật 3D';
+
+  perform test_as(A);
+  r := admin_save_character(v_id, 'Kỳ lân 3D', 'nam', null, null, false);
+  perform test_as(B);
+  assert (get_my_state() ->> 'character') = 'kylan-nam', 'nhân vật bị tắt → quay về Kỳ lân Nam';
+  assert jsonb_array_length(list_characters()) = 2, 'người chơi không thấy nhân vật đã tắt';
+
+  perform test_as(A);
+  r := admin_delete_character(v_id);
+  assert r ->> 'storagePath' = 'a.glb', 'xoá trả về đường dẫn file để xoá khỏi kho';
+  assert jsonb_array_length(admin_list_characters()) = 2, 'đã xoá';
+end $$;
+
 select '✔ Tất cả kiểm thử máy chủ đều đạt' as ket_qua;

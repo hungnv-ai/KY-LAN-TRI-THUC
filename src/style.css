@@ -2420,3 +2420,36 @@ body.is-intro .speech {
     font-size: 22px;
   }
 }
+
+/* ── Tab Nhân vật trong Tủ đồ ──────────────────────────────────────── */
+.wardrobe-note {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--cream);
+  font-size: 13px;
+}
+
+.char-thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 56px;
+}
+
+.char-thumb img {
+  width: auto;
+  height: 54px;
+}
+
+.char-3d {
+  font-size: 34px;
+}
+
+.char-bow {
+  position: absolute;
+  top: -2px;
+  right: -8px;
+  font-size: 20px;
+}

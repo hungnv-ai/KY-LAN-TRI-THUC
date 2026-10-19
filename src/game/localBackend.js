@@ -9,6 +9,7 @@ import {
   VALUES,
 } from '../config.js';
 import { DEFAULT_EQUIPPED, ITEMS, STARTER_ITEMS, getItem } from '../data/items.js';
+import { BUILTIN_CHARACTERS, DEFAULT_CHARACTER } from '../data/characters.js';
 import { EVENT_QUESTIONS, activeEventId } from '../data/events.js';
 import { PETS } from '../data/pets.js';
 import { QUESTIONS } from '../data/questions.js';
@@ -74,6 +75,7 @@ function createInitialState() {
     streak: { count: 0, lastDay: null },
     pets: { owned: [], active: null, egg: 0, eggNeed: PETS_CONFIG.EGG_DAYS },
     milestones: [],
+    character: DEFAULT_CHARACTER,
     daily: createDaily(),
     stats: { answered: 0, correct: 0, rounds: 0, distance: 0, heartsReceived: 0, thanksReceived: 0 },
     profile: {
@@ -426,6 +428,17 @@ export function createLocalBackend() {
       if (!item) throw new Error('item_not_found');
       if (!state.owned.includes(itemId)) throw new Error('not_owned');
       state.equipped[item.slot] = itemId;
+      return { ok: true, state: snapshot() };
+    },
+
+    /** Ngoại tuyến chỉ có nhân vật dựng sẵn (nhân vật 3D tải lên cần máy chủ). */
+    async listCharacters() {
+      return BUILTIN_CHARACTERS.map(({ id, name, gender, variant }) => ({ id, name, gender, variant, modelUrl: null }));
+    },
+
+    async setCharacter(id) {
+      if (!BUILTIN_CHARACTERS.some((c) => c.id === id)) throw new Error('character_not_found');
+      state.character = id;
       return { ok: true, state: snapshot() };
     },
 

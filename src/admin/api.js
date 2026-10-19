@@ -24,6 +24,11 @@ const MESSAGES = {
   bell_not_cancellable: 'Trận đã bắt đầu hoặc đã kết thúc — không huỷ được.',
   invalid_cost: 'Giá Xu phải lớn hơn 0.',
   invalid_stock: 'Số lượng không hợp lệ.',
+  invalid_gender: 'Giới tính không hợp lệ.',
+  invalid_model_url: 'Đường dẫn file 3D không hợp lệ.',
+  default_character_locked: 'Không thể tắt Kỳ lân Nam — đây là nhân vật mặc định.',
+  builtin_character_locked: 'Không thể xoá nhân vật dựng sẵn (chỉ tắt được).',
+  character_not_found: 'Không tìm thấy nhân vật.',
 };
 
 /**
@@ -116,6 +121,17 @@ export const api = {
   eventStatus: () => rpc('admin_event_status'),
   setEvent: (mode, id = null) => rpc('admin_set_event', { p_mode: mode, p_id: id }),
   maintenanceStatus: () => rpc('maintenance_status'),
+  listCharacters: () => rpc('admin_list_characters'),
+  saveCharacter: (c) =>
+    rpc('admin_save_character', {
+      p_id: c.id ?? null,
+      p_name: c.name,
+      p_gender: c.gender,
+      p_model_url: c.modelUrl ?? null,
+      p_storage_path: c.storagePath ?? null,
+      p_active: c.active ?? true,
+    }),
+  deleteCharacter: (id) => rpc('admin_delete_character', { p_id: id }),
   setMaintenance: (on, message) => rpc('admin_set_maintenance', { p_on: on, p_message: message }),
   setAllowedDomains: (domains) => rpc('admin_set_allowed_domains', { p_domains: domains }),
 };
@@ -130,4 +146,42 @@ export async function getSetting(key) {
   const { data, error } = await supabase.from('game_settings').select('value').eq('key', key).maybeSingle();
   if (error) throw error;
   return data?.value ?? null;
+}
+
+/** Kho chứa file nhân vật 3D trên Supabase Storage (tạo trong 11_characters.sql). */
+const CHARACTER_BUCKET = 'characters';
+
+/**
+ * Tải file .glb lên kho nhân vật.
+ *
+ * @param {File} file
+ * @returns {Promise<{ url: string, path: string }>}
+ */
+export async function uploadCharacterModel(file) {
+  const supabase = await getSupabase();
+  const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.glb`;
+  const { error } = await supabase.storage.from(CHARACTER_BUCKET).upload(path, file, { contentType: 'model/gltf-binary', upsert: false });
+  if (error) {
+    const msg = /bucket not found/i.test(error.message)
+      ? 'Chưa có kho "characters" — hãy chạy lại file setup.sql (Bước 2 trong hướng dẫn).'
+      : /row-level security|unauthorized|403/i.test(error.message)
+        ? 'Bạn không có quyền tải lên (cần vai trò BGH / Quản trị).'
+        : /exceeded|too large|413/i.test(error.message)
+          ? 'File quá lớn so với giới hạn của Supabase.'
+          : error.message;
+    throw new Error(msg);
+  }
+  const { data } = supabase.storage.from(CHARACTER_BUCKET).getPublicUrl(path);
+  return { url: data.publicUrl, path };
+}
+
+/**
+ * Xoá file .glb khỏi kho (bỏ qua lỗi — file có thể đã bị xoá).
+ *
+ * @param {string | null} path
+ */
+export async function deleteCharacterModel(path) {
+  if (!path) return;
+  const supabase = await getSupabase();
+  await supabase.storage.from(CHARACTER_BUCKET).remove([path]).catch(() => {});
 }

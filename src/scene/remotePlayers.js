@@ -18,9 +18,9 @@ const LOD_INTERVAL = 0.5;
  *
  * @param {{ scene: THREE.Scene, island: { groundHeight: (x: number, z: number) => number },
  *   onTap: (object: THREE.Object3D, handler: () => void) => () => void,
- *   onSelect: (id: string) => void }} deps
+ *   onSelect: (id: string) => void, applyCharacter?: (mascot: object, id: string | null | undefined) => void }} deps
  */
-export function createRemotePlayers({ scene, island, onTap, onSelect }) {
+export function createRemotePlayers({ scene, island, onTap, onSelect, applyCharacter }) {
   /** @type {Map<string, object>} */
   const players = new Map();
   const tmp = new THREE.Vector3();
@@ -70,6 +70,7 @@ export function createRemotePlayers({ scene, island, onTap, onSelect }) {
     p.wardrobe = createWardrobe(p.mascot);
     if (p.profile?.equipped) p.wardrobe.equipAll(p.profile.equipped);
     p.root.add(p.mascot.object);
+    applyCharacter?.(p.mascot, p.profile?.character);
     if (p.pendingEmote) p.mascot.emote(p.pendingEmote);
     syncPet(p);
   }
@@ -91,6 +92,8 @@ export function createRemotePlayers({ scene, island, onTap, onSelect }) {
     p.pet?.dispose();
     p.pet = null;
     p.root.remove(p.mascot.object);
+    // Model 3D tải lên dùng chung geometry/material với cache của loader → gỡ ra, không dispose.
+    p.mascot.setCustomModel(null);
     disposeTree(p.mascot.object);
     p.mascot = null;
     p.wardrobe = null;
@@ -100,7 +103,9 @@ export function createRemotePlayers({ scene, island, onTap, onSelect }) {
   function updateProfile(profile) {
     const p = ensure(profile.id);
     const changedOutfit = JSON.stringify(p.profile?.equipped) !== JSON.stringify(profile.equipped);
+    const changedCharacter = (p.profile?.character ?? null) !== (profile.character ?? null);
     p.profile = profile;
+    if (changedCharacter && p.mascot) applyCharacter?.(p.mascot, profile.character);
     p.tag.set({ name: profile.fullName || profile.displayName, unit: profile.unit, xp: profile.xp ?? 0, house: profile.house, badge: milestoneBadge(Number(profile.distance) || 0) });
     if (changedOutfit && p.wardrobe && profile.equipped) p.wardrobe.equipAll(profile.equipped);
     syncPet(p);

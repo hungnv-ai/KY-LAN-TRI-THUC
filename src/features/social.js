@@ -29,11 +29,12 @@ import { openProfileCard } from '../ui/profileCard.js';
  * hạng, cảm xúc), thẻ hồ sơ khi chạm vào, thả tim / gửi lời cảm ơn.
  *
  * @param {{ world: object, island: object, mascot: object, supabase: object | null, userId: string,
- *   isMoving: () => boolean, onGoTo?: (x: number, z: number) => void }} deps
+ *   isMoving: () => boolean, onGoTo?: (x: number, z: number) => void,
+ *   applyCharacter?: (target: object, id: string | null | undefined) => void }} deps
  * @returns {{ update: (delta: number, elapsed: number) => void, notifyProfileChanged: () => void,
  *   sendSticker: (stickerId: string) => void, nameTagSprites: () => import('three').Sprite[] }}
  */
-export function setupSocial({ world, island, mascot, supabase, userId, isMoving, onGoTo }) {
+export function setupSocial({ world, island, mascot, supabase, userId, isMoving, onGoTo, applyCharacter }) {
   // ── Bảng tên của mình ───────────────────────────────────────────────
   let currentRoom = '';
   const myTag = createNameTag();
@@ -53,12 +54,13 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving,
     island,
     onTap: world.onTap,
     onSelect: (id) => openPeer(id),
+    applyCharacter,
   });
 
   function localProfile() {
     const p = getProfile();
     const s = getState();
-    return { displayName: p.displayName, fullName: p.fullName ?? null, unit: p.unit, house: p.house, role: p.role, xp: s.xp, equipped: s.equipped, streak: s.streak.count, pet: s.pets?.active ?? null, distance: Math.floor(Number(s.stats.distance) || 0) };
+    return { displayName: p.displayName, fullName: p.fullName ?? null, unit: p.unit, house: p.house, role: p.role, xp: s.xp, equipped: s.equipped, streak: s.streak.count, pet: s.pets?.active ?? null, character: s.character ?? null, distance: Math.floor(Number(s.stats.distance) || 0) };
   }
 
   const mp = createMultiplayer({

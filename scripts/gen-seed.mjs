@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import * as config from '../src/config.js';
 import { RANKS } from '../src/data/ranks.js';
 import { ITEMS, STARTER_ITEMS, DEFAULT_EQUIPPED } from '../src/data/items.js';
+import { BUILTIN_CHARACTERS } from '../src/data/characters.js';
 import { QUESTIONS } from '../src/data/questions.js';
 import { GIFTS } from '../src/data/gifts.js';
 import { PETS } from '../src/data/pets.js';
@@ -62,6 +63,13 @@ RANKS.forEach((r, i) => {
     ].join(', ')}) on conflict (id) do update set sort = excluded.sort, name = excluded.name, icon = excluded.icon, xp = excluded.xp, color = excluded.color, reward = excluded.reward, tiers = excluded.tiers;`,
   );
 });
+
+// Nhân vật dựng sẵn: cập nhật tên / thứ tự, giữ nguyên trạng thái bật–tắt BGH đã chọn.
+for (const c of BUILTIN_CHARACTERS) {
+  seed.push(
+    `insert into public.characters (id, name, gender, variant, sort) values (${[lit(c.id), lit(c.name), lit(c.gender), lit(c.variant), c.sort].join(', ')}) on conflict (id) do update set name = excluded.name, gender = excluded.gender, variant = excluded.variant, sort = excluded.sort;`,
+  );
+}
 
 for (const it of ITEMS) {
   seed.push(
