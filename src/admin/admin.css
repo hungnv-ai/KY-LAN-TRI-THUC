@@ -847,3 +847,45 @@ textarea.input {
 .maint-switch-input:disabled + .maint-switch-track {
   opacity: 0.5;
 }
+
+/* Hộp "Động tác" của nhân vật 3D */
+.anim-list {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.anim-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.2fr) 70px minmax(0, 2fr) 60px;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: var(--cream);
+}
+
+.anim-label {
+  display: grid;
+}
+
+.anim-state {
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.anim-state.is-on {
+  color: var(--success);
+}
+
+.input-file-sm {
+  padding: 4px 6px;
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .anim-row {
+    grid-template-columns: 1fr auto;
+  }
+}

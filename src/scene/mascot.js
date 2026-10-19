@@ -161,7 +161,7 @@ export function createMascot() {
     const def = EMOTES[name];
     if (!def) return;
     emoteListeners.forEach((fn) => fn(name));
-    current = { name, def, time: 0 };
+    current = { name, def, time: 0, clip: custom.active() && custom.playEmote(name) };
     face.set(def.face);
     props.show(def.prop);
     idleTime = 0;
@@ -209,11 +209,12 @@ export function createMascot() {
     bounce.rotation.set(0, 0, 0);
 
     // Chuyển động riêng của cảm xúc.
-    const motion = current?.def.motion ?? (mood ? EMOTES[mood].motion : null);
+    const motion = current?.clip ? null : (current?.def.motion ?? (mood ? EMOTES[mood].motion : null));
     if (motion) {
       const t = current ? current.time / current.def.duration : (elapsed % 2) / 2;
       const env = current ? Math.min(1, t / 0.15, (1 - t) / 0.15) : 1;
       MOTIONS[motion]({ t, env, elapsed, bounce, head, arms });
+      if (custom.active()) CUSTOM_MOTIONS[motion]?.({ t, env, elapsed, bounce });
     }
 
     // Bước đi / chạy: chân bước luân phiên, tay vung ngược chiều, người nhún nhẹ.
@@ -235,7 +236,7 @@ export function createMascot() {
 
     face.update(delta);
     props.update(delta);
-    custom.update(delta, locomotion);
+    custom.update(delta, locomotion, stepPhase, elapsed);
   }
 
   const tmp = new THREE.Vector3();
@@ -283,10 +284,36 @@ export function createMascot() {
 /** Chiều cao chuẩn của nhân vật (bằng Kỳ lân dựng sẵn) để bảng tên, camera không phải đổi. */
 const CUSTOM_MODEL_HEIGHT = 2.6;
 const ANIM_FADE_SEC = 0.25;
+/** Tốc độ (locomotion) từ mức này trở lên thì dùng động tác chạy. */
+const RUN_THRESHOLD = 1.3;
+/** Động tác di chuyển: tên chuẩn (file động tác tải lên) hoặc chữ thường gặp trong tên clip. */
+const LOCOMOTION_CLIPS = {
+  idle: /^idle$|idle|stand|breath/i,
+  walk: /^walk$|walk/i,
+  run: /^run$|run|jog|sprint/i,
+};
+/** Cảm xúc → clip trong file (nếu có). Không có clip thì nhân vật nhún / xoay theo MOTIONS. */
+const EMOTE_CLIPS = {
+  wave: /^wave$|wave|hello|greet/i,
+  happy: /^happy$|happy|clap|laugh/i,
+  cheer: /^cheer$|cheer|jump|victory|celebrat|dance/i,
+  oops: /^oops$|surpris|shock|oops/i,
+  think: /^think$|think|ponder/i,
+  cry: /^cry$|cry|sad/i,
+  faint: /^faint$|faint|fall|die|death/i,
+  cool: /^cool$|cool|pose|flex/i,
+  bored: /^bored$|bored|yawn/i,
+};
+/** Cử động tự dựng cho model chưa có động tác đi/chạy: nhún, lắc lư, nghiêng người. */
+const PROC_HOP = 0.13;
+const PROC_WADDLE = 0.11;
+const PROC_LEAN = 0.12;
+const PROC_SQUASH = 0.05;
+const PROC_BREATHE = 0.015;
 
 /**
  * Chỗ gắn model .glb: tự co giãn về chiều cao chuẩn, đặt chân chạm đất, chạy animation
- * "idle" / "walk" / "run" nếu file có (tên chứa các chữ này).
+ * đứng / đi / chạy / cảm xúc nếu file có. Model chưa có khung xương thì tự nhún nhảy khi chạy.
  */
 function createCustomModelSlot(parent) {
   const holder = new THREE.Group();
@@ -297,9 +324,12 @@ function createCustomModelSlot(parent) {
   let model = null;
   let mixer = null;
   let actions = {};
+  let emoteActions = {};
   let playing = null;
+  let emoteAction = null;
   const box = new THREE.Box3();
   const size = new THREE.Vector3();
+  const center = new THREE.Vector3();
 
   function pick(clips, re) {
     return clips.find((c) => re.test(c.name)) ?? null;
@@ -311,7 +341,12 @@ function createCustomModelSlot(parent) {
     model = null;
     mixer = null;
     actions = {};
+    emoteActions = {};
     playing = null;
+    emoteAction = null;
+    holder.position.set(0, 0, 0);
+    holder.rotation.set(0, 0, 0);
+    holder.scale.set(1, 1, 1);
     if (!next?.scene) return;
 
     model = next.scene;
@@ -322,42 +357,114 @@ function createCustomModelSlot(parent) {
     model.scale.multiplyScalar(scale);
     model.updateMatrixWorld(true);
     box.setFromObject(model);
-    const center = box.getCenter(new THREE.Vector3());
+    box.getCenter(center);
     model.position.x -= center.x;
     model.position.z -= center.z;
     model.position.y -= box.min.y;
     holder.add(model);
     top.position.set(0, CUSTOM_MODEL_HEIGHT * 0.85, 0);
 
-    const clips = next.animations ?? [];
-    if (clips.length) {
-      mixer = new THREE.AnimationMixer(model);
-      const idle = pick(clips, /idle|stand|breath/i) ?? clips[0];
-      const walk = pick(clips, /walk/i);
-      const run = pick(clips, /run|jog/i) ?? walk;
-      for (const [key, clip] of Object.entries({ idle, walk: walk ?? run, run })) {
-        if (clip) actions[key] = mixer.clipAction(clip);
+    // Bỏ clip không khớp khung xương của model (vd file động tác của nhân vật khác).
+    const clips = (next.animations ?? []).filter((clip) => bindsTo(model, clip));
+    if (!clips.length) return;
+    mixer = new THREE.AnimationMixer(model);
+    const found = Object.fromEntries(Object.entries(LOCOMOTION_CLIPS).map(([k, re]) => [k, pick(clips, re)]));
+    const used = new Set(Object.values(found).filter(Boolean));
+    // Không có clip nào mang tên đứng/đi/chạy → coi clip đầu tiên là "đứng yên".
+    found.idle ??= used.size ? null : clips[0];
+    found.walk ??= found.run;
+    found.run ??= found.walk;
+    for (const [key, clip] of Object.entries(found)) if (clip) actions[key] = mixer.clipAction(clip);
+    for (const [name, re] of Object.entries(EMOTE_CLIPS)) {
+      const clip = clips.find((c) => re.test(c.name) && !used.has(c));
+      if (clip) {
+        const action = mixer.clipAction(clip);
+        action.setLoop(THREE.LoopOnce, 1);
+        action.clampWhenFinished = true;
+        emoteActions[name] = action;
       }
-      play('idle');
     }
+    mixer.addEventListener('finished', (e) => {
+      if (e.action !== emoteAction) return;
+      emoteAction.fadeOut(ANIM_FADE_SEC);
+      emoteAction = null;
+      const back = playing;
+      playing = null;
+      if (back) play(Object.keys(actions).find((k) => actions[k] === back) ?? 'idle');
+    });
+    play('idle');
   }
 
   function play(key) {
     const action = actions[key] ?? actions.idle;
-    if (!action || action === playing) return;
+    if (!action) {
+      // Không có clip đứng yên: dừng động tác đi khi đứng lại.
+      if (playing && !emoteAction) playing.fadeOut(ANIM_FADE_SEC);
+      playing = null;
+      return;
+    }
+    if (action === playing) return;
     action.reset().fadeIn(ANIM_FADE_SEC).play();
-    playing?.fadeOut(ANIM_FADE_SEC);
+    if (!emoteAction) playing?.fadeOut(ANIM_FADE_SEC);
     playing = action;
   }
 
-  function update(delta, locomotion) {
-    if (!mixer) return;
-    play(locomotion > 1.3 ? 'run' : locomotion > 0 ? 'walk' : 'idle');
-    mixer.update(delta);
+  /** Chạy clip cảm xúc nếu file có; trả về true nếu đã chạy (khi đó không cần nhún/xoay thay thế). */
+  function playEmote(name) {
+    const action = emoteActions[name];
+    if (!action) return false;
+    emoteAction?.fadeOut(ANIM_FADE_SEC);
+    playing?.fadeOut(ANIM_FADE_SEC);
+    action.reset().fadeIn(ANIM_FADE_SEC).play();
+    emoteAction = action;
+    return true;
   }
 
-  return { set, update, top, active: () => Boolean(model) };
+  function update(delta, locomotion, stepPhase, elapsed) {
+    if (!model) return;
+    if (mixer) {
+      if (!emoteAction) play(locomotion >= RUN_THRESHOLD ? 'run' : locomotion > 0 ? 'walk' : 'idle');
+      mixer.update(delta);
+    }
+    // Model chưa có động tác đi/chạy: tự nhún, lắc lư, nghiêng người cho có cảm giác chạy.
+    if (actions.walk) return;
+    const k = Math.min(1.5, locomotion);
+    const step = Math.sin(stepPhase);
+    if (k > 0) {
+      holder.position.y = Math.abs(step) * PROC_HOP * k;
+      holder.rotation.z = step * PROC_WADDLE * k;
+      holder.rotation.x = PROC_LEAN * k;
+      const squash = 1 - Math.abs(Math.cos(stepPhase)) * PROC_SQUASH * k;
+      holder.scale.set(2 - squash, squash, 2 - squash);
+    } else {
+      holder.position.y *= 0.8;
+      holder.rotation.z *= 0.8;
+      holder.rotation.x *= 0.8;
+      const breathe = 1 + Math.sin(elapsed * 2.2) * PROC_BREATHE;
+      holder.scale.set(2 - breathe, breathe, 2 - breathe);
+    }
+  }
+
+  return { set, update, playEmote, top, active: () => Boolean(model) };
 }
+
+/** Clip có điều khiển được ít nhất một bộ phận của model không (so tên xương / node). */
+function bindsTo(model, clip) {
+  return clip.tracks.some((track) => {
+    const { nodeName } = THREE.PropertyBinding.parseTrackName(track.name);
+    return Boolean(THREE.PropertyBinding.findNode(model, nodeName));
+  });
+}
+
+/** Cảm xúc chỉ cử động tay/đầu (Kỳ lân dựng sẵn) → model tải lên lắc cả người thay thế. */
+const CUSTOM_MOTIONS = {
+  wave({ env, elapsed, bounce }) {
+    bounce.rotation.z += Math.sin(elapsed * 9) * 0.12 * env;
+  },
+  shake({ t, bounce }) {
+    bounce.rotation.y = Math.sin(t * Math.PI * 5) * 0.35 * (1 - t);
+  },
+};
 
 // ── Chuyển động thêm cho từng cảm xúc ─────────────────────────────────────
 
