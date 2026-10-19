@@ -261,7 +261,8 @@ function guideCard() {
     h(
       'ol',
       { class: 'role-list' },
-      h('li', {}, 'Dùng công cụ tạo 3D từ ảnh (VD: Meshy, Tripo3D) — tải ảnh Kỳ lân đứng thẳng, nền trơn, nhìn chính diện.'),
+      h('li', {}, 'Dùng công cụ tạo 3D từ ảnh (VD: Tripo3D, Meshy) — ảnh Kỳ lân đứng thẳng, nền trơn, nhìn chính diện, HAI TAY BUÔNG XOÈ RA (tư thế chữ A). Tư thế vẫy tay / chống hông sẽ làm tay méo khi cử động.'),
+      h('li', {}, 'Giảm lưới (Retopo) còn khoảng 10–50 nghìn mặt trước khi gắn khung xương.'),
       h('li', {}, 'Muốn nhân vật có động tác: dùng chức năng "Rigging / Animation" của công cụ (chọn kiểu nhân vật 2 chân) → tải model đã rig lên ở đây.'),
       h('li', {}, 'Sau đó bấm "🎬 Động tác" ở danh sách → tải từng file động tác (Đứng yên, Đi bộ, Chạy, Vẫy tay, Vui mừng…) xuất từ cùng nhân vật đó.'),
       h('li', {}, 'Xuất file định dạng GLB. File nặng cũng được — trang này tự nén trước khi tải lên.'),
