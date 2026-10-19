@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 /**
  * Tải file .glb: nhân vật 3D do quản trị tải lên (Supabase Storage) hoặc file trong `public/models/`.
@@ -11,6 +12,8 @@ import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 export const loadingManager = new THREE.LoadingManager();
 
 const gltfLoader = new GLTFLoader(loadingManager);
+// File nhân vật được trang quản trị nén bằng meshopt (admin/glbCompress.js) → cần bộ giải nén này.
+gltfLoader.setMeshoptDecoder(MeshoptDecoder);
 
 /** Cache theo URL: tránh tải lại cùng một file nhiều lần. */
 const cache = new Map();

@@ -4,10 +4,16 @@ import { confirmDialog, showToast } from '../../ui/feedback.js';
 import { api, deleteCharacterModel, uploadCharacterModel } from '../api.js';
 import { badge, dataTable, field, formDialog, select } from '../widgets.js';
 
-/** Giới hạn dung lượng file .glb (MB) — file nặng làm điện thoại tải lâu. */
+/** File gốc chọn được tối đa (MB) — sẽ được nén trước khi tải lên. */
+const MAX_SOURCE_MB = 300;
+/** Sau khi nén vẫn lớn hơn mức này (MB) thì không tải lên — điện thoại tải quá lâu. */
 const MAX_MODEL_MB = 25;
 /** Khuyến nghị để người chơi tải nhanh trên 4G. */
 const RECOMMENDED_MODEL_MB = 8;
+/** File nhỏ hơn mức này (MB) thì tải thẳng, không cần nén. */
+const COMPRESS_ABOVE_MB = 2;
+
+const toMB = (bytes) => bytes / 1024 / 1024;
 
 const GENDER_OPTIONS = Object.entries(GENDERS);
 
@@ -113,8 +119,8 @@ function uploadCard(onDone) {
   file.addEventListener('change', () => {
     const f = file.files[0];
     if (!f) return;
-    const mb = f.size / 1024 / 1024;
-    status.textContent = `${f.name} · ${mb.toFixed(1)} MB${mb > RECOMMENDED_MODEL_MB ? ' — hơi nặng, điện thoại sẽ tải lâu. Nên nén dưới ' + RECOMMENDED_MODEL_MB + ' MB.' : ''}`;
+    const mb = toMB(f.size);
+    status.textContent = `${f.name} · ${mb.toFixed(1)} MB${mb > COMPRESS_ABOVE_MB ? ' — sẽ được tự động nén trước khi tải lên.' : ''}`;
     if (!name.value) name.value = f.name.replace(/\.glb$/i, '').replace(/[-_]+/g, ' ').slice(0, 40);
   });
 
@@ -122,13 +128,24 @@ function uploadCard(onDone) {
     const f = file.files[0];
     if (!f) return showToast('Chọn file .glb trước nhé.', { type: 'warn' });
     if (!/\.glb$/i.test(f.name)) return showToast('Chỉ nhận file .glb (glTF dạng nhị phân).', { type: 'warn' });
-    if (f.size > MAX_MODEL_MB * 1024 * 1024) return showToast(`File lớn hơn ${MAX_MODEL_MB} MB — hãy nén / giảm chi tiết rồi thử lại.`, { type: 'warn' });
+    if (toMB(f.size) > MAX_SOURCE_MB) return showToast(`File lớn hơn ${MAX_SOURCE_MB} MB — hãy xuất lại với chất lượng thấp hơn.`, { type: 'warn' });
     if (name.value.trim().length < 2) return showToast('Nhập tên nhân vật (ít nhất 2 ký tự).', { type: 'warn' });
     submit.disabled = true;
-    status.textContent = 'Đang tải file lên kho…';
     let uploaded = null;
     try {
-      uploaded = await uploadCharacterModel(f);
+      let upload = f;
+      if (toMB(f.size) > COMPRESS_ABOVE_MB) {
+        // Tải lười: thư viện nén chỉ tải khi cần.
+        const { compressGlb } = await import('../glbCompress.js');
+        const r = await compressGlb(f, (step) => (status.textContent = step));
+        status.textContent = `Đã nén: ${toMB(r.before).toFixed(1)} MB → ${toMB(r.after).toFixed(1)} MB`;
+        upload = r.blob;
+      }
+      if (toMB(upload.size) > MAX_MODEL_MB) {
+        throw new Error(`Sau khi nén file vẫn nặng ${toMB(upload.size).toFixed(1)} MB (tối đa ${MAX_MODEL_MB} MB). Hãy xuất lại từ công cụ 3D với ít lưới hơn.`);
+      }
+      status.textContent += ' · Đang tải lên kho…';
+      uploaded = await uploadCharacterModel(upload);
       status.textContent = 'Đang lưu nhân vật…';
       await api.saveCharacter({ name: name.value, gender: gender.value, modelUrl: uploaded.url, storagePath: uploaded.path, active: true });
       showToast(`Đã thêm "${name.value.trim()}" — người chơi chọn trong Tủ đồ › 🦄 Nhân vật`, { type: 'success', icon: '🦄' });
@@ -139,7 +156,8 @@ function uploadCard(onDone) {
     } catch (err) {
       if (uploaded) await deleteCharacterModel(uploaded.path);
       status.textContent = '';
-      showToast(err.message, { type: 'warn' });
+      console.error(err);
+      showToast(/Invalid|magic|JSON|glTF/i.test(err.message) ? 'File không đọc được — hãy chắc đây là file .glb hợp lệ.' : err.message, { type: 'warn' });
     }
     submit.disabled = false;
   });
@@ -149,7 +167,7 @@ function uploadCard(onDone) {
     { class: 'card' },
     h('header', { class: 'card-head' }, h('h3', {}, '⬆️ Thêm nhân vật 3D')),
     h('p', { class: 'muted' }, 'Tải file .glb lên — người chơi sẽ thấy nhân vật mới trong Tủ đồ › 🦄 Nhân vật và chọn được ngay.'),
-    h('div', { class: 'form-grid' }, field('File 3D (.glb)', file, `Tối đa ${MAX_MODEL_MB} MB, nên dưới ${RECOMMENDED_MODEL_MB} MB.`), field('Tên nhân vật', name), field('Giới tính', gender)),
+    h('div', { class: 'form-grid' }, field('File 3D (.glb)', file, `File lớn sẽ được tự động nén (thu nhỏ hình bề mặt, giảm lưới) — thường còn dưới ${RECOMMENDED_MODEL_MB} MB.`), field('Tên nhân vật', name), field('Giới tính', gender)),
     h('div', { class: 'page-actions' }, submit),
     status,
   );
@@ -166,7 +184,7 @@ function guideCard() {
       { class: 'role-list' },
       h('li', {}, 'Dùng công cụ tạo 3D từ ảnh (VD: Meshy, Tripo3D) — tải ảnh Kỳ lân đứng thẳng, nền trơn, nhìn chính diện.'),
       h('li', {}, 'Nếu công cụ có "Rigging / Animation": chọn kiểu nhân vật hai chân và thêm động tác đứng (Idle), đi (Walk), chạy (Run).'),
-      h('li', {}, 'Xuất file định dạng GLB, chọn mức chi tiết vừa phải (dưới 8 MB để điện thoại tải nhanh).'),
+      h('li', {}, 'Xuất file định dạng GLB. File nặng cũng được — trang này tự nén trước khi tải lên.'),
       h('li', {}, 'Tải lên ở thẻ phía trên. Game tự chỉnh chiều cao và đặt nhân vật đứng trên mặt đất.'),
     ),
     h('p', { class: 'muted' }, 'Lưu ý: nhân vật 3D tải lên chưa mặc được trang phục trong Tủ đồ và chỉ cử động theo animation có sẵn trong file. Mặt nhân vật nên hướng về phía trước (trục +Z của file).'),
