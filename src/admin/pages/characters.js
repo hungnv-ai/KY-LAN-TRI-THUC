@@ -147,7 +147,7 @@ export async function renderCharacters(el, { role } = {}) {
       if (!slot) slot = Object.keys(CLIP_PATTERNS).find((id) => !used.has(id) && !current[id] && CLIP_PATTERNS[id].test(clip.name)) ?? '';
       if (slot) used.add(slot);
       const sel = select(slotOptions, slot);
-      return { clip, sel, row: h('div', { class: 'anim-row' }, h('div', { class: 'anim-label' }, h('strong', {}, clip.name), h('small', { class: 'muted' }, `${clip.seconds.toFixed(1)} giây`)), sel) };
+      return { clip, sel, row: h('div', { class: 'anim-row anim-row-map' }, h('div', { class: 'anim-label' }, h('strong', {}, clip.name), h('small', { class: 'muted' }, `${clip.seconds.toFixed(1)} giây`)), sel) };
     });
 
     const verdict = !info.joints
