@@ -45,7 +45,8 @@ export function createNameTag() {
   const ctx = canvas.getContext('2d');
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false, sizeAttenuation: false });
+  // depthTest: false → bảng tên luôn nổi trên cây, cột Vùng Đất, nhân vật khác (không bị che mất).
+  const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false, depthTest: false, sizeAttenuation: false });
   const sprite = new THREE.Sprite(material);
   sprite.position.y = NAME_TAG_Y;
   sprite.renderOrder = 15;
