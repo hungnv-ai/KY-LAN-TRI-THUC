@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { CLIP_PATTERNS } from '../data/characters.js';
 import { EMOTES, PROPS, REST_POSE } from './emotes.js';
 import {
   addFlameMane,
@@ -287,23 +288,10 @@ const ANIM_FADE_SEC = 0.25;
 /** Tốc độ (locomotion) từ mức này trở lên thì dùng động tác chạy. */
 const RUN_THRESHOLD = 1.3;
 /** Động tác di chuyển: tên chuẩn (file động tác tải lên) hoặc chữ thường gặp trong tên clip. */
-const LOCOMOTION_CLIPS = {
-  idle: /^idle$|idle|stand|breath/i,
-  walk: /^walk$|walk/i,
-  run: /^run$|run|jog|sprint/i,
-};
+const { idle: IDLE_RE, walk: WALK_RE, run: RUN_RE, ...EMOTE_PATTERNS } = CLIP_PATTERNS;
+const LOCOMOTION_CLIPS = { idle: IDLE_RE, walk: WALK_RE, run: RUN_RE };
 /** Cảm xúc → clip trong file (nếu có). Không có clip thì nhân vật nhún / xoay theo MOTIONS. */
-const EMOTE_CLIPS = {
-  wave: /^wave$|wave|hello|greet/i,
-  happy: /^happy$|happy|clap|laugh/i,
-  cheer: /^cheer$|cheer|jump|victory|celebrat|dance/i,
-  oops: /^oops$|surpris|shock|oops/i,
-  think: /^think$|think|ponder/i,
-  cry: /^cry$|cry|sad/i,
-  faint: /^faint$|faint|fall|die|death/i,
-  cool: /^cool$|cool|pose|flex/i,
-  bored: /^bored$|bored|yawn/i,
-};
+const EMOTE_CLIPS = EMOTE_PATTERNS;
 /** Cử động tự dựng cho model chưa có động tác đi/chạy: nhún, lắc lư, nghiêng người. */
 const PROC_HOP = 0.13;
 const PROC_WADDLE = 0.11;

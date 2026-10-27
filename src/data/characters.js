@@ -34,3 +34,22 @@ export const ANIMATION_SLOTS = [
   { id: 'cool', label: 'Tạo dáng ngầu', icon: '😎' },
   { id: 'bored', label: 'Chán / ngáp', icon: '🥱' },
 ];
+
+/**
+ * Nhận ra động tác theo tên clip trong file .glb (Tripo, Mixamo…): tên chuẩn = id ô, hoặc chữ thường gặp.
+ * Dùng chung cho game (scene/mascot.js) và trang quản trị (đoán sẵn ô khi kiểm tra file).
+ */
+export const CLIP_PATTERNS = {
+  idle: /^idle$|idle|stand|breath/i,
+  walk: /^walk$|walk/i,
+  run: /^run$|run|jog|sprint/i,
+  wave: /^wave$|wave|hello|greet/i,
+  happy: /^happy$|happy|clap|laugh/i,
+  cheer: /^cheer$|cheer|jump|victory|celebrat|dance/i,
+  oops: /^oops$|surpris|shock|oops/i,
+  think: /^think$|think|ponder/i,
+  cry: /^cry$|cry|sad/i,
+  faint: /^faint$|faint|fall|die|death/i,
+  cool: /^cool$|cool|pose|flex/i,
+  bored: /^bored$|bored|yawn/i,
+};

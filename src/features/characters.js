@@ -71,11 +71,16 @@ export function setupCharacters({ mascot, onChanged }) {
   async function loadAnimationClips(map) {
     const entries = Object.entries(map ?? {});
     const loaded = await Promise.all(
-      entries.map(async ([slot, url]) => {
+      entries.map(async ([slot, entry]) => {
+        // entry: đường dẫn (file động tác riêng) hoặc { url, clip } (clip có tên trong file — vd chính file model).
+        const url = typeof entry === 'string' ? entry : entry?.url;
+        const clipName = typeof entry === 'string' ? null : entry?.clip;
+        if (!url) return null;
         try {
           const { animations } = await loadGLB(url);
-          if (!animations.length) return null;
-          const clip = animations[0].clone();
+          const source = (clipName && animations.find((a) => a.name === clipName)) || animations[0];
+          if (!source) return null;
+          const clip = source.clone();
           clip.name = slot;
           return clip;
         } catch (err) {

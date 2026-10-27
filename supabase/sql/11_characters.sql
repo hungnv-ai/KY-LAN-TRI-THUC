@@ -47,7 +47,9 @@ begin
   perform public._require_player();
   return coalesce((
     select jsonb_agg(jsonb_build_object('id', c.id, 'name', c.name, 'gender', c.gender, 'variant', c.variant, 'modelUrl', c.model_url,
-        'animations', coalesce((select jsonb_object_agg(a.key, a.value ->> 'url') from jsonb_each(c.animations) a), '{}'::jsonb))
+        'animations', coalesce((select jsonb_object_agg(a.key,
+          case when a.value ? 'clip' then jsonb_build_object('url', a.value ->> 'url', 'clip', a.value ->> 'clip') else to_jsonb(a.value ->> 'url') end)
+          from jsonb_each(c.animations) a), '{}'::jsonb))
       order by c.sort, c.created_at)
     from characters c where c.active
   ), '[]');

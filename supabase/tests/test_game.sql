@@ -637,6 +637,13 @@ begin
   perform test_as(B);
   assert (select c -> 'animations' ->> 'walk' from jsonb_array_elements(list_characters()) c where c ->> 'id' = v_id) = 'https://x.supabase.co/w.glb',
     'người chơi nhận đường dẫn động tác';
+  perform test_as(A);
+  r := admin_save_character(v_id, 'Kỳ lân 3D', 'nam', null, null, true,
+    '{"walk": {"url": "https://x.supabase.co/w.glb", "path": "w.glb"}, "wave": {"url": "https://x.supabase.co/v.glb", "path": "v.glb"},
+      "run": {"url": "https://x.supabase.co/storage/v1/object/public/characters/a.glb", "clip": "Animation_03"}}');
+  perform test_as(B);
+  assert (select c -> 'animations' -> 'run' ->> 'clip' from jsonb_array_elements(list_characters()) c where c ->> 'id' = v_id) = 'Animation_03',
+    'động tác gán từ clip trong file model (giữ tên clip)';
   r := set_character(v_id);
   assert r -> 'state' ->> 'character' = v_id, 'chọn nhân vật 3D';
 
@@ -669,7 +676,7 @@ begin
   perform test_as(A);
   r := admin_delete_character(v_id);
   assert r ->> 'storagePath' = 'a.glb', 'xoá trả về đường dẫn file để xoá khỏi kho';
-  assert jsonb_array_length(r -> 'animationPaths') = 2, 'xoá trả về đường dẫn file động tác';
+  assert jsonb_array_length(r -> 'animationPaths') = 2, 'xoá trả về đường dẫn file động tác (không gồm file model)';
   assert jsonb_array_length(admin_list_characters()) = 2, 'đã xoá';
 end $$;
 

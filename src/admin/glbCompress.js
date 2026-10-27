@@ -103,3 +103,26 @@ export async function extractAnimation(file) {
   const out = await io.writeBinary(doc);
   return { blob: new Blob([out], { type: 'model/gltf-binary' }), clips, before: file.size, after: out.byteLength };
 }
+
+/**
+ * Xem bên trong file .glb: số tam giác, có khung xương không, danh sách động tác (tên + độ dài).
+ *
+ * @param {Blob} file
+ * @returns {Promise<{ triangles: number, joints: number, clips: { name: string, seconds: number }[] }>}
+ */
+export async function inspectGlb(file) {
+  await MeshoptDecoder.ready;
+  const io = new WebIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.decoder': MeshoptDecoder });
+  const doc = await io.readBinary(new Uint8Array(await file.arrayBuffer()));
+  const root = doc.getRoot();
+  const joints = root.listSkins().reduce((n, skin) => Math.max(n, skin.listJoints().length), 0);
+  const clips = root.listAnimations().map((anim, i) => {
+    let seconds = 0;
+    for (const sampler of anim.listSamplers()) {
+      const input = sampler.getInput();
+      if (input) seconds = Math.max(seconds, input.getMax([0])[0]);
+    }
+    return { name: anim.getName() || `Động tác ${i + 1}`, seconds };
+  });
+  return { triangles: countTriangles(doc), joints, clips };
+}

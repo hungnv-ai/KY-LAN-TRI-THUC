@@ -259,7 +259,10 @@ thật như Kỳ lân dựng sẵn:
    (có thể xoá nhân vật cũ chưa rig).
 3. Trong thư viện động tác của công cụ, chọn lần lượt từng động tác (Idle/đứng, Walking/đi, Running/chạy,
    Waving/vẫy tay, Cheering/vui mừng…) → tải mỗi động tác thành 1 file **GLB**.
-4. Ở danh sách nhân vật, bấm **🎬 Động tác** → chọn file cho từng ô → **Lưu động tác**.
+4. Tải lên xong, hộp **🔍 Kiểm tra** tự mở: cho biết file có khung xương không, có những động tác nào.
+   Chọn ô cho từng động tác (VD *Animation_01 → Đứng yên*, *Animation_02 → Đi bộ*, *Animation_03 → Chạy*) → **Lưu gán động tác**.
+   (Bấm lại **🔍 Kiểm tra** ở danh sách bất cứ lúc nào.)
+5. Nếu động tác nằm ở file riêng: bấm **🎬 Động tác** → chọn file cho từng ô → **Lưu động tác**.
    Trang tự bỏ phần hình, chỉ giữ chuyển động nên file rất nhẹ. Ô nào trống thì nhân vật tự nhún nhảy thay thế.
 
 > Các file động tác phải xuất từ **cùng một nhân vật đã rig** với model chính, nếu không game sẽ bỏ qua.
