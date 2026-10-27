@@ -646,6 +646,26 @@ begin
   assert (get_my_state() ->> 'character') = 'kylan-nam', 'nhân vật bị tắt → quay về Kỳ lân Nam';
   assert jsonb_array_length(list_characters()) = 2, 'người chơi không thấy nhân vật đã tắt';
 
+  -- Nhân vật mặc định: chỉ Quản trị đặt; người chưa tự chọn đi theo mặc định, người đã chọn giữ nguyên.
+  perform test_as(A);
+  r := admin_save_character(v_id, 'Kỳ lân 3D', 'nam', null, null, true);
+  perform test_as(B);
+  perform test_expect_error(format($q$select admin_set_default_character(%L)$q$, v_id), 'forbidden');
+  r := set_character('kylan-nu');
+  perform test_admin();
+  update player_state set character_chosen = false, character_id = 'kylan-nam'
+    where user_id = '00000000-0000-0000-0000-00000000000a';
+  perform test_as(A);
+  r := admin_set_default_character(v_id);
+  assert (get_my_state() ->> 'character') = v_id, 'người chưa tự chọn dùng nhân vật mặc định';
+  assert (select (c ->> 'isDefault')::boolean from jsonb_array_elements(admin_list_characters()) c where c ->> 'id' = v_id), 'đánh dấu mặc định';
+  perform test_as(B);
+  assert (get_my_state() ->> 'character') = 'kylan-nu', 'người đã tự chọn giữ lựa chọn của mình';
+  perform test_as(A);
+  r := admin_save_character(v_id, 'Kỳ lân 3D', 'nam', null, null, false);
+  assert (get_my_state() ->> 'character') = 'kylan-nam', 'mặc định bị tắt → về Kỳ lân Nam';
+  perform test_expect_error(format($q$select admin_set_default_character(%L)$q$, v_id), 'character_not_found');
+
   perform test_as(A);
   r := admin_delete_character(v_id);
   assert r ->> 'storagePath' = 'a.glb', 'xoá trả về đường dẫn file để xoá khỏi kho';
