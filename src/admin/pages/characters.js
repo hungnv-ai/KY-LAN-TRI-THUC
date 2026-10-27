@@ -1,4 +1,4 @@
-import { ANIMATION_SLOTS, GENDERS } from '../../data/characters.js';
+import { ANIMATION_SLOTS, CLIP_PATTERNS, GENDERS } from '../../data/characters.js';
 import { h } from '../../ui/dom.js';
 import { confirmDialog, showToast } from '../../ui/feedback.js';
 import { api, deleteCharacterModel, uploadCharacterModel } from '../api.js';
@@ -33,7 +33,12 @@ export async function renderCharacters(el, { role } = {}) {
     isAdmin ? '' : ' (Chỉ Quản trị được đổi nhân vật mặc định.)',
   );
   el.replaceChildren(
-    uploadCard(() => load()),
+    uploadCard(async (newId) => {
+      const rows = await load();
+      // Vừa tải lên → mở luôn hộp Kiểm tra để gán Đứng / Đi / Chạy.
+      const added = rows?.find((r) => r.id === newId);
+      if (added) inspect(added);
+    }),
     h('section', { class: 'card' }, h('header', { class: 'card-head' }, h('h3', {}, '🦄 Danh sách nhân vật')), defaultNote, listEl),
     guideCard(),
   );
@@ -50,8 +55,13 @@ export async function renderCharacters(el, { role } = {}) {
               label: 'Nhân vật',
               className: 'col-wide',
               render: (c) => {
-                const anims = Object.keys(c.animations ?? {}).length;
-                const sub = c.variant ? 'Dựng sẵn trong game' : `Model 3D tải lên · ${anims ? `🎬 ${anims} động tác` : 'chưa có động tác (tự nhún nhảy)'}`;
+                const slots = Object.keys(c.animations ?? {});
+                const has = (id) => slots.includes(id);
+                const sub = c.variant
+                  ? 'Dựng sẵn trong game'
+                  : slots.length
+                    ? `Model 3D tải lên · 🎬 ${slots.length} động tác (${['idle', 'walk', 'run'].map((id) => `${has(id) ? '✓' : '✗'} ${ANIMATION_SLOTS.find((s) => s.id === id).label}`).join(', ')})`
+                    : 'Model 3D tải lên · chưa gán động tác — bấm 🔍 Kiểm tra';
                 return h(
                   'div',
                   {},
@@ -73,6 +83,7 @@ export async function renderCharacters(el, { role } = {}) {
                   'div',
                   { class: 'row-actions' },
                   isAdmin && !c.isDefault && c.active ? h('button', { class: 'btn-sm', type: 'button', onclick: () => makeDefault(c) }, '⭐ Đặt mặc định') : '',
+                  c.modelUrl ? h('button', { class: 'btn-sm', type: 'button', onclick: () => inspect(c) }, '🔍 Kiểm tra') : '',
                   c.modelUrl ? h('button', { class: 'btn-sm', type: 'button', onclick: () => editAnimations(c) }, '🎬 Động tác') : '',
                   c.modelUrl ? h('a', { class: 'btn-sm', href: c.modelUrl, target: '_blank', rel: 'noopener' }, 'Tải file') : '',
                   h('button', { class: 'btn-sm', type: 'button', onclick: () => edit(c) }, 'Sửa'),
@@ -83,8 +94,10 @@ export async function renderCharacters(el, { role } = {}) {
           rows,
         }),
       );
+      return rows;
     } catch (err) {
       listEl.replaceChildren(h('p', { class: 'notice notice-danger' }, err.message));
+      return null;
     }
   }
 
@@ -107,6 +120,71 @@ export async function renderCharacters(el, { role } = {}) {
     });
     if (saved) {
       showToast('Đã lưu nhân vật', { type: 'success', icon: '✓' });
+      load();
+    }
+  }
+
+  /**
+   * Kiểm tra file model: có khung xương không, có động tác nào; gán động tác trong file vào ô
+   * (Đứng yên / Đi bộ / Chạy…) — game dùng đúng ô đã gán.
+   */
+  async function inspect(c) {
+    let info;
+    try {
+      showToast('Đang đọc file 3D…', { icon: '🔍' });
+      const [{ inspectGlb }, blob] = await Promise.all([import('../glbCompress.js'), fetch(c.modelUrl).then((r) => r.blob())]);
+      info = await inspectGlb(blob);
+    } catch (err) {
+      showToast(`Không đọc được file: ${err.message}`, { type: 'warn' });
+      return;
+    }
+    const current = c.animations ?? {};
+    const slotOptions = [['', '— Không dùng —'], ...ANIMATION_SLOTS.map((s) => [s.id, `${s.icon} ${s.label}`])];
+    const used = new Set();
+    const rows = info.clips.map((clip) => {
+      // Ô đã gán trước đó (cùng file + tên clip) → giữ; chưa có → đoán theo tên.
+      let slot = Object.entries(current).find(([, v]) => v?.url === c.modelUrl && v?.clip === clip.name)?.[0] ?? '';
+      if (!slot) slot = Object.keys(CLIP_PATTERNS).find((id) => !used.has(id) && !current[id] && CLIP_PATTERNS[id].test(clip.name)) ?? '';
+      if (slot) used.add(slot);
+      const sel = select(slotOptions, slot);
+      return { clip, sel, row: h('div', { class: 'anim-row' }, h('div', { class: 'anim-label' }, h('strong', {}, clip.name), h('small', { class: 'muted' }, `${clip.seconds.toFixed(1)} giây`)), sel) };
+    });
+
+    const verdict = !info.joints
+      ? h('p', { class: 'notice notice-danger' }, '✗ File CHƯA có khung xương (rig) → không thể có động tác thật; game sẽ cho nhân vật tự nhún nhảy. Hãy Rig trên Tripo (Humanoid) rồi xuất lại GLB kèm động tác.')
+      : !info.clips.length
+        ? h('p', { class: 'notice notice-warning' }, `✓ Có khung xương (${info.joints} xương) nhưng file KHÔNG có động tác nào. Trên Tripo: Animate → thêm Idle / Walk / Run → Export GLB, mục Number of Animations chọn hết. Hoặc bấm "🎬 Động tác" để tải từng file động tác.`)
+        : h('p', { class: 'notice notice-success' }, `✓ Có khung xương (${info.joints} xương) và ${info.clips.length} động tác. Kiểm tra ô cho từng động tác bên dưới rồi bấm Lưu.`);
+
+    const saved = await formDialog({
+      title: `🔍 Kiểm tra "${c.name}"`,
+      wide: true,
+      body: h(
+        'div',
+        {},
+        h('p', { class: 'muted small' }, `${info.triangles.toLocaleString('vi-VN')} tam giác · ${info.joints ? `${info.joints} xương` : 'không có xương'} · ${info.clips.length} động tác trong file`),
+        verdict,
+        rows.length ? h('div', { class: 'anim-list' }, rows.map((r) => r.row)) : '',
+        rows.length ? h('p', { class: 'muted small' }, 'Cần tối thiểu: 🧍 Đứng yên, 🚶 Đi bộ, 🏃 Chạy. Mỗi ô chỉ chọn cho 1 động tác.') : '',
+      ),
+      submitText: rows.length ? 'Lưu gán động tác' : 'Đóng',
+      onSubmit: async () => {
+        if (!rows.length) return;
+        const next = {};
+        // Giữ các file động tác tải riêng (có path); gán lại các clip trong chính file model.
+        for (const [slot, v] of Object.entries(current)) if (v?.url !== c.modelUrl) next[slot] = v;
+        const seen = new Set();
+        for (const { clip, sel } of rows) {
+          if (!sel.value) continue;
+          if (seen.has(sel.value)) throw new Error(`Ô "${ANIMATION_SLOTS.find((s) => s.id === sel.value).label}" được chọn cho 2 động tác.`);
+          seen.add(sel.value);
+          next[sel.value] = { url: c.modelUrl, clip: clip.name };
+        }
+        await api.saveCharacter({ id: c.id, name: c.name, gender: c.gender, active: c.active, animations: next });
+      },
+    });
+    if (saved && rows.length) {
+      showToast('Đã lưu gán động tác — người chơi thấy sau khi tải lại game', { type: 'success', icon: '🎬' });
       load();
     }
   }
@@ -263,12 +341,12 @@ function uploadCard(onDone) {
       status.textContent += ' · Đang tải lên kho…';
       uploaded = await uploadCharacterModel(upload);
       status.textContent = 'Đang lưu nhân vật…';
-      await api.saveCharacter({ name: name.value, gender: gender.value, modelUrl: uploaded.url, storagePath: uploaded.path, active: true });
+      const saved = await api.saveCharacter({ name: name.value, gender: gender.value, modelUrl: uploaded.url, storagePath: uploaded.path, active: true });
       showToast(`Đã thêm "${name.value.trim()}" — người chơi chọn trong Tủ đồ › 🦄 Nhân vật`, { type: 'success', icon: '🦄' });
       file.value = '';
       name.value = '';
       status.textContent = '';
-      onDone();
+      onDone(saved?.id);
     } catch (err) {
       if (uploaded) await deleteCharacterModel(uploaded.path);
       status.textContent = '';

@@ -60,7 +60,7 @@ src/
     gifts.js          # quà hiện vật ban đầu (đổi bằng Xu; BGH sửa trong trang quản trị)
     pets.js           # 8 thú cưng + thông số dựng hình (look) + tỉ lệ nở
     events.js         # sự kiện theo mùa (lịch MM-DD, thiệp, câu hỏi sự kiện) + activeEventId()
-    characters.js     # nhân vật dựng sẵn Kỳ lân Nam / Nữ + ô động tác (ANIMATION_SLOTS) cho nhân vật 3D tải lên
+    characters.js     # nhân vật dựng sẵn Kỳ lân Nam / Nữ + ô động tác (ANIMATION_SLOTS) + nhận diện tên clip (CLIP_PATTERNS)
   game/               # logic thuần, KHÔNG đụng DOM/Three.js
     progress.js       # mặt tiền duy nhất UI gọi: đọc đồng bộ, ghi bất đồng bộ (trả {state})
     localBackend.js   # luật thưởng chạy trên máy (ngoại tuyến) — giữ khớp với supabase/sql
@@ -139,7 +139,7 @@ src/
   admin/              # trang quản trị (chỉ chạy trực tuyến)
     main.js           # đăng nhập, khung sidebar, điều hướng theo #hash, nhận quyền admin đầu tiên
     api.js / widgets.js / charts.js / admin.css
-    glbCompress.js    # nén .glb / tách riêng động tác (animation) trước khi tải lên (gltf-transform + meshoptimizer, tải lười)
+    glbCompress.js    # nén .glb / tách động tác / kiểm tra file (xương, clip) trước khi tải lên (gltf-transform + meshoptimizer, tải lười)
     pages/            # dashboard, questions (CSV), players (vai trò), bell (Rung Chuông Vàng), characters (tải .glb),
                       #   vouchers (+ danh mục quà), settings (+ bật/tắt bảo trì, sự kiện)
 ```
