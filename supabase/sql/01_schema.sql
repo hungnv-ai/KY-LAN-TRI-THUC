@@ -96,6 +96,16 @@ alter table public.player_state add column if not exists egg_progress int not nu
 alter table public.player_state add column if not exists milestones text[] not null default '{}';
 -- Nhân vật đang dùng (id trong bảng characters, 11_characters.sql).
 alter table public.player_state add column if not exists character_id text not null default 'kylan-nam';
+-- Người chơi đã tự chọn nhân vật chưa? Chưa chọn → dùng nhân vật mặc định do quản trị đặt (DEFAULT_CHARACTER).
+do $$
+begin
+  if not exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'player_state' and column_name = 'character_chosen') then
+    alter table public.player_state add column character_chosen boolean not null default false;
+    -- Ai đang dùng nhân vật khác Kỳ lân Nam là đã tự chọn → giữ nguyên lựa chọn đó.
+    update public.player_state set character_chosen = true where character_id <> 'kylan-nam';
+  end if;
+end $$;
 
 create table if not exists public.daily_counters (
   user_id uuid not null references public.profiles (id) on delete cascade,

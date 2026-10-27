@@ -253,7 +253,7 @@ begin
       'eggNeed', public._cfgn('PETS', 'EGG_DAYS', 3)
     ),
     'milestones', to_jsonb(s.milestones),
-    'character', s.character_id,
+    'character', public._effective_character(s.character_chosen, s.character_id),
     'daily', jsonb_build_object(
       'day', d.day,
       'checkedIn', d.checked_in,

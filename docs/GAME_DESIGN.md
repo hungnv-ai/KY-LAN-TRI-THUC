@@ -92,6 +92,7 @@ Linh vật Kỳ lân của VA Schools (KHÔNG phải ngựa trắng có sừng).
   Kỳ lân Nam (mặc định) · Kỳ lân Nữ (nơ hồng, lông mi, má hồng, váy — giữ đủ nét VA) · nhân vật 3D
   (.glb) do BGH / Quản trị tải lên ở trang quản trị › Nhân vật (tự nén; tải thêm file động tác đứng/đi/chạy/vẫy tay/
   vui mừng… cho từng nhân vật, thiếu thì tự nhún nhảy). Nhân vật 3D chưa mặc được trang phục.
+  Quản trị đặt ⭐ nhân vật mặc định cho người mới / người chưa tự chọn; ai đã tự chọn thì giữ lựa chọn cho lần sau.
 
 ## Cơ chế giữ chân
 

@@ -242,6 +242,7 @@ Phần này cần **bộ phận IT** (người quản lý tên miền `vaschools
 | Xem / sửa **quà đổi bằng Xu** (giá, số lượng, ẩn/hiện) | `/admin` → **Phiếu quà** → tab **🛍️ Danh mục quà** |
 | Duyệt phiếu đổi quà | `/admin` → **Phiếu quà** → **Chờ duyệt** (Không duyệt = tự hoàn Xu cho người chơi) |
 | Thêm **nhân vật 3D** cho người chơi chọn | `/admin` → **🦄 Nhân vật** → chọn file **.glb** (file nặng được tự nén, VD 59 MB còn vài MB), đặt tên, chọn Nam/Nữ → **⬆️ Tải lên**. Người chơi chọn trong **Tủ đồ → 🦄 Nhân vật**. Bấm **Sửa** để tắt/đổi tên, **Xoá** để gỡ (người đang dùng tự về Kỳ lân Nam). |
+| Chọn **nhân vật mặc định** cho người mới | `/admin` → **🦄 Nhân vật** → bấm **⭐ Đặt mặc định** ở nhân vật muốn dùng (chỉ vai trò Quản trị). Người chưa tự chọn nhân vật cũng đổi theo; ai đã tự chọn trong Tủ đồ thì giữ nguyên. |
 | **Bảo trì game** (tạm khoá cho người chơi) | `/admin` → **Cài đặt & phân quyền** → **🛠️ Bảo trì game** → gạt công tắc **Bật**, gõ lời nhắn → **Lưu**. Người chơi thấy màn hình bảo trì có Kỳ lân trong ~1 phút; giáo viên/BGH/quản trị vẫn vào được để kiểm tra. Xong thì gạt **Tắt** → **Lưu**, game tự mở lại. |
 | Mở **Tuần lễ Tri ân 20/11** sớm để xem thử | `/admin` → **Cài đặt & phân quyền** → **Sự kiện theo mùa** → chọn "Bật ngay" → **Áp dụng**. Xem xong chọn lại "Tự động theo lịch". |
 

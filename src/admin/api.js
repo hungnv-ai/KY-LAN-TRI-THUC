@@ -134,6 +134,7 @@ export const api = {
       p_animations: c.animations ?? null,
     }),
   deleteCharacter: (id) => rpc('admin_delete_character', { p_id: id }),
+  setDefaultCharacter: (id) => rpc('admin_set_default_character', { p_id: id }),
   setMaintenance: (on, message) => rpc('admin_set_maintenance', { p_on: on, p_message: message }),
   setAllowedDomains: (domains) => rpc('admin_set_allowed_domains', { p_domains: domains }),
 };

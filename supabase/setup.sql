@@ -104,6 +104,16 @@ alter table public.player_state add column if not exists egg_progress int not nu
 alter table public.player_state add column if not exists milestones text[] not null default '{}';
 -- Nhân vật đang dùng (id trong bảng characters, 11_characters.sql).
 alter table public.player_state add column if not exists character_id text not null default 'kylan-nam';
+-- Người chơi đã tự chọn nhân vật chưa? Chưa chọn → dùng nhân vật mặc định do quản trị đặt (DEFAULT_CHARACTER).
+do $$
+begin
+  if not exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'player_state' and column_name = 'character_chosen') then
+    alter table public.player_state add column character_chosen boolean not null default false;
+    -- Ai đang dùng nhân vật khác Kỳ lân Nam là đã tự chọn → giữ nguyên lựa chọn đó.
+    update public.player_state set character_chosen = true where character_id <> 'kylan-nam';
+  end if;
+end $$;
 
 create table if not exists public.daily_counters (
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -550,7 +560,7 @@ begin
       'eggNeed', public._cfgn('PETS', 'EGG_DAYS', 3)
     ),
     'milestones', to_jsonb(s.milestones),
-    'character', s.character_id,
+    'character', public._effective_character(s.character_chosen, s.character_id),
     'daily', jsonb_build_object(
       'day', d.day,
       'checkedIn', d.checked_in,
@@ -1165,7 +1175,7 @@ begin
       'xp', s.xp,
       'equipped', s.equipped,
       'pet', s.active_pet,
-      'character', s.character_id,
+      'character', public._effective_character(s.character_chosen, s.character_id),
       'distance', floor(s.distance),
       'streak', case when s.streak_last >= public._today() - 1 then s.streak_count else 0 end
     ))
@@ -1193,7 +1203,7 @@ begin
     'equipped', s.equipped,
     'owned', to_jsonb(s.owned),
     'pet', s.active_pet,
-    'character', s.character_id,
+    'character', public._effective_character(s.character_chosen, s.character_id),
     'petCount', coalesce(array_length(s.pets, 1), 0),
     'streak', case when s.streak_last >= public._today() - 1 then s.streak_count else 0 end,
     'distance', floor(s.distance),
@@ -2241,6 +2251,26 @@ alter table public.characters enable row level security;
 drop policy if exists "đọc nhân vật" on public.characters;
 create policy "đọc nhân vật" on public.characters for select using (true);
 
+-- ── Nhân vật mặc định ─────────────────────────────────────────────────────
+-- Quản trị chọn nhân vật cho người mới / người chưa tự chọn (game_settings 'DEFAULT_CHARACTER').
+create or replace function public._default_character()
+returns text language plpgsql stable security definer set search_path = public as $$
+declare v text := public._cfg('DEFAULT_CHARACTER') ->> 'id';
+begin
+  if v is not null and exists (select 1 from characters where id = v and active) then return v; end if;
+  return 'kylan-nam';
+end;
+$$;
+
+-- Nhân vật thực sự hiển thị: đã tự chọn (và còn mở) → nhân vật đó; chưa chọn → mặc định.
+create or replace function public._effective_character(p_chosen boolean, p_id text)
+returns text language plpgsql stable security definer set search_path = public as $$
+begin
+  if p_chosen and exists (select 1 from characters where id = p_id and active) then return p_id; end if;
+  return public._default_character();
+end;
+$$;
+
 -- Nhân vật đang mở cho người chơi chọn.
 create or replace function public.list_characters()
 returns jsonb language plpgsql stable security definer set search_path = public as $$
@@ -2260,7 +2290,7 @@ returns jsonb language plpgsql security definer set search_path = public as $$
 declare v_uid uuid := public._require_player();
 begin
   if not exists (select 1 from characters where id = p_id and active) then raise exception 'character_not_found'; end if;
-  update player_state set character_id = p_id, updated_at = now() where user_id = v_uid;
+  update player_state set character_id = p_id, character_chosen = true, updated_at = now() where user_id = v_uid;
   return jsonb_build_object('ok', true, 'state', public._state_json(v_uid));
 end;
 $$;
@@ -2274,7 +2304,8 @@ begin
     select jsonb_agg(jsonb_build_object(
       'id', c.id, 'name', c.name, 'gender', c.gender, 'variant', c.variant, 'modelUrl', c.model_url,
       'storagePath', c.storage_path, 'active', c.active, 'createdAt', c.created_at, 'animations', c.animations,
-      'players', (select count(*) from player_state s where s.character_id = c.id)
+      'players', (select count(*) from player_state s where public._effective_character(s.character_chosen, s.character_id) = c.id),
+      'isDefault', c.id = public._default_character()
     ) order by c.sort, c.created_at)
     from characters c
   ), '[]');
@@ -2321,10 +2352,23 @@ begin
     where id = v_id;
     if not found then raise exception 'character_not_found'; end if;
   end if;
-  -- Nhân vật bị tắt → người đang dùng quay về Kỳ lân Nam.
-  update player_state set character_id = 'kylan-nam'
+  -- Nhân vật bị tắt → người đang dùng quay về nhân vật mặc định.
+  update player_state set character_id = 'kylan-nam', character_chosen = false
   where character_id in (select id from characters where not active);
   return jsonb_build_object('ok', true, 'id', v_id);
+end;
+$$;
+
+-- Chỉ Quản trị: đặt nhân vật mặc định cho người mới / người chưa tự chọn.
+create or replace function public.admin_set_default_character(p_id text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+begin
+  perform public._require_manager();
+  if public.my_role() <> 'admin' then raise exception 'forbidden'; end if;
+  if not exists (select 1 from characters where id = p_id and active) then raise exception 'character_not_found'; end if;
+  insert into game_settings (key, value) values ('DEFAULT_CHARACTER', jsonb_build_object('id', p_id))
+  on conflict (key) do update set value = excluded.value, updated_at = now();
+  return jsonb_build_object('ok', true, 'id', p_id);
 end;
 $$;
 
@@ -2336,7 +2380,7 @@ begin
   select * into c from characters where id = p_id;
   if not found then raise exception 'character_not_found'; end if;
   if c.variant is not null then raise exception 'builtin_character_locked'; end if;
-  update player_state set character_id = 'kylan-nam' where character_id = p_id;
+  update player_state set character_id = 'kylan-nam', character_chosen = false where character_id = p_id;
   delete from characters where id = p_id;
   return jsonb_build_object('ok', true, 'storagePath', c.storage_path,
     'animationPaths', coalesce((select jsonb_agg(a.value ->> 'path') from jsonb_each(c.animations) a where a.value ? 'path'), '[]'));

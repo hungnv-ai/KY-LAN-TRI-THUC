@@ -21,10 +21,22 @@ const GENDER_OPTIONS = Object.entries(GENDERS);
  * Nhân vật: Kỳ lân Nam / Nữ dựng sẵn + tải lên nhân vật 3D (.glb) cho người chơi chọn.
  *
  * @param {HTMLElement} el
+ * @param {{ role?: string }} [ctx]
  */
-export async function renderCharacters(el) {
+export async function renderCharacters(el, { role } = {}) {
+  const isAdmin = role === 'admin';
   const listEl = h('div', {}, h('p', { class: 'muted' }, 'Đang tải…'));
-  el.replaceChildren(uploadCard(() => load()), h('section', { class: 'card' }, h('header', { class: 'card-head' }, h('h3', {}, '🦄 Danh sách nhân vật')), listEl), guideCard());
+  const defaultNote = h(
+    'p',
+    { class: 'muted small' },
+    '⭐ Nhân vật mặc định: dùng cho người chơi mới và người chưa tự chọn. Ai đã tự chọn trong Tủ đồ › 🦄 Nhân vật thì luôn giữ lựa chọn đó cho lần chơi sau.',
+    isAdmin ? '' : ' (Chỉ Quản trị được đổi nhân vật mặc định.)',
+  );
+  el.replaceChildren(
+    uploadCard(() => load()),
+    h('section', { class: 'card' }, h('header', { class: 'card-head' }, h('h3', {}, '🦄 Danh sách nhân vật')), defaultNote, listEl),
+    guideCard(),
+  );
 
   async function load() {
     try {
@@ -40,7 +52,13 @@ export async function renderCharacters(el) {
               render: (c) => {
                 const anims = Object.keys(c.animations ?? {}).length;
                 const sub = c.variant ? 'Dựng sẵn trong game' : `Model 3D tải lên · ${anims ? `🎬 ${anims} động tác` : 'chưa có động tác (tự nhún nhảy)'}`;
-                return h('div', {}, h('strong', {}, `${c.variant ? (c.variant === 'female' ? '🎀' : '🦄') : '🧊'} ${c.name}`), h('div', { class: 'muted small' }, sub));
+                return h(
+                  'div',
+                  {},
+                  h('strong', {}, `${c.variant ? (c.variant === 'female' ? '🎀' : '🦄') : '🧊'} ${c.name} `),
+                  c.isDefault ? badge('Mặc định', 'info', '⭐') : '',
+                  h('div', { class: 'muted small' }, sub),
+                );
               },
             },
             { key: 'gender', label: 'Giới tính', render: (c) => GENDERS[c.gender] ?? c.gender },
@@ -54,6 +72,7 @@ export async function renderCharacters(el) {
                 h(
                   'div',
                   { class: 'row-actions' },
+                  isAdmin && !c.isDefault && c.active ? h('button', { class: 'btn-sm', type: 'button', onclick: () => makeDefault(c) }, '⭐ Đặt mặc định') : '',
                   c.modelUrl ? h('button', { class: 'btn-sm', type: 'button', onclick: () => editAnimations(c) }, '🎬 Động tác') : '',
                   c.modelUrl ? h('a', { class: 'btn-sm', href: c.modelUrl, target: '_blank', rel: 'noopener' }, 'Tải file') : '',
                   h('button', { class: 'btn-sm', type: 'button', onclick: () => edit(c) }, 'Sửa'),
@@ -89,6 +108,24 @@ export async function renderCharacters(el) {
     if (saved) {
       showToast('Đã lưu nhân vật', { type: 'success', icon: '✓' });
       load();
+    }
+  }
+
+  /** Đặt nhân vật mặc định cho người mới / người chưa tự chọn (chỉ Quản trị). */
+  async function makeDefault(c) {
+    const ok = await confirmDialog({
+      icon: '⭐',
+      title: `Đặt "${c.name}" làm mặc định?`,
+      message: 'Người chơi mới và những ai CHƯA tự chọn nhân vật sẽ dùng nhân vật này. Ai đã tự chọn trong Tủ đồ thì giữ nguyên lựa chọn của họ.',
+      confirmText: 'Đặt mặc định',
+    });
+    if (!ok) return;
+    try {
+      await api.setDefaultCharacter(c.id);
+      showToast(`"${c.name}" là nhân vật mặc định — người chơi thấy sau khi tải lại game`, { type: 'success', icon: '⭐' });
+      load();
+    } catch (err) {
+      showToast(err.message, { type: 'warn' });
     }
   }
 
