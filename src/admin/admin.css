@@ -894,6 +894,11 @@ textarea.input {
   font-size: 13px;
 }
 
+/* Hộp "Kiểm tra": tên động tác + ô chọn rộng đủ đọc chữ. */
+.anim-row.anim-row-map {
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 260px);
+}
+
 @media (max-width: 640px) {
   .anim-row {
     grid-template-columns: 1fr auto;
