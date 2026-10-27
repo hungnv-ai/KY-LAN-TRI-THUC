@@ -106,7 +106,13 @@ export function createRemotePlayers({ scene, island, onTap, onSelect, applyChara
     const changedCharacter = (p.profile?.character ?? null) !== (profile.character ?? null);
     p.profile = profile;
     if (changedCharacter && p.mascot) applyCharacter?.(p.mascot, profile.character);
-    p.tag.set({ name: profile.fullName || profile.displayName, unit: profile.unit, xp: profile.xp ?? 0, house: profile.house, badge: milestoneBadge(Number(profile.distance) || 0) });
+    try {
+      p.tag.set({ name: profile.fullName || profile.displayName, unit: profile.unit, xp: Number(profile.xp) || 0, house: profile.house, badge: milestoneBadge(Number(profile.distance) || 0) });
+    } catch (err) {
+      // Dữ liệu hồ sơ lạ: vẫn hiện tên tối thiểu thay vì để trống bảng tên.
+      console.warn('[remotePlayers] Không vẽ được bảng tên:', err, profile);
+      p.tag.set({ name: String(profile.displayName ?? 'Kỳ lân'), xp: 0 });
+    }
     if (changedOutfit && p.wardrobe && profile.equipped) p.wardrobe.equipAll(profile.equipped);
     syncPet(p);
   }
