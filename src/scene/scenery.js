@@ -1,18 +1,18 @@
 import * as THREE from 'three';
+import { BEACH_RADIUS, GRASS_RADIUS, isOnPath } from './islandLayout.js';
 
 /**
  * Cảnh trang trí làm đảo đẹp & có chiều sâu (không ảnh hưởng luật chơi):
  * mây trôi, vùng nước nông màu ngọc quanh bờ, đảo nhỏ phía xa, hoa li ti trên cỏ, chim hải âu bay.
  */
 
-const ISLAND_RADIUS = 32;
-const CLOUD_COUNT = 14;
-const CLOUD_RADIUS = [70, 140];
-const CLOUD_HEIGHT = [26, 48];
+const CLOUD_COUNT = 22;
+const CLOUD_RADIUS = [100, 240];
+const CLOUD_HEIGHT = [34, 70];
 const CLOUD_SPEED = 0.012; // rad/giây quanh đảo
-const FLOWER_COUNT = 420;
+const FLOWER_COUNT = 1500;
 const FLOWER_COLORS = ['#FF8FB1', '#FFFFFF', '#FFD54F', '#B39DDB', '#FF7043', '#81D4FA'];
-const BIRD_COUNT = 5;
+const BIRD_COUNT = 9;
 
 function rand(rng, [a, b]) {
   return a + rng() * (b - a);
@@ -83,7 +83,7 @@ export function createScenery(scene) {
 
   // Nước nông màu ngọc quanh bờ cát.
   const shallow = new THREE.Mesh(
-    new THREE.RingGeometry(ISLAND_RADIUS + 1.5, ISLAND_RADIUS + 9, 96),
+    new THREE.RingGeometry(BEACH_RADIUS - 0.5, BEACH_RADIUS + 10, 128),
     new THREE.MeshStandardMaterial({ color: '#8FE3DD', roughness: 0.3, transparent: true, opacity: 0.85 }),
   );
   shallow.rotation.x = -Math.PI / 2;
@@ -92,7 +92,7 @@ export function createScenery(scene) {
   root.add(shallow);
   // Vệt sóng trắng mảnh sát bờ (nhấp nhô nhẹ).
   const foam = new THREE.Mesh(
-    new THREE.RingGeometry(ISLAND_RADIUS + 2.3, ISLAND_RADIUS + 2.8, 96),
+    new THREE.RingGeometry(BEACH_RADIUS + 0.9, BEACH_RADIUS + 1.5, 128),
     new THREE.MeshBasicMaterial({ color: '#FFFFFF', transparent: true, opacity: 0.6 }),
   );
   foam.rotation.x = -Math.PI / 2;
@@ -102,31 +102,24 @@ export function createScenery(scene) {
   // Đảo nhỏ phía xa.
   for (let i = 0; i < 7; i++) {
     const a = (i / 7) * Math.PI * 2 + rng() * 0.5;
-    const r = 70 + rng() * 55;
+    const r = 125 + rng() * 70;
     const isle = buildDistantIsland(rng);
     isle.position.set(Math.sin(a) * r, -0.3, Math.cos(a) * r);
     root.add(isle);
   }
 
   // Hoa li ti trên cỏ (một InstancedMesh → rất nhẹ).
-  const flowerGeo = new THREE.SphereGeometry(0.09, 6, 4);
+  const flowerGeo = new THREE.OctahedronGeometry(0.1, 0);
   const flowerMat = new THREE.MeshStandardMaterial({ roughness: 0.6 });
   const flowers = new THREE.InstancedMesh(flowerGeo, flowerMat, FLOWER_COUNT);
   const m = new THREE.Matrix4();
   const color = new THREE.Color();
   for (let i = 0; i < FLOWER_COUNT; i++) {
     const a = rng() * Math.PI * 2;
-    const r = 5 + Math.sqrt(rng()) * (ISLAND_RADIUS - 6);
+    const r = 5 + Math.sqrt(rng()) * (GRASS_RADIUS - 6);
     const x = Math.sin(a) * r;
     const z = Math.cos(a) * r;
-    // Tránh 5 con đường (gần các tia từ tâm ra cột Vùng Đất).
-    const onPath = [0, 1, 2, 3, 4].some((k) => {
-      const pa = Math.PI + (k - 2) * ((Math.PI * 2) / 5);
-      const dx = Math.sin(pa);
-      const dz = Math.cos(pa);
-      const along = x * dx + z * dz;
-      return along > 2 && Math.abs(x * dz - z * dx) < 1.4;
-    });
+    const onPath = isOnPath(x, z, 0.5);
     const s = onPath ? 0 : 0.7 + rng() * 0.8;
     m.makeScale(s, s * 0.6, s).setPosition(x, 0.06, z);
     flowers.setMatrixAt(i, m);
@@ -154,7 +147,7 @@ export function createScenery(scene) {
   for (let i = 0; i < BIRD_COUNT; i++) {
     const bird = new THREE.Line(wingShape, new THREE.LineBasicMaterial({ color: '#ffffff' }));
     root.add(bird);
-    birds.push({ bird, a: rng() * Math.PI * 2, r: 22 + rng() * 25, y: 12 + rng() * 8, speed: 0.08 + rng() * 0.06 });
+    birds.push({ bird, a: rng() * Math.PI * 2, r: 25 + rng() * 55, y: 13 + rng() * 10, speed: 0.08 + rng() * 0.06 });
   }
 
   function update(delta, elapsed) {

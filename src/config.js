@@ -76,7 +76,7 @@ export const EXPLORE = {
   /** Xu vàng rơi trên đường. */
   COIN_PICKUPS_PER_DAY: 40,
   COIN_RESPAWN_SEC: 45,
-  COINS_ON_MAP: 18,
+  COINS_ON_MAP: 44,
   /** Hộp quà bất ngờ. */
   GIFTS_PER_DAY: 5,
   GIFT_INTERVAL_SEC: 60,

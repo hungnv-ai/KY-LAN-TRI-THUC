@@ -14,6 +14,7 @@ import { setupZoneGrowth } from './features/zoneGrowth.js';
 import { setupMenu } from './features/menu.js';
 import { createRewards } from './features/rewards.js';
 import { setupMilestones } from './features/milestones.js';
+import { setupMinimap } from './features/minimap.js';
 import { setupCharacters } from './features/characters.js';
 import { setupBadgeTips } from './features/badgeTips.js';
 import { startSession } from './features/session.js';
@@ -34,6 +35,8 @@ import { createScenery } from './scene/scenery.js';
 import { createDayCycle } from './scene/dayCycle.js';
 import { createSea } from './scene/sea.js';
 import { setupIsland } from './scene/island.js';
+import { createNature } from './scene/nature.js';
+import { createWildlife } from './scene/wildlife.js';
 import { setupLights } from './scene/lights.js';
 import { createMascot } from './scene/mascot.js';
 import { NAME_TAG_Y, nameTagPixelHeight } from './scene/nameTag.js';
@@ -50,7 +53,11 @@ import { hideLoading, renderHud, setupSoundButton, showAdminLink } from './ui/hu
 const world = createWorld(document.getElementById('canvas-container'));
 const lights = setupLights(world.scene, world.renderer);
 const { sun } = lights;
+/** Từ mức chất lượng này trở đi (máy yếu) thì ẩn cỏ cao, nấm, vỏ sò. */
+const LOW_DETAIL_LEVEL = 3;
 const island = setupIsland(world.scene);
+const nature = createNature(world.scene, island);
+const wildlife = createWildlife(world.scene, island);
 const scenery = createScenery(world.scene);
 const sea = createSea(world.scene);
 const dayCycle = createDayCycle(world.scene, lights);
@@ -69,6 +76,7 @@ let events = null;
 let goldenBell = null;
 let overview = null;
 let zoneGrowth = null;
+let minimap = null;
 
 // ── Vòng lặp duy nhất ───────────────────────────────────────────────────
 const timer = new THREE.Timer();
@@ -95,7 +103,12 @@ world.renderer.setAnimationLoop((timestamp) => {
   scenery.update(delta, elapsed);
   sea.update(delta, elapsed);
   dayCycle.update(delta, elapsed);
+  nature.setNight(dayCycle.nightFactor());
+  nature.setDetail(quality.level() < LOW_DETAIL_LEVEL);
+  nature.update(delta, elapsed);
+  wildlife.update(delta, elapsed, mascot.object.position);
   zoneGrowth?.update(delta, elapsed);
+  minimap?.update(delta);
   overview?.update(delta);
   labelFader.update(delta, world.isOverview());
   world.controls.update();
@@ -199,6 +212,7 @@ async function boot() {
   goldenBell = setupGoldenBell({ world, island, mascot, fx, rewards });
   overview = setupOverview({ world, isMoving: () => explore.isMoving() });
   zoneGrowth = setupZoneGrowth({ world, island });
+  minimap = setupMinimap({ island, mascot, getPeers: () => social.peerPositions() });
   await playIntro({ world });
 
   // Chạm vào Kỳ lân của mình: cảm xúc ngẫu nhiên + câu nói về 5 giá trị.

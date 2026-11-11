@@ -32,7 +32,8 @@ import { openProfileCard } from '../ui/profileCard.js';
  *   isMoving: () => boolean, onGoTo?: (x: number, z: number) => void,
  *   applyCharacter?: (target: object, id: string | null | undefined) => void }} deps
  * @returns {{ update: (delta: number, elapsed: number) => void, notifyProfileChanged: () => void,
- *   sendSticker: (stickerId: string) => void, nameTagSprites: () => import('three').Sprite[] }}
+ *   sendSticker: (stickerId: string) => void, nameTagSprites: () => import('three').Sprite[],
+ *   peerPositions: () => { x: number, z: number }[] }}
  */
 export function setupSocial({ world, island, mascot, supabase, userId, isMoving, onGoTo, applyCharacter }) {
   // ── Bảng tên của mình ───────────────────────────────────────────────
@@ -202,7 +203,14 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving,
   }
 
   if (import.meta.env.DEV) window.__kltSocial = { remote, mp };
-  return { update, notifyProfileChanged, sendSticker, nameTagSprites: () => [myTag.sprite, ...remote.tagSprites()] };
+  return {
+    update,
+    notifyProfileChanged,
+    sendSticker,
+    nameTagSprites: () => [myTag.sprite, ...remote.tagSprites()],
+    /** Vị trí người chơi khác (cho bản đồ nhỏ). */
+    peerPositions: () => remote.list().map((p) => p.position),
+  };
 }
 
 function round2(n) {

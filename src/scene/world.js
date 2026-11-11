@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { BEACH_RADIUS } from './islandLayout.js';
 
 /** Điểm camera nhìn vào (ngực/đầu Kỳ lân trên bục). */
 const LOOK_AT = new THREE.Vector3(0, 1.4, 0);
@@ -14,17 +15,17 @@ const FOLLOW_MAX_DIST = 32;
 const OVERVIEW_TARGET = new THREE.Vector3(0, 0, 0);
 const OVERVIEW_DIR = new THREE.Vector3(0.18, 1.05, 0.75).normalize();
 /** Bán kính cần lọt khung khi xem toàn cảnh (đảo + bờ cát, m). */
-const OVERVIEW_FIT_RADIUS = 34;
+const OVERVIEW_FIT_RADIUS = BEACH_RADIUS + 3;
 const OVERVIEW_FOV = 48;
 const DEFAULT_FOV = 35;
 const CAMERA_FLY_SPEED = 2.6;
 /** Màn chào: camera lượn nửa vòng quanh đảo rồi đáp xuống Kỳ lân. */
 const INTRO_SEC = 5;
-const INTRO_START_RADIUS = 62;
-const INTRO_START_HEIGHT = 38;
+const INTRO_START_RADIUS = 115;
+const INTRO_START_HEIGHT = 62;
 /** Sương mù tối thiểu khi ở gần (m). */
-const FOG_NEAR = 36;
-const FOG_FAR = 110;
+const FOG_NEAR = 55;
+const FOG_FAR = 230;
 /** Khi mở bảng bên (Tủ đồ, Quiz): desktop dịch nhân vật sang trái nửa bề rộng bảng; mobile dịch lên trên. */
 const SIDE_PANEL_PX = 416;
 const MOBILE_PANEL_SHIFT_Y = 0.22;
@@ -51,7 +52,7 @@ const FOLLOW_GROUND_Y = 0.18;
 export function createWorld(container) {
   const scene = new THREE.Scene();
 
-  const camera = new THREE.PerspectiveCamera(DEFAULT_FOV, window.innerWidth / window.innerHeight, 0.1, 260);
+  const camera = new THREE.PerspectiveCamera(DEFAULT_FOV, window.innerWidth / window.innerHeight, 0.1, 900);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -284,7 +285,7 @@ export function createWorld(container) {
       targetFov = OVERVIEW_FOV;
       const halfV = THREE.MathUtils.degToRad(OVERVIEW_FOV / 2);
       const halfH = Math.atan(Math.tan(halfV) * camera.aspect);
-      const dist = THREE.MathUtils.clamp(OVERVIEW_FIT_RADIUS / Math.tan(Math.min(halfV, halfH)), 50, 160);
+      const dist = THREE.MathUtils.clamp(OVERVIEW_FIT_RADIUS / Math.tan(Math.min(halfV, halfH)), 80, 340);
       controls.maxDistance = dist * 1.3;
       controls.minPolarAngle = 0.05;
       startFly(OVERVIEW_TARGET, OVERVIEW_TARGET.clone().addScaledVector(OVERVIEW_DIR, dist));

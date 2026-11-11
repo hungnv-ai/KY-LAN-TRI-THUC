@@ -20,9 +20,9 @@ const KEYS = [
 ];
 const UPDATE_SEC = 20;
 const STAR_COUNT = 420;
-const FIREFLY_COUNT = 60;
+const FIREFLY_COUNT = 140;
 /** Đèn lồng dọc 5 con đường: khoảng cách từ tâm (m) và lệch sang mép đường (m), so le hai bên. */
-const LANTERN_ALONG = [6.5, 11];
+const LANTERN_ALONG = [6.5, 11, 16, 21, 25.5, 34, 39];
 const LANTERN_SIDE = 1.35;
 const LANTERN_POLE_H = 1.25;
 
@@ -71,7 +71,7 @@ function glowTexture(inner, outer) {
 /**
  * @param {THREE.Scene} scene
  * @param {{ hemi: THREE.HemisphereLight, ambient: THREE.AmbientLight, sun: THREE.DirectionalLight }} lights
- * @returns {{ update: (delta: number, elapsed: number) => void, isNight: () => boolean, hour: () => number }}
+ * @returns {{ update: (delta: number, elapsed: number) => void, isNight: () => boolean, nightFactor: () => number, hour: () => number }}
  */
 export function createDayCycle(scene, lights) {
   const skyCanvas = document.createElement('canvas');
@@ -147,7 +147,7 @@ export function createDayCycle(scene, lights) {
   const flyPos = new Float32Array(FIREFLY_COUNT * 3);
   const flies = [];
   for (let i = 0; i < FIREFLY_COUNT; i++) {
-    flies.push({ a: Math.random() * Math.PI * 2, r: 3 + Math.random() * 14, y: 0.4 + Math.random() * 1.6, p: Math.random() * 10, s: 0.1 + Math.random() * 0.2 });
+    flies.push({ a: Math.random() * Math.PI * 2, r: 3 + Math.random() * 48, y: 0.4 + Math.random() * 1.6, p: Math.random() * 10, s: 0.1 + Math.random() * 0.2 });
   }
   const flyGeo = new THREE.BufferGeometry();
   flyGeo.setAttribute('position', new THREE.BufferAttribute(flyPos, 3));
@@ -208,5 +208,5 @@ export function createDayCycle(scene, lights) {
     }
   }
 
-  return { update, isNight: () => night > 0.5, hour: () => hour };
+  return { update, isNight: () => night > 0.5, nightFactor: () => night, hour: () => hour };
 }
