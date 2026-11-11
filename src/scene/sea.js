@@ -1,17 +1,18 @@
 import * as THREE from 'three';
+import { BEACH_RADIUS } from './islandLayout.js';
 
 /**
  * Biển sống động: mặt nước lấp lánh, cá nhảy lên tạo vòng sóng, thuyền buồm VA chạy quanh đảo.
  */
 
-const SPARKLE_COUNT = 260;
-const SPARKLE_RING = [36, 95];
+const SPARKLE_COUNT = 420;
+const SPARKLE_RING = [BEACH_RADIUS + 3, BEACH_RADIUS + 90];
 const SEA_Y = -0.2;
-const FISH_COUNT = 4;
-const FISH_RING = [36, 52];
+const FISH_COUNT = 7;
+const FISH_RING = [BEACH_RADIUS + 4, BEACH_RADIUS + 22];
 const FISH_JUMP_SEC = 1.1;
 const FISH_HEIGHT = 1.4;
-const BOAT_RADIUS = 47;
+const BOAT_RADIUS = BEACH_RADIUS + 17;
 const BOAT_SPEED = 0.035; // rad/giây
 
 function sparkleTexture() {

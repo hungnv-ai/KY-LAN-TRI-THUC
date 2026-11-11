@@ -1,16 +1,23 @@
 import * as THREE from 'three';
 import { VALUES } from '../config.js';
+import {
+  BEACH_RADIUS,
+  GRASS_RADIUS,
+  PATH_WIDTH,
+  RING_PATH_RADIUS,
+  RING_PATH_WIDTH,
+  STATION_DISTANCE,
+  WALK_RADIUS,
+  zoneAngle,
+} from './islandLayout.js';
 
 /**
  * Hòn đảo Kỳ Lân: quảng trường ở giữa (bục tròn viền 5 màu), 5 con đường dẫn tới
- * 5 Vùng Đất theo 5 giá trị, mỗi vùng có cột phát sáng + cảnh trang trí riêng.
+ * 5 Vùng Đất theo 5 giá trị (mỗi vùng có cột phát sáng + cảnh trang trí riêng), đường vòng quanh đảo,
+ * bãi cát đi dạo được. Kích thước lấy từ islandLayout.js; cây cối & điểm nhấn ở nature.js.
  * 1 đơn vị 3D = 1 mét.
  */
 
-const ISLAND_RADIUS = 32;
-/** Kỳ lân không chạy ra quá bán kính này (còn bãi cát & cây viền đảo). */
-const WALK_RADIUS = 29.5;
-const STATION_DISTANCE = 16;
 /** Đứng trong vòng tròn này quanh cột thì kích hoạt thử thách Vùng Đất. */
 const STATION_TRIGGER_RADIUS = 2.4;
 const PLATFORM_R = 1.5;
@@ -20,7 +27,7 @@ const PLATFORM_RAMP = 0.3;
 /** Chiều cao nhãn tên Vùng Đất (tỉ lệ so với chiều cao màn hình). */
 const LABEL_SCREEN_HEIGHT = 0.036;
 /** Biển tên Vùng Đất mờ dần khi ở xa (m) — xem scene/labelFader.js. */
-const STATION_LABEL_FADE = { near: 20, far: 34, overview: 'show' };
+const STATION_LABEL_FADE = { near: 38, far: 62, overview: 'show' };
 const BEAM_OPACITY = 0.22;
 const BEAM_OPACITY_DONE = 0.05;
 
@@ -31,13 +38,15 @@ const BEAM_OPACITY_DONE = 0.05;
  *   groundHeight: (x: number, z: number) => number,
  *   resolve: (pos: THREE.Vector3, radius: number) => void,
  *   randomOpenPoint: (minR?: number, maxR?: number) => THREE.Vector3,
+ *   addCollider: (x: number, z: number, r: number) => void,
+ *   isFree: (x: number, z: number, margin?: number) => boolean,
  *   setStationDone: (id: string, done: boolean) => void,
  *   update: (delta: number, elapsed: number) => void,
  * }}
  */
 export function setupIsland(scene) {
   scene.background = createSkyTexture();
-  scene.fog = new THREE.Fog(0xe9f3fb, 36, 110); // trùng màu chân trời → biển hoà vào trời
+  scene.fog = new THREE.Fog(0xe9f3fb, 55, 230); // trùng màu chân trời → biển hoà vào trời
 
   const rng = mulberry32(2026);
   const colliders = []; // { x, z, r }
@@ -48,7 +57,7 @@ export function setupIsland(scene) {
 
   // ── 5 Vùng Đất ──────────────────────────────────────────────────────
   const stations = VALUES.map((value, i) => {
-    const angle = Math.PI + (i - 2) * ((Math.PI * 2) / VALUES.length);
+    const angle = zoneAngle(i);
     const dir = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle));
     const position = dir.clone().multiplyScalar(STATION_DISTANCE);
 
@@ -62,7 +71,7 @@ export function setupIsland(scene) {
     return { id: value.id, name: value.name, color: value.color, position, radius: STATION_TRIGGER_RADIUS, ...station };
   });
 
-  buildRimTrees(scene, rng, colliders);
+  buildRingPath(scene);
 
   function groundHeight(x, z) {
     const r = Math.hypot(x, z);
@@ -118,14 +127,27 @@ export function setupIsland(scene) {
     for (const fn of animated) fn(elapsed);
   }
 
-  return { stations, groundHeight, resolve, randomOpenPoint, setStationDone, update };
+  /** Thêm vật cản (cây, đá, hồ…) — dùng bởi scene/nature.js. */
+  function addCollider(x, z, r) {
+    colliders.push({ x, z, r });
+  }
+
+  /** Chỗ (x, z) còn trống: không đè vật cản, không sát cột Vùng Đất. */
+  function isFree(x, z, margin = 0.5) {
+    return (
+      !colliders.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + margin) &&
+      !stations.some((s) => Math.hypot(x - s.position.x, z - s.position.z) < STATION_TRIGGER_RADIUS + 5 + margin)
+    );
+  }
+
+  return { stations, groundHeight, resolve, randomOpenPoint, addCollider, isFree, setStationDone, update };
 }
 
 // ── Nền đảo, quảng trường, đường đi ───────────────────────────────────────
 
 function buildGround(scene) {
   const water = new THREE.Mesh(
-    new THREE.CircleGeometry(220, 64),
+    new THREE.CircleGeometry(520, 64),
     new THREE.MeshStandardMaterial({ color: 0x4fb6e3, roughness: 0.25, metalness: 0.15 }),
   );
   water.rotation.x = -Math.PI / 2;
@@ -134,16 +156,38 @@ function buildGround(scene) {
   scene.add(water);
 
   const sand = new THREE.Mesh(
-    new THREE.CylinderGeometry(ISLAND_RADIUS + 1.6, ISLAND_RADIUS + 2.4, 0.5, 96),
-    new THREE.MeshStandardMaterial({ color: 0xf5e2b8, roughness: 1 }),
+    new THREE.CylinderGeometry(BEACH_RADIUS, BEACH_RADIUS + 1.6, 0.5, 128),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, map: createSandTexture(), roughness: 1 }),
   );
-  sand.position.y = -0.27;
+  sand.position.y = -0.255;
   sand.receiveShadow = true;
   scene.add(sand);
 
+  // Thảm cỏ: texture lặp × màu theo vùng (đồng cỏ vàng tươi, rừng xanh đậm…) → đỡ đơn điệu.
+  const grassGeo = new THREE.RingGeometry(0, GRASS_RADIUS, 128, 28);
+  const pos = grassGeo.attributes.position;
+  const colors = new Float32Array(pos.count * 3);
+  const tint = new THREE.Color();
+  const lush = new THREE.Color('#f4ffe6');
+  const deep = new THREE.Color('#9fcf8f');
+  const sunny = new THREE.Color('#fff7c4');
+  const edge = new THREE.Color('#fff0cf');
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const r = Math.hypot(x, y);
+    // Nhiễu tần số thấp từ vài sóng sin lệch pha (đủ tự nhiên, không cần thư viện).
+    const n = Math.sin(x * 0.11 + 1.3) * Math.cos(y * 0.09 - 0.7) + Math.sin((x + y) * 0.05 + 2.1) * 0.8;
+    const m = Math.sin(x * 0.045 - 2.0) * Math.sin(y * 0.06 + 0.4);
+    tint.copy(lush).lerp(deep, THREE.MathUtils.clamp(0.5 + n * 0.45, 0, 1)).lerp(sunny, THREE.MathUtils.clamp(m * 0.9, 0, 0.6));
+    // Sát bãi cát cỏ ngả vàng dần.
+    tint.lerp(edge, THREE.MathUtils.smoothstep(r, GRASS_RADIUS - 5, GRASS_RADIUS));
+    colors.set([tint.r, tint.g, tint.b], i * 3);
+  }
+  grassGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   const grass = new THREE.Mesh(
-    new THREE.CircleGeometry(ISLAND_RADIUS, 96),
-    new THREE.MeshStandardMaterial({ color: 0xffffff, map: createGrassTexture(), roughness: 1 }),
+    grassGeo,
+    new THREE.MeshStandardMaterial({ color: 0xffffff, map: createGrassTexture(), roughness: 1, vertexColors: true }),
   );
   grass.rotation.x = -Math.PI / 2;
   grass.position.y = 0;
@@ -153,8 +197,8 @@ function buildGround(scene) {
 
 function buildPlaza(scene) {
   const plaza = new THREE.Mesh(
-    new THREE.CircleGeometry(3.4, 64),
-    new THREE.MeshStandardMaterial({ color: 0xeadcc0, roughness: 1 }),
+    new THREE.CircleGeometry(4.6, 64),
+    new THREE.MeshStandardMaterial({ color: PATH_COLOR, roughness: 1 }),
   );
   plaza.rotation.x = -Math.PI / 2;
   plaza.position.y = 0.005;
@@ -185,19 +229,41 @@ function buildPlaza(scene) {
   });
 }
 
+const PATH_COLOR = 0xe6d3ae;
+
+/** Đường từ quảng trường tới cột Vùng Đất, rồi từ cột ra đường vòng quanh đảo. */
 function buildPath(scene, dir) {
-  const START = 3.2;
-  const END = STATION_DISTANCE - 2.2;
-  const path = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.8, END - START),
-    new THREE.MeshStandardMaterial({ color: 0xeadcc0, roughness: 1 }),
+  const material = new THREE.MeshStandardMaterial({ color: PATH_COLOR, roughness: 1 });
+  for (const [start, end] of [
+    [4.2, STATION_DISTANCE - 2.2],
+    [STATION_DISTANCE + 2.2, RING_PATH_RADIUS],
+  ]) {
+    const path = new THREE.Mesh(new THREE.PlaneGeometry(PATH_WIDTH, end - start), material);
+    path.rotation.x = -Math.PI / 2;
+    path.rotation.z = Math.atan2(dir.x, dir.z) + Math.PI;
+    const mid = (start + end) / 2;
+    path.position.set(dir.x * mid, 0.004, dir.z * mid);
+    path.receiveShadow = true;
+    scene.add(path);
+  }
+  // Sân tròn quanh cột.
+  const court = new THREE.Mesh(new THREE.CircleGeometry(3.1, 40), material);
+  court.rotation.x = -Math.PI / 2;
+  court.position.set(dir.x * STATION_DISTANCE, 0.004, dir.z * STATION_DISTANCE);
+  court.receiveShadow = true;
+  scene.add(court);
+}
+
+/** Đường vòng quanh đảo — chạy một vòng ngắm đủ cảnh. */
+function buildRingPath(scene) {
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(RING_PATH_RADIUS - RING_PATH_WIDTH / 2, RING_PATH_RADIUS + RING_PATH_WIDTH / 2, 128),
+    new THREE.MeshStandardMaterial({ color: PATH_COLOR, roughness: 1 }),
   );
-  path.rotation.x = -Math.PI / 2;
-  path.rotation.z = Math.atan2(dir.x, dir.z) + Math.PI;
-  const mid = (START + END) / 2;
-  path.position.set(dir.x * mid, 0.004, dir.z * mid);
-  path.receiveShadow = true;
-  scene.add(path);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.005;
+  ring.receiveShadow = true;
+  scene.add(ring);
 }
 
 /** Cột Vùng Đất: bệ + cột + quả cầu màu giá trị + cột sáng + tên vùng. */
@@ -268,21 +334,6 @@ function buildStation(scene, value, position, animated) {
   });
 
   return { orb, beam, check };
-}
-
-/** Hàng cây quanh mép đảo. */
-function buildRimTrees(scene, rng, colliders) {
-  const COUNT = 32;
-  for (let i = 0; i < COUNT; i++) {
-    const a = (i / COUNT) * Math.PI * 2 + rng() * 0.15;
-    const r = 29.2 + rng() * 2;
-    const x = Math.sin(a) * r;
-    const z = Math.cos(a) * r;
-    const tree = createTree(0.9 + rng() * 0.6, rng);
-    tree.position.set(x, 0, z);
-    scene.add(tree);
-    colliders.push({ x, z, r: 0.6 });
-  }
 }
 
 // ── Trang trí từng Vùng Đất ──────────────────────────────────────────────
@@ -633,8 +684,28 @@ function createGrassTexture() {
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(4, 4);
+  texture.repeat.set(9, 9);
   texture.anisotropy = 4;
+  return texture;
+}
+
+/** Cát mịn có vệt đậm nhạt. */
+function createSandTexture() {
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#f6e3b6';
+  ctx.fillRect(0, 0, size, size);
+  const rng = mulberry32(11);
+  for (let i = 0; i < 900; i++) {
+    ctx.fillStyle = i % 3 ? 'rgba(214, 186, 132, 0.28)' : 'rgba(255, 250, 232, 0.5)';
+    ctx.fillRect(rng() * size, rng() * size, 1 + rng() * 2.5, 1 + rng() * 2.5);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(24, 24);
   return texture;
 }
 

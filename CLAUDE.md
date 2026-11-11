@@ -78,7 +78,11 @@ src/
   scene/              # Three.js
     world.js          # renderer, camera, OrbitControls, chạm vào object, lệch khung khi mở bảng
     lights.js         # ánh sáng + environment map
-    island.js         # hòn đảo: quảng trường, 5 đường đi, 5 Vùng Đất (cột + cảnh), va chạm, độ cao
+    islandLayout.js   # KÍCH THƯỚC & bố cục đảo (bán kính cỏ/cát, vị trí Vùng Đất, đường vòng, điểm nhấn) — nguồn sự thật chung
+    island.js         # hòn đảo: quảng trường, 5 đường đi + đường vòng, 5 Vùng Đất (cột + cảnh), bãi cát, va chạm, độ cao
+    nature.js         # cây cối (InstancedMesh: tán tròn, thông, anh đào, lá vàng, dừa), bụi, đá, nấm, cỏ cao + điểm nhấn:
+                      #   hồ sen, cối xay gió, khu cắm trại, chòi nghỉ, vườn đá tre, hải đăng, dù bãi biển
+    wildlife.js       # động vật: bướm, thỏ & hươu (chạy trốn khi tới gần), vịt trong hồ, cua trên cát
     movement.js       # điều khiển nhân vật theo hướng camera, va chạm, quay mặt
     pickups.js        # xu vàng rơi & hộp quà bất ngờ (hiển thị + phát hiện nhặt)
     mascot.js         # Kỳ lân VA: lắp ráp thân/đầu, nét mặt, tư thế, emote(), setMood(),
@@ -115,6 +119,7 @@ src/
     giftShopView.js / petView.js / cardView.js / eventView.js / bellView.js
     peopleView.js     # danh sách người cùng đảo (bấm 👥) + nút "Tới chỗ bạn"
     milestonesView.js # bảng mốc quãng đường (bấm ô 🏃)
+    minimap.js        # bản đồ nhỏ góc phải: đảo, đường, Vùng Đất, bạn bè, vị trí & hướng của mình
     badgeTip.js       # chú thích nhỏ cạnh con trỏ (tên mốc khi rê vào huy hiệu bảng tên)
     maintenanceView.js # màn hình "Đang bảo trì" (Kỳ lân ló đầu + lời nhắn của quản trị)
     quizView.js / wardrobeView.js (+ tab 🦄 Nhân vật) / ranksView.js / todayView.js / quickQuestionView.js
@@ -125,6 +130,7 @@ src/
     milestones.js     # mốc quãng đường: bấm ô 🏃 xem mốc, ăn mừng khi vừa qua mốc
     characters.js     # nhân vật: danh mục, áp nhân vật lên Kỳ lân (mình + người khác), chọn nhân vật
     badgeTips.js      # rê chuột / chạm vào huy hiệu trên bảng tên → hiện tên mốc
+    minimap.js        # nối vị trí Kỳ lân / bạn bè / Vùng Đất với bản đồ nhỏ
     menu.js           # các nút điều hướng → mở bảng tương ứng
     explore.js        # Khám phá Vùng Đất: chạy, câu hỏi mỗi 100 m, cột Vùng Đất, xu, hộp quà
     social.js         # nhiều người chơi trên đảo + chạm vào Kỳ lân người khác + thiệp sự kiện
@@ -186,7 +192,9 @@ src/
     cho hằng số.
 12. **Style:** 2 spaces, dấu nháy đơn, có dấu chấm phẩy, trailing comma ở multiline.
 13. **Hiệu năng:** `pixelRatio` tối đa 2; tránh tạo object mới (`new Vector3`, …) trong
-    vòng lặp — tái sử dụng biến tạm ở cấp module.
+    vòng lặp — tái sử dụng biến tạm ở cấp module. Vật trang trí số lượng lớn (cây, cỏ, hoa) phải dùng
+    `InstancedMesh` (xem `scene/nature.js`); chi tiết nhỏ đăng ký vào `setDetail` để ẩn khi máy yếu.
+14. **Kích thước đảo:** không ghi cứng bán kính / vị trí trong module — lấy từ `scene/islandLayout.js`.
 
 ## Quy trình cho mỗi phiên làm việc
 

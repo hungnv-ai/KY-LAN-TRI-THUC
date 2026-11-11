@@ -1,8 +1,11 @@
 import * as THREE from 'three';
+import { WALK_RADIUS } from './islandLayout.js';
 import { EXPLORE } from '../config.js';
 
 /** Khoảng cách (m) từ Kỳ lân tới vật phẩm để nhặt được. */
 const COIN_PICK_RADIUS = 1.0;
+/** Xu & hộp quà rơi trong bán kính này (tới sát bãi cát). */
+const COIN_MAX_RADIUS = WALK_RADIUS - 3;
 const GIFT_PICK_RADIUS = 1.3;
 
 /**
@@ -37,7 +40,7 @@ export function createPickups(scene, island, handlers) {
   }
 
   function placeCoin(c) {
-    const p = island.randomOpenPoint(3, 27);
+    const p = island.randomOpenPoint(3, COIN_MAX_RADIUS);
     c.mesh.position.set(p.x, 0.7, p.z);
     c.mesh.visible = true;
     c.respawnIn = 0;
@@ -77,7 +80,7 @@ export function createPickups(scene, island, handlers) {
       giftTimer -= delta;
       if (giftTimer <= 0) {
         if (handlers.canSpawnGift()) {
-          const p = island.randomOpenPoint(6, 26);
+          const p = island.randomOpenPoint(6, COIN_MAX_RADIUS);
           gift.position.set(p.x, 0, p.z);
           gift.visible = true;
         } else {

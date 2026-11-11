@@ -60,7 +60,11 @@ Linh vật Kỳ lân của VA Schools (KHÔNG phải ngựa trắng có sừng).
 
 - Điều khiển: mũi tên / WASD (Shift chạy nhanh); điện thoại dùng cần điều khiển ảo.
   Hướng chạy theo hướng camera; nút 🏠 về Quảng trường.
-- Bản đồ: đảo bán kính ~30 m; Quảng trường ở giữa; 5 đường dẫn tới 5 Vùng Đất cách 16 m:
+- Bản đồ: đảo bán kính ~63 m (cỏ 56 m + bãi cát đi dạo được); Quảng trường ở giữa; 5 đường dẫn tới 5 Vùng Đất
+  cách 30 m, nối với **đường vòng quanh đảo** (bán kính 43 m). Giữa các Vùng Đất có điểm nhấn: hồ sen (vịt bơi),
+  cối xay gió & ruộng hoa, khu cắm trại (lửa sáng ban đêm) trong rừng thông có hươu sao, chòi nghỉ giữa vườn anh đào,
+  vườn đá tre, hải đăng (đèn quay ban đêm). Động vật: bướm, thỏ, hươu (chạy trốn khi tới gần), vịt, cua. Bản đồ nhỏ ở góc phải.
+  5 Vùng Đất:
   Nhân Ái (vườn hoa, trái tim) · Bản Lĩnh (núi tuyết, đá) · Tri Thức (cây, chồng sách) ·
   Trách Nhiệm (cán cân, đồng hồ) · Khai Phóng (hồ, thuyền buồm, máy bay giấy).
 - Thưởng (chỉnh trong `src/config.js` → `EXPLORE`):
