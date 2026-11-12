@@ -99,7 +99,7 @@ export function openToday({ getData, onCheckIn, onClaimChest }) {
             ),
           ),
         ),
-      quests.length > 0 && h('p', { class: 'muted' }, 'Đi tới đúng nơi trên đảo là tự hoàn thành — xem dấu ⭐ trên bản đồ nhỏ.'),
+      quests.length > 0 && h('p', { class: 'muted' }, 'Đi tới đúng nơi trên đảo là tự hoàn thành — nơi cần tới có vòng vàng nhấp nháy trên bản đồ nhỏ.'),
     );
   }
 
