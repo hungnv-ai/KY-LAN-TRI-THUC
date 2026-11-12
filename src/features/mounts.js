@@ -40,19 +40,20 @@ export function setupMounts({ mascot, fx, explore }) {
     if (!announce) return;
     sfx.pop();
     fx.ring(mascot.anchors.Root.position, '#FFD86B');
-    if (mount) say(`Lên ${mount.name} nào — vèo vèo quanh đảo! ${mount.icon}`);
-    else showToast('Xuống đi bộ thong thả 🚶', { icon: '🦄' });
+    if (mount) {
+      say(`Lên ${mount.name} nào — vèo vèo quanh đảo! ${mount.icon}`);
+      return;
+    }
+    // Xuống đi bộ: gộp lời nhắc thú cưỡi chưa mở khoá vào cùng một thông báo.
+    const locked = MOUNTS.LIST.find((m) => distance() < m.unlockMeters);
+    const hint = locked ? ` · ${locked.icon} ${locked.name} mở khoá khi chạy đủ ${locked.unlockMeters / 1000} km` : '';
+    showToast(`Xuống đi bộ thong thả${hint}`, { icon: '🚶' });
   }
 
   function cycle() {
     const list = unlocked();
     const cur = list.findIndex((m) => m.id === rig.current());
-    const next = list[cur + 1] ?? null;
-    apply(next?.id ?? null, true);
-    const locked = MOUNTS.LIST.find((m) => distance() < m.unlockMeters);
-    if (!next && locked) {
-      showToast(`${locked.icon} ${locked.name} mở khoá khi chạy đủ ${locked.unlockMeters / 1000} km`, { icon: '🔒' });
-    }
+    apply(list[cur + 1]?.id ?? null, true);
   }
 
   apply(loadJSON(STORE_KEY), false);
