@@ -1,6 +1,19 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { BEACH_RADIUS, GRASS_RADIUS, LANDMARKS, RING_PATH_RADIUS, STATION_DISTANCE, gapAngle, isOnPath, polar, zoneAngle } from './islandLayout.js';
+import {
+  BEACH_RADIUS,
+  BRIDGE,
+  GRASS_RADIUS,
+  HILLS,
+  LANDMARKS,
+  STATION_DISTANCE,
+  bridgeHeight,
+  gapAngle,
+  isOnPath,
+  polar,
+  terrainHeight,
+  zoneAngle,
+} from './islandLayout.js';
 
 /**
  * Thiên nhiên & điểm nhấn trên đảo (không ảnh hưởng luật chơi): rừng nhiều loại cây, bụi, đá, nấm,
@@ -134,7 +147,9 @@ export function createNature(scene, island) {
   const landmarks = buildLandmarks();
   for (const lm of Object.values(LANDMARKS)) island.addCollider(lm.x, lm.z, lm.r);
 
-  const nearLandmark = (x, z, margin) => Object.values(LANDMARKS).some((lm) => Math.hypot(x - lm.x, z - lm.z) < lm.r + margin);
+  // Đỉnh Đồi Ngắm Cảnh & Đồi Cổ Thụ để trống (không mọc cây rải rác).
+  const clearings = [...Object.values(LANDMARKS), ...HILLS.filter((hl) => hl.id !== 'cape').map((hl) => ({ x: hl.x, z: hl.z, r: 3 }))];
+  const nearLandmark = (x, z, margin) => clearings.some((lm) => Math.hypot(x - lm.x, z - lm.z) < lm.r + margin);
 
   /** Rải `count` vật theo luật `pick` (trả về {x, z} hoặc null) → InstancedMesh. */
   function scatter(geometry, count, { pick, scale = [0.8, 1.3], collider = 0, tints = ['#ffffff'], cast = true, spacing = 0, y = 0 }) {
@@ -152,7 +167,7 @@ export function createNature(scene, island) {
       if (collider && !island.isFree(p.x, p.z, collider + 0.4)) continue;
       const s = scale[0] + rng() * (scale[1] - scale[0]);
       q.setFromAxisAngle(up, rng() * Math.PI * 2);
-      m.compose(new THREE.Vector3(p.x, y, p.z), q, new THREE.Vector3(s, s * (0.9 + rng() * 0.25), s));
+      m.compose(new THREE.Vector3(p.x, y + terrainHeight(p.x, p.z) - 0.04, p.z), q, new THREE.Vector3(s, s * (0.9 + rng() * 0.25), s));
       mesh.setMatrixAt(n, m);
       mesh.setColorAt(n, color.set(tints[Math.floor(rng() * tints.length)]));
       if (collider) island.addCollider(p.x, p.z, collider * s);
@@ -264,12 +279,6 @@ export function createNature(scene, island) {
           g.add(lotus);
         }
       }
-      // Cầu tàu gỗ hướng về quảng trường.
-      const toCenter = Math.atan2(-x, -z);
-      const pier = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.12, 3.2), std('#A57C52', 0.85));
-      pier.position.set(Math.sin(toCenter) * (r - 0.9), 0.14, Math.cos(toCenter) * (r - 0.9));
-      pier.rotation.y = toCenter;
-      g.add(pier);
       root.add(shadow(g));
       animated.push((t) => (water.material.opacity = 0.9 + Math.sin(t * 1.3) * 0.04));
     }
@@ -426,7 +435,7 @@ export function createNature(scene, island) {
     {
       const { x, z } = LANDMARKS.lighthouse;
       const g = new THREE.Group();
-      g.position.set(x, 0, z);
+      g.position.set(x, terrainHeight(x, z) - 0.1, z);
       const base = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 2.2, 0.6, 16), std('#BDB5A8', 0.95));
       base.position.y = 0.3;
       g.add(base);
@@ -484,7 +493,121 @@ export function createNature(scene, island) {
       root.add(shadow(g));
       island.addCollider(p.x, p.z, 0.3);
     }
+    buildBridge();
+    buildHillDecor();
     return out;
+  }
+
+  /** Cầu gỗ cong bắc qua hồ sen (độ cao mặt cầu theo bridgeHeight → đi lên được). */
+  function buildBridge() {
+    const g = new THREE.Group();
+    g.position.set(BRIDGE.x, 0, BRIDGE.z);
+    g.rotation.y = Math.atan2(BRIDGE.dirX, BRIDGE.dirZ);
+    const plank = std('#B5895C', 0.85);
+    const plankDark = std('#9C7349', 0.85);
+    const rail = std('#9A0036', 0.6);
+    const PLANKS = 26;
+    for (let i = 0; i <= PLANKS; i++) {
+      const along = -BRIDGE.half + (i / PLANKS) * BRIDGE.half * 2;
+      const y = bridgeHeight(BRIDGE.x + BRIDGE.dirX * along, BRIDGE.z + BRIDGE.dirZ * along);
+      const slope = -Math.sin((along / BRIDGE.half) * (Math.PI / 2)) * BRIDGE.height * (Math.PI / 2) / BRIDGE.half;
+      const p = new THREE.Mesh(new THREE.BoxGeometry(BRIDGE.halfWidth * 2, 0.1, (BRIDGE.half * 2) / PLANKS + 0.02), i % 2 ? plank : plankDark);
+      p.position.set(0, y - 0.05, along);
+      p.rotation.x = -Math.atan(slope);
+      g.add(p);
+      if (i % 3 === 0) {
+        for (const s of [-1, 1]) {
+          const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.75, 6), rail);
+          post.position.set(s * (BRIDGE.halfWidth - 0.05), y + 0.32, along);
+          g.add(post);
+          if (y < 0.5) {
+            const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, y + 0.3, 6), plankDark);
+            leg.position.set(s * (BRIDGE.halfWidth - 0.1), (y - 0.3) / 2, along);
+            g.add(leg);
+          }
+        }
+      }
+    }
+    // Tay vịn cong hai bên.
+    for (const s of [-1, 1]) {
+      const pts = [];
+      for (let i = 0; i <= 20; i++) {
+        const along = -BRIDGE.half + (i / 20) * BRIDGE.half * 2;
+        pts.push(new THREE.Vector3(s * (BRIDGE.halfWidth - 0.05), bridgeHeight(BRIDGE.x + BRIDGE.dirX * along, BRIDGE.z + BRIDGE.dirZ * along) + 0.7, along));
+      }
+      g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 0.045, 6), rail));
+    }
+    root.add(shadow(g));
+  }
+
+  /** Đồi Ngắm Cảnh (cờ VA, ghế, kính viễn vọng) & Đồi Cổ Thụ (cây đa lớn). */
+  function buildHillDecor() {
+    const view = HILLS.find((hl) => hl.id === 'viewpoint');
+    const top = terrainHeight(view.x, view.z);
+    const g = new THREE.Group();
+    g.position.set(view.x, top - 0.05, view.z);
+    g.rotation.y = Math.atan2(view.x, view.z);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 4.2, 8), std('#E8E1D3', 0.5, { metalness: 0.3 }));
+    pole.position.set(-1.3, 2.1, 0);
+    g.add(pole);
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.95, 8, 1), std('#9A0036', 0.7, { side: THREE.DoubleSide }));
+    flag.position.set(-0.52, 3.6, 0);
+    g.add(flag);
+    const flagPos = flag.geometry.attributes.position;
+    const flagBase = Float32Array.from(flagPos.array);
+    animated.push((t) => {
+      for (let i = 0; i < flagPos.count; i++) {
+        const fx = flagBase[i * 3] + 0.75;
+        flagPos.setZ(i, Math.sin(fx * 3 - t * 4) * 0.12 * fx);
+      }
+      flagPos.needsUpdate = true;
+    });
+    const bench = new THREE.Group();
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.08, 0.45), std('#A57C52'));
+    seat.position.y = 0.45;
+    bench.add(seat);
+    const back = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.4, 0.06), std('#A57C52'));
+    back.position.set(0, 0.75, -0.2);
+    bench.add(back);
+    for (const s of [-1, 1]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.45, 0.4), std('#6E4F38'));
+      leg.position.set(s * 0.7, 0.22, 0);
+      bench.add(leg);
+    }
+    bench.position.set(1.0, 0, -0.4);
+    g.add(bench);
+    const scope = new THREE.Group();
+    const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.06, 1.1, 6), std('#3A3A3A', 0.5));
+    stand.position.y = 0.55;
+    scope.add(stand);
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, 0.55, 10), std('#C49C57', 0.35, { metalness: 0.6 }));
+    tube.rotation.x = Math.PI / 2 - 0.2;
+    tube.position.y = 1.15;
+    scope.add(tube);
+    scope.position.set(0.1, 0, 1.0);
+    g.add(scope);
+    root.add(shadow(g));
+
+    const big = HILLS.find((hl) => hl.id === 'bigTree');
+    const tree = new THREE.Mesh(roundTreeGeometry('#4F9A52', '#64AE5E'), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }));
+    tree.scale.setScalar(2.6);
+    tree.position.set(big.x, terrainHeight(big.x, big.z) - 0.1, big.z);
+    root.add(shadow(tree));
+    island.addCollider(big.x, big.z, 0.9);
+    // Xích đu dưới gốc cổ thụ.
+    const swing = new THREE.Group();
+    swing.position.set(big.x + 1.6, terrainHeight(big.x + 1.6, big.z), big.z);
+    const ropeMat = std('#E9D8B4', 0.9);
+    for (const s of [-1, 1]) {
+      const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 2.6, 4), ropeMat);
+      rope.position.set(s * 0.35, 2.0, 0);
+      swing.add(rope);
+    }
+    const swingSeat = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.06, 0.32), std('#9A0036', 0.7));
+    swingSeat.position.y = 0.7;
+    swing.add(swingSeat);
+    root.add(shadow(swing));
+    animated.push((t) => (swing.rotation.x = Math.sin(t * 1.4) * 0.12));
   }
 
   /** @param {number} k 0 = ngày, 1 = đêm — bật lửa trại & đèn hải đăng. */

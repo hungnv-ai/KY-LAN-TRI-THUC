@@ -41,7 +41,8 @@ export function createPickups(scene, island, handlers) {
 
   function placeCoin(c) {
     const p = island.randomOpenPoint(3, COIN_MAX_RADIUS);
-    c.mesh.position.set(p.x, 0.7, p.z);
+    c.baseY = p.y;
+    c.mesh.position.set(p.x, p.y + 0.7, p.z);
     c.mesh.visible = true;
     c.respawnIn = 0;
   }
@@ -60,7 +61,7 @@ export function createPickups(scene, island, handlers) {
         continue;
       }
       c.mesh.rotation.y = elapsed * 2.5 + c.phase;
-      c.mesh.position.y = 0.7 + Math.sin(elapsed * 3 + c.phase) * 0.12;
+      c.mesh.position.y = c.baseY + 0.7 + Math.sin(elapsed * 3 + c.phase) * 0.12;
       if (canCollect && distXZ(c.mesh.position, player) < COIN_PICK_RADIUS) {
         c.mesh.visible = false;
         c.respawnIn = EXPLORE.COIN_RESPAWN_SEC;
@@ -81,7 +82,7 @@ export function createPickups(scene, island, handlers) {
       if (giftTimer <= 0) {
         if (handlers.canSpawnGift()) {
           const p = island.randomOpenPoint(6, COIN_MAX_RADIUS);
-          gift.position.set(p.x, 0, p.z);
+          gift.position.set(p.x, p.y, p.z);
           gift.visible = true;
         } else {
           giftTimer = EXPLORE.GIFT_INTERVAL_SEC;

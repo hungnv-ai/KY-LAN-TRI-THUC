@@ -7,7 +7,9 @@ import { openSheet, setSheetContent, isSheetOpen } from './sheet.js';
  *
  * @param {{
  *   getData: () => { checkedIn: boolean, streak: number, missions: { id: string, label: string, target: number,
- *     progress: number, done: boolean }[], chestClaimed: boolean },
+ *     progress: number, done: boolean }[], chestClaimed: boolean,
+ *     quests?: { id: string, icon: string, label: string, xp: number, coins: number, done: boolean,
+ *       progress: { value: number, need: number } | null }[] },
  *   onCheckIn: () => Promise<void>,
  *   onClaimChest: () => Promise<void>,
  * }} handlers
@@ -15,7 +17,7 @@ import { openSheet, setSheetContent, isSheetOpen } from './sheet.js';
  */
 export function openToday({ getData, onCheckIn, onClaimChest }) {
   function render() {
-    const { checkedIn, streak, missions, chestClaimed } = getData();
+    const { checkedIn, streak, missions, chestClaimed, quests = [] } = getData();
     const allDone = missions.length > 0 && missions.every((m) => m.done);
 
     const checkinBtn = h(
@@ -72,6 +74,32 @@ export function openToday({ getData, onCheckIn, onClaimChest }) {
       ),
       h('p', { class: 'muted' }, `Rương thưởng: +${MISSIONS.CHEST_XP} XP, +${MISSIONS.CHEST_COINS} Xu.`),
       chestBtn,
+      quests.length > 0 && h('h3', { class: 'section-title' }, '🧭 Khám phá đảo hôm nay'),
+      quests.length > 0 &&
+        h(
+          'ul',
+          { class: 'mission-list' },
+          quests.map((q) =>
+            h(
+              'li',
+              { class: `mission ${q.done ? 'is-done' : ''}` },
+              h('span', { class: 'mission-check', 'aria-hidden': 'true' }, q.done ? '✓' : q.icon),
+              h(
+                'div',
+                { class: 'mission-body' },
+                h('div', { class: 'mission-label' }, q.label),
+                q.progress &&
+                  h(
+                    'div',
+                    { class: 'mission-bar', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': q.progress.need, 'aria-valuenow': q.progress.value },
+                    h('span', { style: { width: `${Math.round((q.done ? 1 : q.progress.value / q.progress.need) * 100)}%` } }),
+                  ),
+              ),
+              h('span', { class: 'mission-count' }, q.done ? '✓' : `+${q.coins} Xu`),
+            ),
+          ),
+        ),
+      quests.length > 0 && h('p', { class: 'muted' }, 'Đi tới đúng nơi trên đảo là tự hoàn thành — xem dấu ⭐ trên bản đồ nhỏ.'),
     );
   }
 

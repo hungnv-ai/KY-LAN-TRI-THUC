@@ -268,7 +268,9 @@ begin
       'thanksSent', d.thanks_sent,
       'heartsSent', d.hearts_sent,
       'chestClaimed', d.chest_claimed,
-      'missions', public._missions_status(d)
+      'missions', public._missions_status(d),
+      'feeds', d.feeds,
+      'quests', public._quests_status(d)
     ),
     'stats', jsonb_build_object(
       'answered', s.total_answered,

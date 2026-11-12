@@ -79,6 +79,16 @@ Linh vật Kỳ lân của VA Schools (KHÔNG phải ngựa trắng có sừng).
   10 km 🧭 Lữ khách VA +100 Xu + Giày Lữ Khách (độc quyền) · 21 km 🥈 Bán marathon +150 Xu ·
   42 km 🏅 Marathon Kỳ Lân +300 Xu + bảng tên viền vàng. Máy chủ tự trao khi qua mốc, mỗi mốc 1 lần.
   Mốc cao nhất đã đạt hiện thành ô huy hiệu (vd 👟 1 km) bên phải bảng tên và trong danh sách 👥 — ai cũng thấy để thi đua.
+- Địa hình: 3 ngọn đồi (Đồi Ngắm Cảnh có cờ VA, ghế, ống nhòm · đồi Cây Cổ Thụ có xích đu · Mũi Hải Đăng),
+  cầu gỗ cong bắc ngang Hồ Sen (đi qua được).
+- **Nhiệm vụ khám phá** (mỗi ngày 3 nhiệm vụ, chọn theo ngày; `src/config.js` → `QUESTS`; xem trong 📅 Hôm nay,
+  nơi cần tới có vòng vàng trên bản đồ nhỏ): đi qua cầu Hồ Sen · ghé Cối Xay Gió / lửa trại / Chòi Anh Đào /
+  Vườn Đá Tre · leo Mũi Hải Đăng · lên đỉnh Đồi Ngắm Cảnh · chạy trọn một vòng đường quanh đảo · tìm 5 chú thỏ ·
+  cho 3 bạn thú ăn. Mỗi nhiệm vụ +5–10 XP, +8–15 Xu; máy chủ kiểm tra (`complete_quest`).
+- **Cho thú ăn**: đi chậm (không chạy) tới gần thỏ / hươu / vịt → nút "🥕 Cho … ăn" (phím E) → thú vui vẻ, ❤️,
+  +1 XP +2 Xu; tối đa 8 lần/ngày, cách nhau 3 giây (`FEED`).
+- **Thú cưỡi** (nút 🛹): 🛹 Ván trượt VA (có ngay) · ☁️ Mây thần (mở khi chạy đủ 5 km). Đang cưỡi đi nhanh 11 m/s,
+  người khác cũng thấy; chạy nhanh thì thú hoảng chạy — muốn cho ăn hãy xuống đi bộ.
 
 ## Tính năng mở rộng (đã làm, theo lựa chọn của người dùng)
 

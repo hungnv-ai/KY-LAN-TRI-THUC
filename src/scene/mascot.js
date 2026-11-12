@@ -92,6 +92,7 @@ const IDLE_BORED_SEC = 28;
  *   emote: (name: keyof typeof EMOTES) => void,
  *   setMood: (name: keyof typeof EMOTES | null) => void,
  *   setLocomotion: (speed: number) => void,
+ *   setLift: (y: number) => void,
  *   onEmote: (fn: (name: string) => void) => () => void,
  *   headWorldPosition: (target?: THREE.Vector3) => THREE.Vector3,
  *   setVariant: (variant: 'male' | 'female') => void,
@@ -154,6 +155,7 @@ export function createMascot() {
   let idleTime = 0;
   let locomotion = 0; // 0 = đứng, 1 = đi, ~1.8 = chạy
   let stepPhase = 0;
+  let lift = 0; // nâng cả người lên (đứng trên ván trượt / mây)
   const props = createPropLayer(head);
 
   const emoteListeners = new Set();
@@ -206,7 +208,7 @@ export function createMascot() {
     arms.L.rotation.set(pose.armL[0], 0, pose.armL[1] + breathe * 0.03);
     arms.R.rotation.set(pose.armR[0], 0, pose.armR[1] - breathe * 0.03);
     head.rotation.set(pose.head[0] + Math.sin(elapsed * 0.9) * 0.03, 0, pose.head[1] + Math.sin(elapsed * 1.1) * 0.04);
-    bounce.position.set(0, 0, 0);
+    bounce.position.set(0, lift, 0);
     bounce.rotation.set(0, 0, 0);
 
     // Chuyển động riêng của cảm xúc.
@@ -253,6 +255,10 @@ export function createMascot() {
       return () => emoteListeners.delete(fn);
     },
     /** @param {number} speed 0 = đứng, 1 = đi bộ, >1 = chạy */
+    /** Nâng cả người Kỳ lân lên `y` mét (đứng trên thú cưỡi). @param {number} y */
+    setLift(y) {
+      lift = y;
+    },
     setLocomotion(speed) {
       locomotion = speed;
       if (speed > 0) idleTime = 0;

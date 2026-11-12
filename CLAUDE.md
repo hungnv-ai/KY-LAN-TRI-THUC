@@ -42,7 +42,8 @@ public/               # icon, manifest.webmanifest + sw.js (PWA), og-image, main
 supabase/
   sql/01..10_*.sql    # máy chủ: 01 bảng, 02 hàm phụ, 03 RPC người chơi, 04 xã hội, 05 nhân viên,
                       #   06 quyền (luôn chạy cuối), 07 đổi quà, 08 thú cưng, 09 sự kiện, 10 Rung Chuông Vàng,
-                      #   11 nhân vật (bảng characters + kho Storage "characters" cho file .glb)
+                      #   11 nhân vật (bảng characters + kho Storage "characters" cho file .glb),
+                      #   12 nhiệm vụ khám phá đảo (complete_quest) + cho thú ăn (feed_animal)
   setup.sql           # SINH TỰ ĐỘNG (npm run gen:sql) — file người dùng dán vào SQL Editor
   tests/              # auth_stub.sql + test_game.sql (npm run test:sql)
 scripts/              # gen-seed.mjs (sinh setup.sql), test-sql.sh
@@ -67,6 +68,7 @@ src/
     remoteBackend.js  # gọi RPC Supabase cùng tên hàm
     missions.js       # nhiệm vụ ngày (chọn theo ngày) + tiến độ
     milestones.js     # mốc quãng đường (1–42 km): mốc kế tiếp, huy hiệu mốc cao nhất trên bảng tên
+    quests.js         # nhiệm vụ khám phá đảo: chọn 3 nhiệm vụ theo ngày (ngoại tuyến) + trạng thái
     storage.js        # localStorage an toàn
     time.js           # ngày (giờ VN), Giờ Vàng
     bellClock.js      # đồng hồ trận Rung Chuông Vàng (cùng công thức với _bell_phase)
@@ -78,11 +80,13 @@ src/
   scene/              # Three.js
     world.js          # renderer, camera, OrbitControls, chạm vào object, lệch khung khi mở bảng
     lights.js         # ánh sáng + environment map
-    islandLayout.js   # KÍCH THƯỚC & bố cục đảo (bán kính cỏ/cát, vị trí Vùng Đất, đường vòng, điểm nhấn) — nguồn sự thật chung
+    islandLayout.js   # KÍCH THƯỚC & bố cục đảo (bán kính cỏ/cát, vị trí Vùng Đất, đường vòng, điểm nhấn,
+                      #   đồi HILLS + terrainHeight, cầu gỗ BRIDGE + bridgeHeight) — nguồn sự thật chung
     island.js         # hòn đảo: quảng trường, 5 đường đi + đường vòng, 5 Vùng Đất (cột + cảnh), bãi cát, va chạm, độ cao
     nature.js         # cây cối (InstancedMesh: tán tròn, thông, anh đào, lá vàng, dừa), bụi, đá, nấm, cỏ cao + điểm nhấn:
                       #   hồ sen, cối xay gió, khu cắm trại, chòi nghỉ, vườn đá tre, hải đăng, dù bãi biển
-    wildlife.js       # động vật: bướm, thỏ & hươu (chạy trốn khi tới gần), vịt trong hồ, cua trên cát
+    wildlife.js       # động vật: bướm, thỏ & hươu (chạy trốn khi chạy nhanh tới gần; đi chậm thì cho ăn được), vịt, cua
+    mounts.js         # thú cưỡi gắn dưới chân Kỳ lân: ván trượt VA, mây thần (dùng chung geometry)
     movement.js       # điều khiển nhân vật theo hướng camera, va chạm, quay mặt
     pickups.js        # xu vàng rơi & hộp quà bất ngờ (hiển thị + phát hiện nhặt)
     mascot.js         # Kỳ lân VA: lắp ráp thân/đầu, nét mặt, tư thế, emote(), setMood(),
@@ -121,6 +125,7 @@ src/
     milestonesView.js # bảng mốc quãng đường (bấm ô 🏃)
     minimap.js        # bản đồ nhỏ góc phải: đảo, đường, Vùng Đất, bạn bè, vị trí & hướng của mình
     badgeTip.js       # chú thích nhỏ cạnh con trỏ (tên mốc khi rê vào huy hiệu bảng tên)
+    interactPrompt.js # nút hành động nổi ("🥕 Cho thỏ ăn", phím E)
     maintenanceView.js # màn hình "Đang bảo trì" (Kỳ lân ló đầu + lời nhắn của quản trị)
     quizView.js / wardrobeView.js (+ tab 🦄 Nhân vật) / ranksView.js / todayView.js / quickQuestionView.js
   features/           # điều phối 1 tính năng lớn: nối scene + game + ui (không chứa luật thưởng)
@@ -132,6 +137,8 @@ src/
     badgeTips.js      # rê chuột / chạm vào huy hiệu trên bảng tên → hiện tên mốc
     minimap.js        # nối vị trí Kỳ lân / bạn bè / Vùng Đất với bản đồ nhỏ
     menu.js           # các nút điều hướng → mở bảng tương ứng
+    quests.js         # nhiệm vụ khám phá (tới điểm nhấn, lên đồi, chạy vòng đảo, tìm thỏ) + cho thú ăn
+    mounts.js         # nút 🛹: đi bộ → ván trượt → mây thần (mở khoá theo km), tốc độ cưỡi, gửi cho người khác thấy
     explore.js        # Khám phá Vùng Đất: chạy, câu hỏi mỗi 100 m, cột Vùng Đất, xu, hộp quà
     social.js         # nhiều người chơi trên đảo + chạm vào Kỳ lân người khác + thiệp sự kiện
     expressions.js    # sticker + chụp ảnh nhóm

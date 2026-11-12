@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { MULTIPLAYER } from '../config.js';
 import { createMascot } from './mascot.js';
+import { createMountRig } from './mounts.js';
 import { createNameTag } from './nameTag.js';
 import { createWardrobe } from './outfits.js';
 import { createStickerBubble } from './stickerBubble.js';
@@ -11,6 +12,8 @@ import { milestoneBadge } from '../game/milestones.js';
 const FOLLOW_SPEED = 10;
 /** Bao lâu sắp xếp lại ai được vẽ đầy đủ (giây). */
 const LOD_INTERVAL = 0.5;
+/** Tốc độ giả (m/s) để bánh ván trượt của người khác quay khi họ đang di chuyển. */
+const MOUNT_ANIM_SPEED = 8;
 
 /**
  * Kỳ lân của người chơi khác: bảng tên (hạng, tên, bộ phận, Nhà), trang phục đúng như họ đã mua,
@@ -70,6 +73,8 @@ export function createRemotePlayers({ scene, island, onTap, onSelect, applyChara
     p.wardrobe = createWardrobe(p.mascot);
     if (p.profile?.equipped) p.wardrobe.equipAll(p.profile.equipped);
     p.root.add(p.mascot.object);
+    p.mount = createMountRig(p.mascot);
+    p.mount.set(p.target?.m ?? null);
     applyCharacter?.(p.mascot, p.profile?.character);
     if (p.pendingEmote) p.mascot.emote(p.pendingEmote);
     syncPet(p);
@@ -91,6 +96,8 @@ export function createRemotePlayers({ scene, island, onTap, onSelect, applyChara
     if (!p.mascot) return;
     p.pet?.dispose();
     p.pet = null;
+    p.mount?.dispose();
+    p.mount = null;
     p.root.remove(p.mascot.object);
     // Model 3D tải lên dùng chung geometry/material với cache của loader → gỡ ra, không dispose.
     p.mascot.setCustomModel(null);
@@ -118,9 +125,9 @@ export function createRemotePlayers({ scene, island, onTap, onSelect, applyChara
   }
 
   /** Nhận vị trí mới. */
-  function setMotion(id, { x, z, ry, s }) {
+  function setMotion(id, { x, z, ry, s, m = null }) {
     const p = ensure(id);
-    p.target = { x, z, ry, s };
+    p.target = { x, z, ry, s, m };
     if (!p.hasMotion) {
       p.hasMotion = true;
       p.root.position.set(x, island.groundHeight(x, z), z);
@@ -193,7 +200,10 @@ export function createRemotePlayers({ scene, island, onTap, onSelect, applyChara
       p.root.rotation.y += diff * k;
       const lagging = tmp.set(x - p.root.position.x, 0, z - p.root.position.z).length() > 0.05;
       if (p.mascot) {
-        p.mascot.setLocomotion(s > 0.1 || lagging ? Math.max(s, 0.8) : 0);
+        p.mount.set(p.target.m);
+        // Đang cưỡi ván / mây thì đứng yên trên đó (không bước chân).
+        p.mascot.setLocomotion(!p.target.m && (s > 0.1 || lagging) ? Math.max(s, 0.8) : 0);
+        p.mount.update(delta, elapsed, lagging ? MOUNT_ANIM_SPEED : 0);
         p.mascot.update(delta, elapsed);
         p.wardrobe.update(delta, elapsed);
         p.pet?.update(delta, elapsed, p.root);

@@ -12,6 +12,7 @@ const SIZE = 104;
  *   lake: { x: number, z: number, r: number },
  *   stations: { x: number, z: number, color: string, done: boolean }[],
  *   landmarks: { x: number, z: number, icon: string }[],
+ *   targets?: { x: number, z: number }[],
  *   peers: { x: number, z: number }[],
  *   me: { x: number, z: number, heading: number },
  * }) => void }}
@@ -59,6 +60,16 @@ export function createMinimap() {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     for (const lm of state.landmarks) ctx.fillText(lm.icon, px(lm.x), py(lm.z));
+
+    // Nhiệm vụ khám phá chưa xong: vòng vàng nhấp nháy quanh nơi cần tới.
+    const pulse = 4.5 + Math.sin(performance.now() / 260) * 1.2;
+    ctx.strokeStyle = '#F2B705';
+    ctx.lineWidth = 1.6;
+    for (const t of state.targets ?? []) {
+      ctx.beginPath();
+      ctx.arc(px(t.x), py(t.z), pulse, 0, Math.PI * 2);
+      ctx.stroke();
+    }
 
     for (const s of state.stations) {
       disc(s.x, s.z, 5, '#FFFFFF');

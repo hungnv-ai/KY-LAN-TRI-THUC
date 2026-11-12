@@ -121,6 +121,45 @@ export const MISSIONS = {
   CHEST_COINS: 30,
 };
 
+/**
+ * Nhiệm vụ khám phá đảo: mỗi ngày chọn PER_DAY nhiệm vụ (giống nhau cho mọi người) từ danh mục.
+ * Hoàn thành → thưởng ngay một lần trong ngày. `need` (nếu có) là số lần cần đạt (thỏ tìm được, lần cho ăn).
+ */
+export const QUESTS = {
+  PER_DAY: 3,
+  CATALOG: [
+    { id: 'lake', icon: '🪷', label: 'Đi qua cầu gỗ trên Hồ Sen', xp: 5, coins: 8 },
+    { id: 'windmill', icon: '🌾', label: 'Ghé thăm Cối Xay Gió', xp: 5, coins: 8 },
+    { id: 'camp', icon: '⛺', label: 'Sưởi ấm bên lửa trại', xp: 5, coins: 8 },
+    { id: 'gazebo', icon: '🏮', label: 'Nghỉ chân ở Chòi Anh Đào', xp: 5, coins: 8 },
+    { id: 'rockGarden', icon: '🎋', label: 'Dạo Vườn Đá Tre', xp: 5, coins: 8 },
+    { id: 'lighthouse', icon: '🗼', label: 'Leo lên Mũi Hải Đăng', xp: 5, coins: 10 },
+    { id: 'hilltop', icon: '⛰️', label: 'Lên đỉnh Đồi Ngắm Cảnh', xp: 5, coins: 10 },
+    { id: 'lap', icon: '🏃', label: 'Chạy trọn một vòng quanh đảo', xp: 10, coins: 15 },
+    { id: 'rabbits', icon: '🐇', label: 'Tìm 5 chú thỏ', xp: 5, coins: 10, need: 5 },
+    { id: 'feed', icon: '🥕', label: 'Cho 3 bạn thú ăn', xp: 5, coins: 10, need: 3 },
+  ],
+};
+
+/** Cho thú ăn (thỏ, hươu, vịt): thưởng nhỏ, giới hạn mỗi ngày. */
+export const FEED = {
+  PER_DAY: 8,
+  XP: 1,
+  COINS: 2,
+  /** Nghỉ giữa hai lần cho ăn (giây). */
+  COOLDOWN_SEC: 3,
+};
+
+/** Thú cưỡi / ván trượt để đi nhanh quanh đảo. `unlockMeters`: tổng quãng đường cần chạy để mở. */
+export const MOUNTS = {
+  /** Tốc độ khi cưỡi (m/giây) — máy chủ dùng để kiểm tra quãng đường hợp lệ. */
+  SPEED: 11,
+  LIST: [
+    { id: 'board', icon: '🛹', name: 'Ván trượt VA', unlockMeters: 0 },
+    { id: 'cloud', icon: '☁️', name: 'Mây thần', unlockMeters: 5000 },
+  ],
+};
+
 /** Nhân Ái: thả tim & gửi lời cảm ơn cho người chơi khác. */
 export const KUDOS = {
   THANKS_PER_DAY: 3,

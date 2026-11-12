@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BEACH_RADIUS, GRASS_RADIUS, isOnPath } from './islandLayout.js';
+import { BEACH_RADIUS, GRASS_RADIUS, isOnPath, terrainHeight } from './islandLayout.js';
 
 /**
  * Cảnh trang trí làm đảo đẹp & có chiều sâu (không ảnh hưởng luật chơi):
@@ -121,7 +121,7 @@ export function createScenery(scene) {
     const z = Math.cos(a) * r;
     const onPath = isOnPath(x, z, 0.5);
     const s = onPath ? 0 : 0.7 + rng() * 0.8;
-    m.makeScale(s, s * 0.6, s).setPosition(x, 0.06, z);
+    m.makeScale(s, s * 0.6, s).setPosition(x, 0.06 + terrainHeight(x, z), z);
     flowers.setMatrixAt(i, m);
     flowers.setColorAt(i, color.set(FLOWER_COLORS[i % FLOWER_COLORS.length]));
   }

@@ -21,12 +21,14 @@ const UP = new THREE.Vector3(0, 1, 0);
  * @param {{ groundHeight: (x: number, z: number) => number, resolve: (p: THREE.Vector3, r: number) => void }} island
  * @param {THREE.Camera} camera
  * @returns {{ update: (delta: number, input: { x: number, y: number, run: boolean }) => number,
- *   teleport: (x: number, z: number) => void, faceCamera: () => void }}
+ *   teleport: (x: number, z: number) => void, faceCamera: () => void, setRideSpeed: (speed: number) => void,
+ *   speed: () => number }}
  *   `update` trả về số mét đã đi trong frame; `faceCamera` quay mặt Kỳ lân về phía người chơi.
  */
 export function createMovement(mascot, island, camera) {
   const position = mascot.object.position;
   const velocity = new THREE.Vector3();
+  let rideSpeed = 0; // > 0 khi đang cưỡi ván trượt / mây (tốc độ cố định, không bước chân)
   let faceYaw = null; // hướng cần quay khi đứng yên (ví dụ quay mặt về camera)
   position.y = island.groundHeight(position.x, position.z);
 
@@ -38,7 +40,8 @@ export function createMovement(mascot, island, camera) {
     tmpRight.crossVectors(tmpForward, UP);
 
     const magnitude = Math.min(1, Math.hypot(input.x, input.y));
-    const speed = (input.run ? EXPLORE.RUN_SPEED : EXPLORE.WALK_SPEED) * magnitude;
+    const base = rideSpeed > 0 ? rideSpeed : input.run ? EXPLORE.RUN_SPEED : EXPLORE.WALK_SPEED;
+    const speed = base * magnitude;
     tmpMove.set(0, 0, 0).addScaledVector(tmpForward, input.y).addScaledVector(tmpRight, input.x);
     if (tmpMove.lengthSq() > 0) tmpMove.normalize().multiplyScalar(speed);
 
@@ -67,7 +70,7 @@ export function createMovement(mascot, island, camera) {
       const diff = Math.atan2(Math.sin(targetYaw - mascot.object.rotation.y), Math.cos(targetYaw - mascot.object.rotation.y));
       mascot.object.rotation.y += diff * Math.min(1, delta * TURN_SPEED * 0.6);
     }
-    mascot.setLocomotion(currentSpeed > 0.3 ? currentSpeed / EXPLORE.WALK_SPEED : 0);
+    mascot.setLocomotion(rideSpeed > 0 || currentSpeed <= 0.3 ? 0 : currentSpeed / EXPLORE.WALK_SPEED);
     return moved;
   }
 
@@ -80,5 +83,10 @@ export function createMovement(mascot, island, camera) {
     faceYaw = Math.atan2(camera.position.x - position.x, camera.position.z - position.z);
   }
 
-  return { update, teleport, faceCamera };
+  /** Đặt tốc độ cưỡi (m/s); 0 = đi bộ bình thường. @param {number} speed */
+  function setRideSpeed(speed) {
+    rideSpeed = speed;
+  }
+
+  return { update, teleport, faceCamera, setRideSpeed, speed: () => Math.hypot(velocity.x, velocity.z) };
 }

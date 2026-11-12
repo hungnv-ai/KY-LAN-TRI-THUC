@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { BEACH_RADIUS, GRASS_RADIUS, LANDMARKS, gapAngle, isOnPath, polar } from './islandLayout.js';
+import { BEACH_RADIUS, GRASS_RADIUS, LANDMARKS, gapAngle, isOnPath, polar, terrainHeight } from './islandLayout.js';
 
 /**
- * Động vật trên đảo (chỉ để ngắm, không ảnh hưởng luật chơi): bướm bay lượn, thỏ nhảy và chạy trốn
- * khi Kỳ lân tới gần, vịt bơi trong hồ sen, cua bò ngang trên bãi cát, hươu sao gặm cỏ trong rừng.
+ * Động vật trên đảo: bướm bay lượn, thỏ nhảy, vịt bơi trong hồ sen, cua bò ngang trên bãi cát, hươu sao gặm cỏ.
+ * Thỏ & hươu chạy trốn khi Kỳ lân CHẠY NHANH tới gần; đi chậm lại gần thì cho ăn được (feed).
  */
 
 const BUTTERFLY_COUNT = 46;
@@ -19,6 +19,14 @@ const DEER_SPEED = 1.1;
 const DEER_FLEE_SPEED = 7;
 /** Động vật xa Kỳ lân hơn mức này (m) thì chỉ cập nhật vị trí thưa (tiết kiệm máy). */
 const ACTIVE_DISTANCE = 60;
+/** Kỳ lân nhanh hơn mức này (m/giây) mới làm thú sợ — đi bộ thong thả thì thú đứng yên. */
+const SCARY_SPEED = 5.2;
+/** Nhanh hơn mức này (m/s) là dịch chuyển tức thời ("Tới chỗ bạn"), không phải chạy → bỏ qua. */
+const TELEPORT_SPEED = 25;
+/** Đứng gần hơn mức này (m) thì cho thú ăn được (vịt ở giữa hồ nên xa hơn). */
+const FEED_REACH = { rabbit: 2.4, deer: 3.2, duck: 3.4 };
+/** Sau khi được cho ăn, thú đứng yên vui vẻ bấy nhiêu giây. */
+const HAPPY_SEC = 6;
 const BUTTERFLY_COLORS = ['#FFB74D', '#F06292', '#64B5F6', '#FFF176', '#BA68C8', '#FFFFFF', '#4DD0E1'];
 
 function mulberry32(seed) {
@@ -163,7 +171,10 @@ function buildDeer() {
 /**
  * @param {THREE.Scene} scene
  * @param {{ isFree: (x: number, z: number, margin?: number) => boolean }} island
- * @returns {{ update: (delta: number, elapsed: number, player: THREE.Vector3) => void }}
+ * @returns {{ update: (delta: number, elapsed: number, player: THREE.Vector3) => void,
+ *   nearestFeedable: (player: THREE.Vector3) => { kind: 'rabbit' | 'deer' | 'duck', index: number, position: THREE.Vector3 } | null,
+ *   feed: (animal: { kind: string, index: number }) => void,
+ *   rabbitsNear: (player: THREE.Vector3, radius: number) => number[] }}
  */
 export function createWildlife(scene, island) {
   const rng = mulberry32(777);
@@ -193,7 +204,7 @@ export function createWildlife(scene, island) {
   const tint = new THREE.Color();
   for (let i = 0; i < BUTTERFLY_COUNT; i++) {
     const home = grassSpot(6, GRASS_RADIUS - 3);
-    flies.push({ x: home.x, z: home.z, phase: rng() * 10, radius: 1.2 + rng() * 2.6, speed: 0.5 + rng() * 0.6, height: 0.7 + rng() * 1.3 });
+    flies.push({ ground: terrainHeight(home.x, home.z), x: home.x, z: home.z, phase: rng() * 10, radius: 1.2 + rng() * 2.6, speed: 0.5 + rng() * 0.6, height: 0.7 + rng() * 1.3 });
     butterflies.setColorAt(i, tint.set(BUTTERFLY_COLORS[i % BUTTERFLY_COLORS.length]));
   }
   root.add(butterflies);
@@ -272,12 +283,25 @@ export function createWildlife(scene, island) {
     return a.home;
   }
 
+  let lastX = null;
+  let lastZ = 0;
+  let playerSpeed = 0;
+
   function update(delta, elapsed, player) {
+    // Tốc độ Kỳ lân (tự đo, khỏi phụ thuộc module khác).
+    if (lastX !== null && delta > 0) {
+      const raw = Math.hypot(player.x - lastX, player.z - lastZ) / delta;
+      const sp = raw > TELEPORT_SPEED ? 0 : raw;
+      playerSpeed += (sp - playerSpeed) * Math.min(1, delta * 6);
+    }
+    lastX = player.x;
+    lastZ = player.z;
+    const scary = playerSpeed > SCARY_SPEED;
     // Bướm.
     for (let i = 0; i < BUTTERFLY_COUNT; i++) {
       const f = flies[i];
       const t = elapsed * f.speed + f.phase;
-      v.set(f.x + Math.sin(t) * f.radius, f.height + Math.sin(t * 2.3) * 0.35, f.z + Math.cos(t * 0.8) * f.radius);
+      v.set(f.x + Math.sin(t) * f.radius, f.ground + f.height + Math.sin(t * 2.3) * 0.35, f.z + Math.cos(t * 0.8) * f.radius);
       e.set(0, -t + Math.PI / 2, 0);
       q.setFromEuler(e);
       s.set(0.35 + Math.abs(Math.sin(elapsed * 14 + f.phase)) * 0.75, 1, 1);
@@ -290,7 +314,13 @@ export function createWildlife(scene, island) {
     for (const r of rabbits) {
       const dp = Math.hypot(r.group.position.x - player.x, r.group.position.z - player.z);
       if (dp > ACTIVE_DISTANCE) continue;
-      const scared = dp < FLEE_DISTANCE;
+      if (r.happy > 0) {
+        r.happy -= delta;
+        r.group.position.y = terrainHeight(r.group.position.x, r.group.position.z) + Math.abs(Math.sin(elapsed * 9)) * 0.12;
+        r.group.rotation.y += delta * 2.5;
+        continue;
+      }
+      const scared = dp < FLEE_DISTANCE && scary;
       if (scared && !r.fleeing) {
         r.fleeing = true;
         r.target = fleeTarget(r, player, 7);
@@ -298,12 +328,12 @@ export function createWildlife(scene, island) {
       }
       if (r.wait > 0) {
         r.wait -= delta;
-        r.group.position.y = 0;
+        r.group.position.y = terrainHeight(r.group.position.x, r.group.position.z);
         continue;
       }
       const speed = r.fleeing ? RABBIT_FLEE_SPEED : RABBIT_SPEED;
       r.hop += delta * (r.fleeing ? 16 : 9);
-      r.group.position.y = Math.abs(Math.sin(r.hop)) * (r.fleeing ? 0.28 : 0.16);
+      r.group.position.y = terrainHeight(r.group.position.x, r.group.position.z) + Math.abs(Math.sin(r.hop)) * (r.fleeing ? 0.28 : 0.16);
       if (stepToward(r, speed, delta)) {
         r.fleeing = false;
         r.wait = 1 + Math.random() * 4;
@@ -319,7 +349,12 @@ export function createWildlife(scene, island) {
     for (const d of deer) {
       const dp = Math.hypot(d.group.position.x - player.x, d.group.position.z - player.z);
       if (dp > ACTIVE_DISTANCE) continue;
-      if (dp < FLEE_DISTANCE + 1.5 && !d.fleeing) {
+      if (d.happy > 0) {
+        d.happy -= delta;
+        d.neck.rotation.x += (0.1 + Math.sin(elapsed * 5) * 0.15 - d.neck.rotation.x) * Math.min(1, delta * 4);
+        continue;
+      }
+      if (dp < FLEE_DISTANCE + 1.5 && scary && !d.fleeing) {
         d.fleeing = true;
         d.target = fleeTarget(d, player, 12);
         d.wait = 0;
@@ -334,6 +369,7 @@ export function createWildlife(scene, island) {
       const speed = d.fleeing ? DEER_FLEE_SPEED : DEER_SPEED;
       d.step += delta * (d.fleeing ? 14 : 5);
       const swing = Math.sin(d.step) * (d.fleeing ? 0.7 : 0.35);
+      d.group.position.y = terrainHeight(d.group.position.x, d.group.position.z);
       d.legs[0].rotation.x = swing;
       d.legs[3].rotation.x = swing;
       d.legs[1].rotation.x = -swing;
@@ -368,10 +404,48 @@ export function createWildlife(scene, island) {
         if (c.moving && Math.random() < 0.5) c.dir *= -1;
       }
       if (c.moving) c.a += (c.dir * 0.9 * delta) / c.r;
-      c.group.position.set(Math.sin(c.a) * c.r, c.moving ? Math.abs(Math.sin(elapsed * 18)) * 0.02 : 0, Math.cos(c.a) * c.r);
+      const cx = Math.sin(c.a) * c.r;
+      const cz = Math.cos(c.a) * c.r;
+      c.group.position.set(cx, terrainHeight(cx, cz) + (c.moving ? Math.abs(Math.sin(elapsed * 18)) * 0.02 : 0), cz);
       c.group.rotation.y = c.a; // quay mặt ra biển, bò ngang
     }
   }
 
-  return { update };
+  /** Thú gần nhất có thể cho ăn (đang không chạy trốn). */
+  function nearestFeedable(player) {
+    let best = null;
+    const consider = (kind, index, pos, fleeing) => {
+      if (fleeing) return;
+      const d = Math.hypot(pos.x - player.x, pos.z - player.z);
+      if (d <= FEED_REACH[kind] && (!best || d < best.d)) best = { kind, index, position: pos, d };
+    };
+    rabbits.forEach((r, i) => consider('rabbit', i, r.group.position, r.fleeing));
+    deer.forEach((d, i) => consider('deer', i, d.group.position, d.fleeing));
+    ducks.forEach((d, i) => consider('duck', i, d.group.position, false));
+    return best;
+  }
+
+  /** Cho ăn: thú đứng yên, vui vẻ một lúc (thỏ xoay vòng nhảy, hươu ngẩng đầu, vịt bơi lại gần). */
+  function feed({ kind, index }) {
+    if (kind === 'rabbit') {
+      rabbits[index].happy = HAPPY_SEC;
+      rabbits[index].fleeing = false;
+    } else if (kind === 'deer') {
+      deer[index].happy = HAPPY_SEC;
+      deer[index].fleeing = false;
+    } else if (kind === 'duck') {
+      ducks[index].bob += Math.PI;
+    }
+  }
+
+  /** Chỉ số những chú thỏ ở gần (để đếm nhiệm vụ "tìm thỏ"). */
+  function rabbitsNear(player, radius) {
+    const out = [];
+    rabbits.forEach((r, i) => {
+      if (Math.hypot(r.group.position.x - player.x, r.group.position.z - player.z) <= radius) out.push(i);
+    });
+    return out;
+  }
+
+  return { update, nearestFeedable, feed, rabbitsNear };
 }

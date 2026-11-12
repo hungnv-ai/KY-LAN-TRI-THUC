@@ -1456,6 +1456,11 @@ textarea.input {
   outline-offset: 2px;
 }
 
+.qa-btn.is-active {
+  background: #fff4c7;
+  box-shadow: 0 0 0 3px var(--tri-thuc), var(--shadow);
+}
+
 .qa-btn.is-pulse::after {
   content: '';
   position: absolute;
@@ -2493,5 +2498,57 @@ body.is-intro .minimap {
     top: 106px;
     width: 84px;
     height: 84px;
+  }
+}
+
+/* ── Nút hành động nổi (Cho thú ăn…) ───────────────────────────────── */
+.interact-btn {
+  position: fixed;
+  left: 50%;
+  bottom: calc(118px + var(--safe-bottom));
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: 3px solid #fff;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffb347, #f08a24);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  box-shadow: 0 6px 18px rgba(240, 138, 36, 0.45);
+  transform: translateX(-50%);
+  animation: interact-pop 0.25s ease-out, interact-bob 1.6s ease-in-out 0.25s infinite;
+  cursor: pointer;
+}
+
+.interact-icon {
+  font-size: 22px;
+}
+
+.interact-key {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.3);
+  font: 700 12px var(--font);
+}
+
+@media (pointer: coarse) {
+  .interact-key {
+    display: none;
+  }
+}
+
+@keyframes interact-pop {
+  from {
+    transform: translateX(-50%) scale(0.6);
+    opacity: 0;
+  }
+}
+
+@keyframes interact-bob {
+  50% {
+    transform: translateX(-50%) translateY(-4px);
   }
 }

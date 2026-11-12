@@ -137,6 +137,11 @@ create table if not exists public.daily_counters (
   primary key (user_id, day)
 );
 
+-- Nhiệm vụ khám phá & cho thú ăn (12_quests.sql).
+alter table public.daily_counters add column if not exists quests text[] not null default '{}';
+alter table public.daily_counters add column if not exists feeds int not null default 0;
+alter table public.daily_counters add column if not exists last_feed_at timestamptz;
+
 create table if not exists public.quiz_rounds (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -575,7 +580,9 @@ begin
       'thanksSent', d.thanks_sent,
       'heartsSent', d.hearts_sent,
       'chestClaimed', d.chest_claimed,
-      'missions', public._missions_status(d)
+      'missions', public._missions_status(d),
+      'feeds', d.feeds,
+      'quests', public._quests_status(d)
     ),
     'stats', jsonb_build_object(
       'answered', s.total_answered,
@@ -991,7 +998,8 @@ declare
   d daily_counters := public._daily(v_uid);
   v_secs numeric := extract(epoch from now() - coalesce(d.last_distance_at, now() - interval '5 seconds'));
   -- Không thể chạy nhanh hơn tốc độ chạy tối đa (chống gửi quãng đường giả).
-  v_max numeric := public._cfgn('EXPLORE', 'RUN_SPEED', 7.5) * 1.3 * least(v_secs, 60) + 3;
+  -- (Khi cưỡi ván trượt / mây thì nhanh hơn chạy bộ → lấy tốc độ lớn hơn.)
+  v_max numeric := greatest(public._cfgn('EXPLORE', 'RUN_SPEED', 7.5), public._cfgn('MOUNTS', 'SPEED', 0)) * 1.3 * least(v_secs, 60) + 3;
   v_add numeric := greatest(0, least(coalesce(p_meters, 0), v_max, 500));
   v_total numeric;
   v_done text[];
@@ -2408,12 +2416,90 @@ begin
 end $$;
 
 
+-- >>> 12_quests.sql
+-- ════════════════════════════════════════════════════════════════════════
+-- Nhiệm vụ khám phá đảo (mỗi ngày PER_DAY nhiệm vụ) + cho thú ăn.
+-- Danh mục & phần thưởng lấy từ game_settings 'QUESTS' / 'FEED' (src/config.js).
+-- ════════════════════════════════════════════════════════════════════════
+
+-- Nhiệm vụ khám phá của hôm nay (giống nhau cho mọi người, đổi theo ngày).
+create or replace function public._quests_today()
+returns jsonb language sql stable set search_path = public as $$
+  select coalesce(jsonb_agg(q order by ord), '[]')
+  from (
+    select q, ord
+    from jsonb_array_elements(public._cfg('QUESTS') -> 'CATALOG') with ordinality as t(q, ord)
+    order by md5(public._today()::text || 'quest' || (q ->> 'id'))
+    limit public._cfgn('QUESTS', 'PER_DAY', 3)::int
+  ) s;
+$$;
+
+create or replace function public._quests_status(p_d public.daily_counters)
+returns jsonb language sql stable set search_path = public as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+      'id', q ->> 'id',
+      'icon', q ->> 'icon',
+      'label', q ->> 'label',
+      'xp', coalesce((q ->> 'xp')::int, 0),
+      'coins', coalesce((q ->> 'coins')::int, 0),
+      'need', coalesce((q ->> 'need')::int, 1),
+      'done', (q ->> 'id') = any (p_d.quests)
+    )), '[]')
+  from jsonb_array_elements(public._quests_today()) q;
+$$;
+
+-- Hoàn thành một nhiệm vụ khám phá: phải thuộc bộ hôm nay, mỗi nhiệm vụ thưởng một lần/ngày.
+create or replace function public.complete_quest(p_id text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  v_uid uuid := public._require_player();
+  d daily_counters := public._daily(v_uid);
+  q jsonb;
+  r jsonb;
+begin
+  select t.q into q from jsonb_array_elements(public._quests_today()) as t(q) where t.q ->> 'id' = p_id;
+  if q is null or p_id = any (d.quests) then
+    return jsonb_build_object('result', null, 'state', public._state_json(v_uid));
+  end if;
+  -- "Cho thú ăn" kiểm tra bằng bộ đếm của máy chủ.
+  if p_id = 'feed' and d.feeds < coalesce((q ->> 'need')::int, 1) then
+    raise exception 'quest_not_ready';
+  end if;
+  update daily_counters set quests = array_append(quests, p_id) where user_id = v_uid and day = d.day;
+  r := public._apply_reward(v_uid, coalesce((q ->> 'xp')::int, 0), coalesce((q ->> 'coins')::int, 0), 'quest',
+    jsonb_build_object('quest', p_id));
+  return jsonb_build_object('result', r, 'state', public._state_json(v_uid));
+end;
+$$;
+
+-- Cho một bạn thú ăn: thưởng nhỏ, tối đa FEED.PER_DAY lần/ngày, có thời gian nghỉ.
+create or replace function public.feed_animal()
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  v_uid uuid := public._require_player();
+  d daily_counters := public._daily(v_uid);
+  r jsonb;
+begin
+  if d.feeds >= public._cfgn('FEED', 'PER_DAY', 8)
+     or d.last_feed_at > now() - make_interval(secs => public._cfgn('FEED', 'COOLDOWN_SEC', 3) * 0.8) then
+    return jsonb_build_object('result', null, 'state', public._state_json(v_uid));
+  end if;
+  update daily_counters set feeds = feeds + 1, last_feed_at = now() where user_id = v_uid and day = d.day;
+  r := public._apply_reward(v_uid, public._cfgn('FEED', 'XP', 1)::int, public._cfgn('FEED', 'COINS', 2)::int, 'feed');
+  return jsonb_build_object('result', r, 'state', public._state_json(v_uid));
+end;
+$$;
+
+
 -- ── Dữ liệu ban đầu (sinh tự động từ src/ — đừng sửa tay) ──
 insert into public.game_settings (key, value) values ('QUIZ', '{"QUESTIONS_PER_ROUND":5,"TIME_LIMIT_SEC":180,"XP_PER_CORRECT":10,"COINS_PER_CORRECT":5,"XP_PER_TRY":2,"PERFECT_BONUS_XP":20,"PERFECT_BONUS_COINS":10,"REWARDED_ROUNDS_PER_DAY":3}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('CHECK_IN', '{"XP":20,"COINS":15,"STREAK_BONUS_COINS_PER_DAY":2,"STREAK_BONUS_MAX_DAYS":7}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('GOLDEN_HOURS', '{"RANGES":[[12,13],[19,21]],"XP_MULTIPLIER":2}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('EXPLORE', '{"WALK_SPEED":4.2,"RUN_SPEED":7.5,"QUESTION_EVERY_M":100,"RUN_QUESTION_XP":5,"RUN_QUESTION_COINS":3,"RUN_QUESTION_TRY_XP":1,"RUN_QUESTIONS_REWARDED_PER_DAY":6,"STATION_XP":10,"STATION_COINS":8,"STATION_TRY_XP":3,"ALL_STATIONS_XP":25,"ALL_STATIONS_COINS":25,"COIN_PICKUPS_PER_DAY":40,"COIN_RESPAWN_SEC":45,"COINS_ON_MAP":44,"GIFTS_PER_DAY":5,"GIFT_INTERVAL_SEC":60,"GIFT_COIN_CHANCE":0.6,"GIFT_XP_CHANCE":0.3}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('MILESTONES', '{"LIST":[{"id":"km1","meters":1000,"icon":"👟","title":"Bước chân đầu tiên","xp":0,"coins":20},{"id":"km5","meters":5000,"icon":"🏃","title":"Nhà thám hiểm nhỏ","xp":0,"coins":50},{"id":"km10","meters":10000,"icon":"🧭","title":"Lữ khách VA","xp":0,"coins":100,"item":"shoes-traveler"},{"id":"km21","meters":21000,"icon":"🥈","title":"Bán marathon","xp":0,"coins":150},{"id":"km42","meters":42000,"icon":"🏅","title":"Marathon Kỳ Lân","xp":0,"coins":300,"badge":true}]}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
+insert into public.game_settings (key, value) values ('QUESTS', '{"PER_DAY":3,"CATALOG":[{"id":"lake","icon":"🪷","label":"Đi qua cầu gỗ trên Hồ Sen","xp":5,"coins":8},{"id":"windmill","icon":"🌾","label":"Ghé thăm Cối Xay Gió","xp":5,"coins":8},{"id":"camp","icon":"⛺","label":"Sưởi ấm bên lửa trại","xp":5,"coins":8},{"id":"gazebo","icon":"🏮","label":"Nghỉ chân ở Chòi Anh Đào","xp":5,"coins":8},{"id":"rockGarden","icon":"🎋","label":"Dạo Vườn Đá Tre","xp":5,"coins":8},{"id":"lighthouse","icon":"🗼","label":"Leo lên Mũi Hải Đăng","xp":5,"coins":10},{"id":"hilltop","icon":"⛰️","label":"Lên đỉnh Đồi Ngắm Cảnh","xp":5,"coins":10},{"id":"lap","icon":"🏃","label":"Chạy trọn một vòng quanh đảo","xp":10,"coins":15},{"id":"rabbits","icon":"🐇","label":"Tìm 5 chú thỏ","xp":5,"coins":10,"need":5},{"id":"feed","icon":"🥕","label":"Cho 3 bạn thú ăn","xp":5,"coins":10,"need":3}]}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
+insert into public.game_settings (key, value) values ('FEED', '{"PER_DAY":8,"XP":1,"COINS":2,"COOLDOWN_SEC":3}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
+insert into public.game_settings (key, value) values ('MOUNTS', '{"SPEED":11,"LIST":[{"id":"board","icon":"🛹","name":"Ván trượt VA","unlockMeters":0},{"id":"cloud","icon":"☁️","name":"Mây thần","unlockMeters":5000}]}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('MISSIONS', '{"PER_DAY":3,"CATALOG":[{"id":"checkin","label":"Điểm danh hôm nay","counter":"checkedIn","target":1},{"id":"quiz","label":"Hoàn thành 1 lượt Tri Thức","counter":"quizRounds","target":1},{"id":"stations","label":"Chinh phục 2 Vùng Đất","counter":"stationCount","target":2},{"id":"coins","label":"Nhặt 10 xu vàng","counter":"coinPickups","target":10},{"id":"distance","label":"Chạy 300 m","counter":"distance","target":300},{"id":"runq","label":"Trả lời 2 câu hỏi dọc đường","counter":"runQuestions","target":2},{"id":"gift","label":"Mở 1 hộp quà bất ngờ","counter":"gifts","target":1},{"id":"thanks","label":"Gửi 1 lời cảm ơn","counter":"thanksSent","target":1}],"CHEST_XP":30,"CHEST_COINS":30}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('KUDOS', '{"THANKS_PER_DAY":3,"THANKS_COINS_SENDER":5,"THANKS_COINS_RECEIVER":5,"HEARTS_PER_DAY":20,"MESSAGE_MAX":120}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_settings (key, value) values ('VOUCHER', '{"GIFT_CHANCE":0.01,"GIFT_TITLE":"Phiếu quà may mắn"}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();

@@ -129,6 +129,11 @@ create table if not exists public.daily_counters (
   primary key (user_id, day)
 );
 
+-- Nhiệm vụ khám phá & cho thú ăn (12_quests.sql).
+alter table public.daily_counters add column if not exists quests text[] not null default '{}';
+alter table public.daily_counters add column if not exists feeds int not null default 0;
+alter table public.daily_counters add column if not exists last_feed_at timestamptz;
+
 create table if not exists public.quiz_rounds (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,

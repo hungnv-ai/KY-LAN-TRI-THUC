@@ -21,6 +21,7 @@ const listeners = new Set();
 
 /** Thông báo lỗi thân thiện theo mã lỗi máy chủ. */
 const ERROR_MESSAGES = {
+  quest_not_ready: 'Nhiệm vụ này chưa đủ điều kiện.',
   character_not_found: 'Nhân vật này không còn — hãy chọn nhân vật khác.',
   maintenance: 'Game đang bảo trì — bạn quay lại sau ít phút nhé.',
   not_enough_coins: 'Bạn chưa đủ Xu.',
@@ -320,6 +321,35 @@ export function getPets() {
  */
 export async function equipPet(petId) {
   await call('equipPet', petId);
+}
+
+/**
+ * Nhiệm vụ khám phá hôm nay.
+ *
+ * @returns {{ id: string, icon: string, label: string, xp: number, coins: number, need: number, done: boolean }[]}
+ */
+export function getQuests() {
+  return today()?.quests ?? [];
+}
+
+/** @returns {number} số lần đã cho thú ăn hôm nay */
+export function feedsToday() {
+  return today()?.feeds ?? 0;
+}
+
+/**
+ * Báo hoàn thành một nhiệm vụ khám phá (máy chủ kiểm tra & trao thưởng một lần/ngày).
+ *
+ * @param {string} id
+ * @returns {Promise<null | { xp: number, coins: number, rankUp: object | null }>}
+ */
+export async function completeQuest(id) {
+  return (await call('completeQuest', id)).result;
+}
+
+/** @returns {Promise<null | { xp: number, coins: number, rankUp: object | null }>} null = hết lượt hôm nay */
+export async function feedAnimal() {
+  return (await call('feedAnimal')).result;
 }
 
 /** @returns {Promise<null | object>} phần thưởng rương nhiệm vụ */
