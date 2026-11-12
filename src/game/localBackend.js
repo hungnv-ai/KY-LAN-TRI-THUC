@@ -1,6 +1,7 @@
 import {
   CHECK_IN,
   EXPLORE,
+  FEED,
   GOLDEN_HOURS,
   MISSIONS,
   PETS_CONFIG,
@@ -17,6 +18,7 @@ import { getRankInfo, rankIndexOf } from '../data/ranks.js';
 import { createLocalBell } from './localBell.js';
 import { listMilestones } from './milestones.js';
 import { missionStatus } from './missions.js';
+import { questStatus } from './quests.js';
 import { loadJSON, saveJSON } from './storage.js';
 import { dayKey, isGoldenHour, yesterdayKey } from './time.js';
 
@@ -63,6 +65,9 @@ function createDaily() {
     thanksSent: 0,
     heartsSent: 0,
     chestClaimed: false,
+    quests: [],
+    feeds: 0,
+    lastFeedAt: 0,
   };
 }
 
@@ -123,7 +128,7 @@ export function createLocalBackend() {
     rollDaily();
     saveJSON(SAVE_KEY, state);
     const { rewardLog: _log, ...rest } = state;
-    return structuredClone({ ...rest, event: localActiveEvent(), daily: { ...rest.daily, missions: missionStatus(rest.daily) } });
+    return structuredClone({ ...rest, event: localActiveEvent(), daily: { ...rest.daily, missions: missionStatus(rest.daily), quests: questStatus(rest.daily), questsDone: rest.daily.quests ?? [] } });
   }
 
   function grantRankItems() {
@@ -440,6 +445,29 @@ export function createLocalBackend() {
       if (!BUILTIN_CHARACTERS.some((c) => c.id === id)) throw new Error('character_not_found');
       state.character = id;
       return { ok: true, state: snapshot() };
+    },
+
+    /** Hoàn thành nhiệm vụ khám phá của hôm nay (giống complete_quest trên máy chủ). */
+    async completeQuest(id) {
+      rollDaily();
+      state.daily.quests ??= [];
+      const quest = questStatus(state.daily).find((q) => q.id === id);
+      if (!quest || quest.done) return { result: null, state: snapshot() };
+      if (id === 'feed' && (state.daily.feeds ?? 0) < quest.need) throw new Error('quest_not_ready');
+      state.daily.quests.push(id);
+      return { result: applyReward(quest.xp, quest.coins, 'quest'), state: snapshot() };
+    },
+
+    /** Cho thú ăn (giống feed_animal trên máy chủ). */
+    async feedAnimal() {
+      rollDaily();
+      const now = Date.now();
+      if ((state.daily.feeds ?? 0) >= FEED.PER_DAY || now - (state.daily.lastFeedAt ?? 0) < FEED.COOLDOWN_SEC * 800) {
+        return { result: null, state: snapshot() };
+      }
+      state.daily.feeds = (state.daily.feeds ?? 0) + 1;
+      state.daily.lastFeedAt = now;
+      return { result: applyReward(FEED.XP, FEED.COINS, 'feed'), state: snapshot() };
     },
 
     async equipPet(petId) {

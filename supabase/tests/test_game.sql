@@ -139,7 +139,7 @@ begin
   perform test_as('00000000-0000-0000-0000-00000000000a');
   perform test_expect_error($q$select issue_question('run')$q$, 'not_enough_distance');
   r := add_distance(1000);
-  assert (r ->> 'added')::numeric < 60, 'không thể chạy 1000 m trong vài giây';
+  assert (r ->> 'added')::numeric < 80, 'không thể chạy 1000 m trong vài giây';
   perform test_admin();
   update daily_counters set last_distance_at = now() - interval '60 seconds' where user_id = '00000000-0000-0000-0000-00000000000a';
   perform test_as('00000000-0000-0000-0000-00000000000a');
@@ -678,6 +678,61 @@ begin
   assert r ->> 'storagePath' = 'a.glb', 'xoá trả về đường dẫn file để xoá khỏi kho';
   assert jsonb_array_length(r -> 'animationPaths') = 2, 'xoá trả về đường dẫn file động tác (không gồm file model)';
   assert jsonb_array_length(admin_list_characters()) = 2, 'đã xoá';
+end $$;
+
+-- Nhiệm vụ khám phá & cho thú ăn.
+do $$
+declare
+  B uuid := '00000000-0000-0000-0000-00000000000b';
+  r jsonb;
+  v_q text;
+  v_coins int;
+  v_feed jsonb;
+begin
+  perform test_admin();
+  update daily_counters set feeds = 0, last_feed_at = null, quests = '{}' where user_id = B;
+  perform test_as(B);
+  r := get_my_state();
+  assert jsonb_array_length(r -> 'daily' -> 'quests') = 3, '3 nhiệm vụ khám phá mỗi ngày';
+  select q ->> 'id' into v_q from jsonb_array_elements(r -> 'daily' -> 'quests') q where q ->> 'id' <> 'feed' limit 1;
+  v_coins := (r ->> 'coins')::int;
+  r := complete_quest(v_q);
+  assert (r -> 'result' ->> 'coins')::int >= 8, 'hoàn thành nhiệm vụ khám phá được thưởng Xu';
+  assert (select (q ->> 'done')::boolean from jsonb_array_elements(r -> 'state' -> 'daily' -> 'quests') q where q ->> 'id' = v_q), 'đánh dấu đã xong';
+  r := complete_quest(v_q);
+  assert r -> 'result' = 'null'::jsonb, 'không thưởng nhiệm vụ 2 lần';
+  r := complete_quest('khong-co');
+  assert r -> 'result' = 'null'::jsonb, 'nhiệm vụ không thuộc hôm nay → không thưởng';
+
+  r := feed_animal();
+  assert (r -> 'result' ->> 'coins')::int = 2 and (r -> 'state' -> 'daily' ->> 'feeds')::int = 1, 'cho thú ăn +2 Xu';
+  r := feed_animal();
+  assert r -> 'result' = 'null'::jsonb, 'cho ăn liên tục quá nhanh → không thưởng';
+  perform test_admin();
+  update daily_counters set feeds = 8, last_feed_at = now() - interval '1 minute' where user_id = B;
+  perform test_as(B);
+  r := feed_animal();
+  assert r -> 'result' = 'null'::jsonb, 'hết lượt cho ăn trong ngày';
+
+  -- Nhiệm vụ "cho 3 bạn thú ăn" cần bộ đếm của máy chủ.
+  perform test_admin();
+  update game_settings set value = jsonb_set(value, '{PER_DAY}', '99') where key = 'QUESTS';
+  update daily_counters set feeds = 1 where user_id = B;
+  perform test_as(B);
+  perform test_expect_error($q$select complete_quest('feed')$q$, 'quest_not_ready');
+  perform test_admin();
+  update daily_counters set feeds = 3 where user_id = B;
+  perform test_as(B);
+  r := complete_quest('feed');
+  assert (r -> 'result' ->> 'coins')::int = 10, 'đủ 3 lần cho ăn → nhận thưởng';
+  perform test_admin();
+  update game_settings set value = jsonb_set(value, '{PER_DAY}', '3') where key = 'QUESTS';
+
+  -- Cưỡi ván trượt: quãng đường hợp lệ nhanh hơn chạy bộ.
+  update daily_counters set last_distance_at = now() - interval '10 seconds' where user_id = B;
+  perform test_as(B);
+  r := add_distance(120);
+  assert (r ->> 'added')::numeric = 120, 'cưỡi 12 m/giây trong 10 giây hợp lệ';
 end $$;
 
 select '✔ Tất cả kiểm thử máy chủ đều đạt' as ket_qua;

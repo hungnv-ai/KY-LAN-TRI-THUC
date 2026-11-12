@@ -304,7 +304,8 @@ declare
   d daily_counters := public._daily(v_uid);
   v_secs numeric := extract(epoch from now() - coalesce(d.last_distance_at, now() - interval '5 seconds'));
   -- Không thể chạy nhanh hơn tốc độ chạy tối đa (chống gửi quãng đường giả).
-  v_max numeric := public._cfgn('EXPLORE', 'RUN_SPEED', 7.5) * 1.3 * least(v_secs, 60) + 3;
+  -- (Khi cưỡi ván trượt / mây thì nhanh hơn chạy bộ → lấy tốc độ lớn hơn.)
+  v_max numeric := greatest(public._cfgn('EXPLORE', 'RUN_SPEED', 7.5), public._cfgn('MOUNTS', 'SPEED', 0)) * 1.3 * least(v_secs, 60) + 3;
   v_add numeric := greatest(0, least(coalesce(p_meters, 0), v_max, 500));
   v_total numeric;
   v_done text[];

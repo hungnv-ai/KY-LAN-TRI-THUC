@@ -14,6 +14,7 @@ import {
   getHouseStandings,
   getLeaderboard,
   getMissions,
+  getQuests,
   getMyKudos,
   getMyVouchers,
   getProfile,
@@ -42,9 +43,10 @@ const TRY_ON_MS = 2500;
  * @param {{ world: object, mascot: object, wardrobe: object, fx: object,
  *   rewards: ReturnType<typeof import('./rewards.js').createRewards>,
  *   onOutfitChanged: () => void, onCheckedIn?: (result: object) => void | Promise<void>,
- *   characters?: ReturnType<typeof import('./characters.js').setupCharacters> }} deps
+ *   characters?: ReturnType<typeof import('./characters.js').setupCharacters>,
+ *   questProgress?: (id: string) => { value: number, need: number } | null }} deps
  */
-export function setupMenu({ world, mascot, wardrobe, fx, rewards, onOutfitChanged, onCheckedIn, characters }) {
+export function setupMenu({ world, mascot, wardrobe, fx, rewards, onOutfitChanged, onCheckedIn, characters, questProgress }) {
   const warn = (err) => showToast(friendlyError(err), { type: 'warn', icon: '⚠️' });
 
   async function doCheckIn() {
@@ -75,6 +77,7 @@ export function setupMenu({ world, mascot, wardrobe, fx, rewards, onOutfitChange
           streak: getActiveStreak(),
           missions: getMissions(),
           chestClaimed: isChestClaimed(),
+          quests: getQuests().map((q) => ({ ...q, progress: questProgress?.(q.id) ?? null })),
         }),
         onCheckIn: doCheckIn,
         onClaimChest: async () => {

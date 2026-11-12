@@ -42,7 +42,8 @@ const SUN_OFFSET = { x: 5, y: 10, z: 6 };
  *   onRankUp: (reward: object) => void,
  *   onMilestones?: (reached: object[]) => void  vừa qua mốc quãng đường (máy chủ đã trao thưởng),
  * }} deps
- * @returns {{ update: (delta: number, elapsed: number) => void, isMoving: () => boolean }}
+ * @returns {{ update: (delta: number, elapsed: number) => void, isMoving: () => boolean,
+ *   teleportNear: (x: number, z: number) => void, setRideSpeed: (speed: number) => void, speed: () => number }}
  */
 export function createExplore({ world, island, mascot, sun, fx, onRankUp, onMilestones }) {
   const movement = createMovement(mascot, island, world.camera);
@@ -323,5 +324,5 @@ export function createExplore({ world, island, mascot, sun, fx, onRankUp, onMile
     mascot.emote('wave');
   }
 
-  return { update, isMoving: () => moving, teleportNear };
+  return { update, isMoving: () => moving, teleportNear, setRideSpeed: movement.setRideSpeed, speed: movement.speed };
 }

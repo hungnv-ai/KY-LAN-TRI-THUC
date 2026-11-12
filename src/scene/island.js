@@ -2,12 +2,17 @@ import * as THREE from 'three';
 import { VALUES } from '../config.js';
 import {
   BEACH_RADIUS,
+  BRIDGE,
   GRASS_RADIUS,
+  LANDMARKS,
   PATH_WIDTH,
   RING_PATH_RADIUS,
   RING_PATH_WIDTH,
   STATION_DISTANCE,
   WALK_RADIUS,
+  bridgeCoords,
+  bridgeHeight,
+  terrainHeight,
   zoneAngle,
 } from './islandLayout.js';
 
@@ -73,16 +78,32 @@ export function setupIsland(scene) {
 
   buildRingPath(scene);
 
+  /** Độ cao chỗ đứng: bục quảng trường, đồi / gò, mặt cầu gỗ. */
   function groundHeight(x, z) {
     const r = Math.hypot(x, z);
     if (r <= PLATFORM_R) return PLATFORM_H;
-    if (r >= PLATFORM_R + PLATFORM_RAMP) return 0;
-    return PLATFORM_H * (1 - (r - PLATFORM_R) / PLATFORM_RAMP);
+    if (r < PLATFORM_R + PLATFORM_RAMP) return PLATFORM_H * (1 - (r - PLATFORM_R) / PLATFORM_RAMP);
+    const bridge = bridgeHeight(x, z);
+    return bridge >= 0 ? bridge : terrainHeight(x, z);
   }
 
   /** Đẩy vị trí ra khỏi vật cản và giữ trong đảo (sửa trực tiếp `pos`). */
   function resolve(pos, radius) {
+    // Trên cầu gỗ qua hồ: đi xuyên qua vùng hồ, chỉ bị giữ trong lan can.
+    const lake = LANDMARKS.lake;
+    let onBridge = false;
+    if (Math.hypot(pos.x - lake.x, pos.z - lake.z) < lake.r + radius) {
+      const { along, across } = bridgeCoords(pos.x, pos.z);
+      const limit = BRIDGE.halfWidth - 0.25;
+      if (Math.abs(along) <= BRIDGE.half && Math.abs(across) <= limit + 0.7) {
+        onBridge = true;
+        const clamped = Math.max(-limit, Math.min(limit, across));
+        pos.x += (clamped - across) * BRIDGE.dirZ;
+        pos.z -= (clamped - across) * BRIDGE.dirX;
+      }
+    }
     for (const c of colliders) {
+      if (onBridge && c.lake) continue;
       const dx = pos.x - c.x;
       const dz = pos.z - c.z;
       const min = c.r + radius;
@@ -110,7 +131,7 @@ export function setupIsland(scene) {
       const blocked =
         colliders.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + 1.2) ||
         stations.some((s) => Math.hypot(x - s.position.x, z - s.position.z) < STATION_TRIGGER_RADIUS + 1.5);
-      if (!blocked) return new THREE.Vector3(x, 0, z);
+      if (!blocked) return new THREE.Vector3(x, terrainHeight(x, z), z);
     }
     return new THREE.Vector3(0, 0, 5);
   }
@@ -129,7 +150,7 @@ export function setupIsland(scene) {
 
   /** Thêm vật cản (cây, đá, hồ…) — dùng bởi scene/nature.js. */
   function addCollider(x, z, r) {
-    colliders.push({ x, z, r });
+    colliders.push({ x, z, r, lake: x === LANDMARKS.lake.x && z === LANDMARKS.lake.z });
   }
 
   /** Chỗ (x, z) còn trống: không đè vật cản, không sát cột Vùng Đất. */
@@ -164,7 +185,7 @@ function buildGround(scene) {
   scene.add(sand);
 
   // Thảm cỏ: texture lặp × màu theo vùng (đồng cỏ vàng tươi, rừng xanh đậm…) → đỡ đơn điệu.
-  const grassGeo = new THREE.RingGeometry(0, GRASS_RADIUS, 128, 28);
+  const grassGeo = new THREE.RingGeometry(0, GRASS_RADIUS, 160, 44);
   const pos = grassGeo.attributes.position;
   const colors = new Float32Array(pos.count * 3);
   const tint = new THREE.Color();
@@ -183,8 +204,11 @@ function buildGround(scene) {
     // Sát bãi cát cỏ ngả vàng dần.
     tint.lerp(edge, THREE.MathUtils.smoothstep(r, GRASS_RADIUS - 5, GRASS_RADIUS));
     colors.set([tint.r, tint.g, tint.b], i * 3);
+    // Đồi: nâng đỉnh lưới lên (trục z của hình phẳng = chiều cao sau khi xoay; z thế giới = -y).
+    pos.setZ(i, terrainHeight(x, -y));
   }
   grassGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  grassGeo.computeVertexNormals();
   const grass = new THREE.Mesh(
     grassGeo,
     new THREE.MeshStandardMaterial({ color: 0xffffff, map: createGrassTexture(), roughness: 1, vertexColors: true }),

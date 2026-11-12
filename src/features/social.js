@@ -29,13 +29,13 @@ import { openProfileCard } from '../ui/profileCard.js';
  * hạng, cảm xúc), thẻ hồ sơ khi chạm vào, thả tim / gửi lời cảm ơn.
  *
  * @param {{ world: object, island: object, mascot: object, supabase: object | null, userId: string,
- *   isMoving: () => boolean, onGoTo?: (x: number, z: number) => void,
+ *   isMoving: () => boolean, getMount?: () => string | null, onGoTo?: (x: number, z: number) => void,
  *   applyCharacter?: (target: object, id: string | null | undefined) => void }} deps
  * @returns {{ update: (delta: number, elapsed: number) => void, notifyProfileChanged: () => void,
  *   sendSticker: (stickerId: string) => void, nameTagSprites: () => import('three').Sprite[],
  *   peerPositions: () => { x: number, z: number }[] }}
  */
-export function setupSocial({ world, island, mascot, supabase, userId, isMoving, onGoTo, applyCharacter }) {
+export function setupSocial({ world, island, mascot, supabase, userId, isMoving, getMount, onGoTo, applyCharacter }) {
   // ── Bảng tên của mình ───────────────────────────────────────────────
   let currentRoom = '';
   const myTag = createNameTag();
@@ -188,7 +188,7 @@ export function setupSocial({ world, island, mascot, supabase, userId, isMoving,
   function update(delta, elapsed) {
     const pos = mascot.object.position;
     mp.sendMotion(
-      { x: round2(pos.x), z: round2(pos.z), ry: round2(mascot.object.rotation.y), s: isMoving() ? 1 : 0 },
+      { x: round2(pos.x), z: round2(pos.z), ry: round2(mascot.object.rotation.y), s: isMoving() ? 1 : 0, m: getMount?.() ?? null },
       isMoving(),
     );
     remote.update(delta, elapsed, world.controls.target);

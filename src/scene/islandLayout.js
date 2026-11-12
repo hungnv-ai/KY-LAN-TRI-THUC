@@ -84,3 +84,68 @@ export function isOnPath(x, z, margin = 0) {
   }
   return false;
 }
+
+/**
+ * Đồi & gò (mặt đất nhô cao, dốc thoai thoải): tâm, bán kính chân đồi, chiều cao đỉnh.
+ * `viewpoint` = Đồi Ngắm Cảnh (có cờ, ghế, ống nhòm); `bigTree` = Đồi Cổ Thụ; `cape` = gò đá Mũi Hải Đăng.
+ */
+export const HILLS = [
+  { id: 'viewpoint', ...polar(gapAngle(3), 34.5), r: 7, h: 4.2 },
+  { id: 'bigTree', ...polar(gapAngle(4), 34.5), r: 6.5, h: 3 },
+  { id: 'cape', ...LANDMARKS.lighthouse, r: 6.5, h: 2.4 },
+];
+
+/** Cầu gỗ cong bắc qua Hồ Sen, chạy theo hướng từ quảng trường ra ngoài. */
+export const BRIDGE = (() => {
+  const { x, z, r } = LANDMARKS.lake;
+  const d = Math.hypot(x, z);
+  const dirX = x / d;
+  const dirZ = z / d;
+  const half = r + 1.2;
+  return { x, z, dirX, dirZ, half, halfWidth: 0.95, height: 1.25 };
+})();
+
+/**
+ * Toạ độ dọc/ngang so với cầu (m). `along` ∈ [-half, half] là đang trên cầu.
+ *
+ * @param {number} x
+ * @param {number} z
+ * @returns {{ along: number, across: number }}
+ */
+export function bridgeCoords(x, z) {
+  const dx = x - BRIDGE.x;
+  const dz = z - BRIDGE.z;
+  return { along: dx * BRIDGE.dirX + dz * BRIDGE.dirZ, across: dx * BRIDGE.dirZ - dz * BRIDGE.dirX };
+}
+
+/**
+ * Độ cao mặt đất tự nhiên (đồi, gò) tại (x, z) — chưa tính bục quảng trường và cầu.
+ *
+ * @param {number} x
+ * @param {number} z
+ * @returns {number}
+ */
+export function terrainHeight(x, z) {
+  let y = 0;
+  for (const hill of HILLS) {
+    const d = Math.hypot(x - hill.x, z - hill.z);
+    if (d >= hill.r) continue;
+    // Đỉnh hơi phẳng (đứng ngắm cảnh được), sườn dốc mượt.
+    const t = Math.min(1, Math.max(0, (hill.r - d) / (hill.r * 0.72)));
+    y = Math.max(y, hill.h * t * t * (3 - 2 * t));
+  }
+  return y;
+}
+
+/**
+ * Độ cao mặt cầu tại (x, z), hoặc -1 nếu không đứng trên cầu.
+ *
+ * @param {number} x
+ * @param {number} z
+ * @returns {number}
+ */
+export function bridgeHeight(x, z) {
+  const { along, across } = bridgeCoords(x, z);
+  if (Math.abs(along) > BRIDGE.half || Math.abs(across) > BRIDGE.halfWidth + 0.3) return -1;
+  return 0.12 + BRIDGE.height * Math.cos((along / BRIDGE.half) * (Math.PI / 2));
+}

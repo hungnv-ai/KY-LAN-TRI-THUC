@@ -15,6 +15,8 @@ import { setupMenu } from './features/menu.js';
 import { createRewards } from './features/rewards.js';
 import { setupMilestones } from './features/milestones.js';
 import { setupMinimap } from './features/minimap.js';
+import { setupMounts } from './features/mounts.js';
+import { setupQuests } from './features/quests.js';
 import { setupCharacters } from './features/characters.js';
 import { setupBadgeTips } from './features/badgeTips.js';
 import { startSession } from './features/session.js';
@@ -77,6 +79,8 @@ let goldenBell = null;
 let overview = null;
 let zoneGrowth = null;
 let minimap = null;
+let quests = null;
+let mounts = null;
 
 // ── Vòng lặp duy nhất ───────────────────────────────────────────────────
 const timer = new THREE.Timer();
@@ -107,6 +111,8 @@ world.renderer.setAnimationLoop((timestamp) => {
   nature.setDetail(quality.level() < LOW_DETAIL_LEVEL);
   nature.update(delta, elapsed);
   wildlife.update(delta, elapsed, mascot.object.position);
+  quests?.update(delta);
+  mounts?.update(delta, elapsed);
   zoneGrowth?.update(delta, elapsed);
   minimap?.update(delta);
   overview?.update(delta);
@@ -181,6 +187,8 @@ async function boot() {
     onRankUp: (reward) => rewards.announceRankUp(reward.rankUp),
     onMilestones: (reached) => milestones.celebrate(reached),
   });
+  quests = setupQuests({ mascot, wildlife, rewards, fx });
+  mounts = setupMounts({ mascot, fx, explore });
 
   social = setupSocial({
     world,
@@ -189,6 +197,7 @@ async function boot() {
     supabase: session.supabase,
     userId: session.userId,
     isMoving: () => explore.isMoving(),
+    getMount: () => mounts.current(),
     onGoTo: (x, z) => explore.teleportNear(x, z),
     applyCharacter: (target, id) => characters.apply(target, id),
   });
@@ -207,12 +216,13 @@ async function boot() {
     onOutfitChanged: () => social.notifyProfileChanged(),
     onCheckedIn: (result) => pets.handleEgg(result.egg),
     characters,
+    questProgress: (id) => quests.progress(id),
   });
   events = setupEvents({ world, island, mascot, openWardrobe: () => menu.wardrobe() });
   goldenBell = setupGoldenBell({ world, island, mascot, fx, rewards });
   overview = setupOverview({ world, isMoving: () => explore.isMoving() });
   zoneGrowth = setupZoneGrowth({ world, island });
-  minimap = setupMinimap({ island, mascot, getPeers: () => social.peerPositions() });
+  minimap = setupMinimap({ island, mascot, getPeers: () => social.peerPositions(), getTargets: () => quests.targets() });
   await playIntro({ world });
 
   // Chạm vào Kỳ lân của mình: cảm xúc ngẫu nhiên + câu nói về 5 giá trị.
